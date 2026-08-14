@@ -58,15 +58,13 @@ const RESET_BY_TAB: Partial<Record<TabId, Partial<ChartPreferences>>> = {
     colorBackground: "",
     colorScaleText: "",
     colorCrosshair: "",
-    colorBidLine: "",
-    colorAskLine: "",
     colorPositionLong: "",
     colorPositionShort: "",
     colorOrderLine: "",
     colorTpLine: "",
     colorSlLine: "",
   },
-  trading: { showBidLine: false, showAskLine: false, overlayPositionsOnChart: true },
+  trading: { overlayPositionsOnChart: true },
   challenge: {
     challengeOverlay: true,
     challengeDailyLossLine: true,
@@ -272,18 +270,6 @@ function LineColorRows({ prefs, theme }: { prefs: ChartPreferences; theme: Chart
   return (
     <>
       <SectionTitle>Price &amp; order lines</SectionTitle>
-      <ColorRow
-        label="Bid line"
-        value={prefs.colorBidLine}
-        fallback={theme.bidLine}
-        onChange={(v) => set({ colorBidLine: v })}
-      />
-      <ColorRow
-        label="Ask line"
-        value={prefs.colorAskLine}
-        fallback={theme.askLine}
-        onChange={(v) => set({ colorAskLine: v })}
-      />
       <ColorPairRow
         label="Open positions"
         a={{
@@ -348,17 +334,6 @@ function TradingTab({ prefs }: { prefs: ChartPreferences }) {
   const set = updateChartPreferences;
   return (
     <div>
-      <SectionTitle>Price lines</SectionTitle>
-      <ToggleRow
-        label="Bid line"
-        checked={prefs.showBidLine}
-        onChange={(v) => set({ showBidLine: v })}
-      />
-      <ToggleRow
-        label="Ask line"
-        checked={prefs.showAskLine}
-        onChange={(v) => set({ showAskLine: v })}
-      />
       <SectionTitle>Positions &amp; orders</SectionTitle>
       <ToggleRow
         label="Show positions and orders on chart"

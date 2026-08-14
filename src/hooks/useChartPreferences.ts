@@ -7,8 +7,6 @@ import {
 } from "./useTraderPreferences.ts";
 
 export interface ChartPreferences {
-  showBidLine: boolean;
-  showAskLine: boolean;
   overlayPositionsOnChart: boolean;
   /** Snap drawing anchors to nearby candle O/H/L/C values. */
   drawingMagnet: boolean;
@@ -27,8 +25,6 @@ export interface ChartPreferences {
   colorBackground: string;
   colorScaleText: string;
   colorCrosshair: string;
-  colorBidLine: string;
-  colorAskLine: string;
   colorPositionLong: string;
   colorPositionShort: string;
   colorOrderLine: string;
@@ -58,8 +54,6 @@ type TraderPrefs = Record<string, string>;
 const CHART_PREFS_UPDATED_EVENT = "chart-preferences-updated";
 
 const DEFAULT_CHART_PREFS: ChartPreferences = {
-  showBidLine: false,
-  showAskLine: false,
   overlayPositionsOnChart: true,
   drawingMagnet: false,
   magnetMode: "none",
@@ -70,8 +64,6 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   colorBackground: "",
   colorScaleText: "",
   colorCrosshair: "",
-  colorBidLine: "",
-  colorAskLine: "",
   colorPositionLong: "",
   colorPositionShort: "",
   colorOrderLine: "",
@@ -93,8 +85,6 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
 
 /** Boolean preference keys read straight through `toBool` with their default. */
 const BOOL_PREF_KEYS = [
-  "showBidLine",
-  "showAskLine",
   "overlayPositionsOnChart",
   "drawingMagnet",
   "stayInDrawingMode",
@@ -118,8 +108,6 @@ const STRING_PREF_KEYS = [
   "colorBackground",
   "colorScaleText",
   "colorCrosshair",
-  "colorBidLine",
-  "colorAskLine",
   "colorPositionLong",
   "colorPositionShort",
   "colorOrderLine",
@@ -134,8 +122,6 @@ const STRING_PREF_KEYS = [
  * drawing-mode) and the template bookkeeping keys themselves.
  */
 export const TEMPLATE_PREF_KEYS = [
-  "showBidLine",
-  "showAskLine",
   "overlayPositionsOnChart",
   "showWicks",
   "showCandleBorders",
@@ -152,8 +138,6 @@ export const TEMPLATE_PREF_KEYS = [
   "colorBackground",
   "colorScaleText",
   "colorCrosshair",
-  "colorBidLine",
-  "colorAskLine",
   "colorPositionLong",
   "colorPositionShort",
   "colorOrderLine",

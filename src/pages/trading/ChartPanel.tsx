@@ -349,8 +349,6 @@ interface RtCtx {
   liveCandleTs: Ref<number>;
   legendVol: Ref<number>;
   gapAt: Ref<number>;
-  bidLine: Ref<IPriceLine | null>;
-  askLine: Ref<IPriceLine | null>;
   midLine: Ref<IPriceLine | null>;
   colors: ChartColors;
   timeframe: Timeframe;
@@ -513,40 +511,13 @@ function upsertPriceLine(
   ref.current = series.createPriceLine(opts);
 }
 
-function applyBidAskLines(
-  tick: TickData | undefined,
-  prefs: { showBidLine: boolean; showAskLine: boolean },
-  ctx: RtCtx,
-): void {
+function applyMidPriceLine(tick: TickData | undefined, ctx: RtCtx): void {
   const series = ctx.series;
   if (!tick) {
-    removePriceLineSafe(ctx.bidLine, series);
-    removePriceLineSafe(ctx.askLine, series);
     removePriceLineSafe(ctx.midLine, series);
     return;
   }
-  upsertPriceLine(ctx.bidLine, series, prefs.showBidLine, {
-    price: tick.bid,
-    color: ctx.colors.bidLine,
-    lineWidth: 2,
-    lineStyle: LineStyle.Dashed,
-    axisLabelVisible: true,
-    title: "Bid",
-    axisLabelColor: ctx.colors.bidLabelBg,
-    axisLabelTextColor: "#ffffff",
-  });
-  upsertPriceLine(ctx.askLine, series, prefs.showAskLine, {
-    price: tick.ask,
-    color: ctx.colors.askLine,
-    lineWidth: 2,
-    lineStyle: LineStyle.Dashed,
-    axisLabelVisible: true,
-    title: "Ask",
-    axisLabelColor: ctx.colors.askLabelBg,
-    axisLabelTextColor: "#ffffff",
-  });
-  // Mid line only when both bid+ask are hidden — otherwise it overlaps them.
-  upsertPriceLine(ctx.midLine, series, !prefs.showBidLine && !prefs.showAskLine, {
+  upsertPriceLine(ctx.midLine, series, true, {
     price: (tick.bid + tick.ask) / 2,
     color: "#7aa2ff99",
     lineWidth: 1,
@@ -1100,8 +1071,6 @@ export function ChartPanel({
   // TF change — see the TF-change effect below).
   const timeframeRef = useRef(timeframe);
   const chartPluginsRef = useRef<ISeriesPrimitive<Time>[]>([]);
-  const bidLineRef = useRef<IPriceLine | null>(null);
-  const askLineRef = useRef<IPriceLine | null>(null);
   const midLineRef = useRef<IPriceLine | null>(null);
 
   // ── SL/TP drag-to-edit state ──
@@ -1619,8 +1588,6 @@ export function ChartPanel({
       chartRef.current = null;
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
-      bidLineRef.current = null;
-      askLineRef.current = null;
       midLineRef.current = null;
       chartPluginsRef.current = [];
       // Clear per-chart state so it doesn't bleed into the recreated chart
@@ -1738,8 +1705,6 @@ export function ChartPanel({
       liveCandleTs: liveCandleTsRef,
       legendVol: legendVolRef,
       gapAt: lastGapRefetchAtRef,
-      bidLine: bidLineRef,
-      askLine: askLineRef,
       midLine: midLineRef,
       colors,
       timeframe,
@@ -1863,18 +1828,14 @@ export function ChartPanel({
     );
   }, [activePlugins, isDark, selectedSymbol, timeframe, symbolCategory]);
 
-  // ── Live bid/ask price tracking lines ──────────────────────
-  // applyBidAskLines moves the existing price lines in-place (applyOptions) or
-  // creates them — remove+create would force two full chart redraws per tick.
+  // ── Live current-price tracking line ───────────────────────
+  // applyMidPriceLine moves the existing price line in-place (applyOptions) or
+  // creates it — remove+create would force two full chart redraws per tick.
   useEffect(() => {
     const series = candleSeriesRef.current;
     if (!series) return;
-    applyBidAskLines(
-      tick,
-      { showBidLine: chartPrefs.showBidLine, showAskLine: chartPrefs.showAskLine },
-      makeRtCtx(series),
-    );
-  }, [tick, chartPrefs.showBidLine, chartPrefs.showAskLine, makeRtCtx]);
+    applyMidPriceLine(tick, makeRtCtx(series));
+  }, [tick, makeRtCtx]);
 
   // ── Position/order overlays ────────────────────────────────
   useEffect(() => {

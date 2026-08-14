@@ -20,10 +20,6 @@ export const CHART_COLORS = {
     down: "#f6465d",
     volumeUp: "rgba(14, 203, 129, 0.18)",
     volumeDown: "rgba(246, 70, 93, 0.18)",
-    bidLine: "#0ecb81",
-    askLine: "#f6465d",
-    bidLabelBg: "#0ecb81",
-    askLabelBg: "#f6465d",
     watermark: "rgba(255, 255, 255, 0.03)",
     lastPriceUp: "#0ecb81",
     lastPriceDown: "#f6465d",
@@ -42,10 +38,6 @@ export const CHART_COLORS = {
     down: "#f6465d",
     volumeUp: "rgba(14, 203, 129, 0.25)",
     volumeDown: "rgba(246, 70, 93, 0.25)",
-    bidLine: "#0ecb81",
-    askLine: "#f6465d",
-    bidLabelBg: "#0ecb81",
-    askLabelBg: "#f6465d",
     watermark: "rgba(0, 0, 0, 0.03)",
     lastPriceUp: "#0ecb81",
     lastPriceDown: "#f6465d",
@@ -67,8 +59,6 @@ export interface ChartColorOverrides {
   colorBackground: string;
   colorScaleText: string;
   colorCrosshair: string;
-  colorBidLine: string;
-  colorAskLine: string;
   colorPositionLong: string;
   colorPositionShort: string;
   colorOrderLine: string;
@@ -83,8 +73,6 @@ const COLOR_OVERRIDE_MAP: ReadonlyArray<[keyof ChartColorOverrides, keyof ChartC
   ["colorBackground", "background"],
   ["colorScaleText", "text"],
   ["colorCrosshair", "crosshair"],
-  ["colorBidLine", "bidLine"],
-  ["colorAskLine", "askLine"],
   ["colorPositionLong", "positionLong"],
   ["colorPositionShort", "positionShort"],
   ["colorOrderLine", "orderLine"],
