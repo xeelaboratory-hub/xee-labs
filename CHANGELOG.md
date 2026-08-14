@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.11] - 2026-08-14
+
+### Removed
+- Symbol/timeframe label and the secondary Bid/Ask/Spread row from the
+  chart's top-left corner overlay. Neither was gated by a preference
+  (unlike the OHLC legend and countdown rows in the same overlay, which
+  keep their existing Chart Settings toggles) — removed outright with
+  no new toggle added.
+
 ## [1.0.10] - 2026-08-14
 
 ### Changed
