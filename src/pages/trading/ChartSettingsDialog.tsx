@@ -49,7 +49,7 @@ const RESET_BY_TAB: Partial<Record<TabId, Partial<ChartPreferences>>> = {
     showCandleBorders: true,
     showVolume: true,
     showGrid: true,
-    showWatermark: true,
+    showWatermark: false,
     showCountdown: true,
     showOhlcLegend: true,
   },

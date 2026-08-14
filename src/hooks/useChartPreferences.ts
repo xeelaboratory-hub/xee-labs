@@ -86,7 +86,7 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   showCandleBorders: true,
   showVolume: true,
   showGrid: true,
-  showWatermark: true,
+  showWatermark: false,
   showCountdown: true,
   showOhlcLegend: true,
   challengeOverlay: false,
