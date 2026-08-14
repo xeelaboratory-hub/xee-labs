@@ -40,7 +40,7 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
 
 ## Repository identity (FACT)
 
-- Private repository: `https://github.com/xeelaboratory-hub/xee-labs`,
+- Public repository: `https://github.com/xeelaboratory-hub/xee-labs`,
   owned by the project's author (not a fork tracked against an upstream —
   see [decisions/0001](decisions/0001-private-fork-no-upstream.md)).
 - Local working directory name (`OpenCharts`) is unchanged — only in-app
