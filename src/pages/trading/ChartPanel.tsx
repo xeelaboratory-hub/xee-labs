@@ -1443,6 +1443,9 @@ export function ChartPanel({
         textColor: colors.text,
         fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
         fontSize: 11,
+        // Attribution requirement is met via the "Charts by TradingView" link
+        // in the app Footer instead (see lightweight-charts license terms).
+        attributionLogo: false,
       },
       grid: {
         vertLines: { color: colors.grid, style: LineStyle.Dotted },
