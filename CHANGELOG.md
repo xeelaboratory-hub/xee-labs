@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.12] - 2026-08-14
+
+### Changed
+- Toolbar and chart price-scale line now show a single current (mid)
+  price instead of separate Bid/Ask values — the TradingView/Binance-
+  style single-ticker convention, chosen over the MT4-style broker
+  convention. Toolbar badge was replaced outright (no toggle existed);
+  the chart price-scale line reuses its existing `showBidLine`/
+  `showAskLine` toggles and built-in mid-price fallback, now on by
+  default. Still toggleable via Chart Settings → Trading.
+
 ## [1.0.11] - 2026-08-14
 
 ### Removed
