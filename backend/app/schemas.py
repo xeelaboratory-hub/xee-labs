@@ -10,10 +10,20 @@ from pydantic import BaseModel, Field
 
 class Symbol(BaseModel):
     id: str  # exchange-qualified id, e.g. "BINANCE:BTCUSD"
-    name: str  # e.g. "BTCUSD"
+    name: str  # == id — frontend keys everything on `name`, so it must be unique across exchanges
     displayName: str  # e.g. "Bitcoin"
     exchange: str  # "binance" | "okx"
     category: str = "CRYPTO"
+    contractSize: float = 1
+    tickSize: float
+    tickValue: float
+    marginPercent: float
+    maxLeverage: float
+    commission: float = 0
+    swapLong: float = 0
+    swapShort: float = 0
+    tradingHoursStart: str | None = None
+    tradingHoursEnd: str | None = None
     isActive: bool = True
 
 

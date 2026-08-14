@@ -1,21 +1,52 @@
 /**
- * Demo WebSocket client.
+ * Real-time market-data WebSocket client.
  *
- * Xee.Labs ships without a backend, so this replaces the real reconnecting
- * WebSocket with an in-process client backed by the demo event bus + feed
- * (services/demo). It exposes the same public surface the app already uses
- * (connect / subscribe / subscribeAccounts / onStateChange / state), so no
- * consumer (MarketDataBridge, ConnectionIndicator, store, …) had to change.
+ * Connects to the backend's `/ws` gateway (see backend/app/api/ws_gateway.py)
+ * and republishes every frame onto the same local event bus the old demo
+ * client used (services/demo/bus.ts), so no consumer (MarketDataBridge,
+ * ConnectionIndicator, store, …) had to change. Account/position/order
+ * events still flow from the local paper-trading engine on that same bus —
+ * this socket only carries market data.
+ *
+ * The backend always replies with the full 4-symbol universe and has no
+ * dynamic resubscribe, so this client subscribes to all symbols once per
+ * connection rather than narrowing per selected symbol.
  */
 import { publish, subscribeChannel, type ChannelHandler } from "./demo/bus.ts";
-import { startDemoFeed } from "./demo/feed.ts";
+import { mark } from "./demo/engine.ts";
 
 export type ConnectionState = "connected" | "connecting" | "reconnecting" | "disconnected";
 export type WsHandler = ChannelHandler;
 
-class DemoWsClient {
+const RECONNECT_BASE_DELAY_MS = 1_000;
+const RECONNECT_MAX_DELAY_MS = 30_000;
+
+const ALL_SYMBOLS = ["BINANCE:BTCUSD", "BINANCE:ETHUSD", "OKX:BTCUSD", "OKX:ETHUSD"];
+
+function wsUrl(): string {
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+  if (apiUrl) {
+    return `${apiUrl.replace(/\/$/, "").replace(/^http/, "ws")}/ws`;
+  }
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}/ws`;
+}
+
+interface MarketDataFrame {
+  eventType?: string;
+  symbol: string;
+  bid?: number;
+  ask?: number;
+  [key: string]: unknown;
+}
+
+class RealWsClient {
   private _state: ConnectionState = "disconnected";
   private stateListeners = new Set<(s: ConnectionState) => void>();
+  private socket: WebSocket | null = null;
+  private reconnectAttempt = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private shouldReconnect = false;
 
   get state(): ConnectionState {
     return this._state;
@@ -27,19 +58,71 @@ class DemoWsClient {
   }
 
   connect(_token?: string): void {
-    this.setState("connecting");
-    startDemoFeed();
-    // Resolve to connected on the next tick so onStateChange subscribers
-    // registered synchronously after connect() still receive the transition.
-    setTimeout(() => this.setState("connected"), 0);
+    this.shouldReconnect = true;
+    this.open();
+  }
+
+  private open(): void {
+    if (this.reconnectAttempt === 0) this.setState("connecting");
+    const socket = new WebSocket(wsUrl());
+    this.socket = socket;
+
+    socket.onopen = () => {
+      this.reconnectAttempt = 0;
+      socket.send(JSON.stringify({ action: "subscribe", symbols: ALL_SYMBOLS }));
+      this.setState("connected");
+    };
+
+    socket.onmessage = (event) => {
+      let data: MarketDataFrame;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (!data.eventType) return; // subscribe ack — nothing to route
+      publish("market-data", data);
+      if (data.eventType === "MarketTick" && typeof data.bid === "number" && typeof data.ask === "number") {
+        mark(data.symbol, (data.bid + data.ask) / 2);
+      }
+    };
+
+    socket.onclose = () => {
+      if (this.socket !== socket) return; // stale handler from an already-superseded socket
+      this.socket = null;
+      if (this.shouldReconnect) this.scheduleReconnect();
+      else this.setState("disconnected");
+    };
+
+    socket.onerror = () => {
+      socket.close();
+    };
+  }
+
+  private scheduleReconnect(): void {
+    this.setState("reconnecting");
+    const delay = Math.min(RECONNECT_BASE_DELAY_MS * 2 ** this.reconnectAttempt, RECONNECT_MAX_DELAY_MS);
+    const jittered = delay * (0.5 + Math.random() * 0.5);
+    this.reconnectAttempt += 1;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.shouldReconnect) this.open();
+    }, jittered);
   }
 
   disconnect(): void {
+    this.shouldReconnect = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.socket?.close();
+    this.socket = null;
     this.setState("disconnected");
   }
 
   reauthenticate(_token: string): void {
-    // No auth in demo mode — nothing to refresh.
+    // No auth on the market-data WS — nothing to refresh.
   }
 
   subscribe(channel: string, handler: WsHandler): () => void {
@@ -47,11 +130,12 @@ class DemoWsClient {
   }
 
   subscribeAccounts(_accountIds: string[]): void {
-    // All account events already flow through the "account" channel.
+    // Account events flow through the local paper-trading engine, not this socket.
   }
 
   setSymbolInterest(_symbols: string[]): void {
-    // The demo feed streams every symbol; nothing to gate.
+    // The backend has no dynamic resubscribe, and the full 4-symbol universe
+    // is always subscribed on connect — nothing to narrow.
   }
 
   onStateChange(cb: (s: ConnectionState) => void): () => void {
@@ -62,10 +146,10 @@ class DemoWsClient {
     };
   }
 
-  /** Allow the engine/feed to push events through the same client (parity helper). */
+  /** Allow the engine/other local producers to push events onto the same bus. */
   emit(channel: string, event: unknown): void {
     publish(channel, event);
   }
 }
 
-export const wsClient = new DemoWsClient();
+export const wsClient = new RealWsClient();

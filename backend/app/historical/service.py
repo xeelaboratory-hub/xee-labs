@@ -5,14 +5,21 @@ and this protects both exchanges' public rate limits against that.
 """
 import time
 
+import httpx
+from fastapi import HTTPException
+
 from app.historical import binance_klines, okx_candles
 from app.schemas import Candle, CandlesMetadata
 from app.symbols import SymbolInfo
 
-from app.config import HISTORICAL_CACHE_MAX_ENTRIES, HISTORICAL_CACHE_TTL_SECONDS
+from app.config import HISTORICAL_CACHE_MAX_ENTRIES, HISTORICAL_CACHE_TTL_SECONDS, SUPPORTED_TIMEFRAMES, TIMEFRAME_MAP
 
 _MAX_LIMIT = 1500
 _DEFAULT_LIMIT = 500
+
+
+def _native_timeframe(exchange: str, timeframe: str) -> str:
+    return TIMEFRAME_MAP.get(exchange, {}).get(timeframe, timeframe)
 
 
 def normalize_binance_row(row: list, *, symbol_id: str) -> Candle:
@@ -69,6 +76,9 @@ async def get_candles(
     from_ms: int | None = None,
     to_ms: int | None = None,
 ) -> tuple[list[Candle], CandlesMetadata]:
+    if timeframe not in SUPPORTED_TIMEFRAMES:
+        raise HTTPException(status_code=400, detail=f"unsupported timeframe: {timeframe}")
+
     limit = min(limit or _DEFAULT_LIMIT, _MAX_LIMIT)
     key = _cache_key(symbol_info, timeframe, limit, from_ms, to_ms)
 
@@ -77,19 +87,23 @@ async def get_candles(
     if cached and cached.expires_at > now:
         return cached.candles, cached.metadata
 
-    if symbol_info.exchange == "binance":
-        rows = await binance_klines.fetch_klines(
-            symbol_info.native_symbol, interval=timeframe, limit=limit, start_ms=from_ms, end_ms=to_ms
-        )
-        candles = [normalize_binance_row(row, symbol_id=symbol_info.id) for row in rows]
-    elif symbol_info.exchange == "okx":
-        rows = await okx_candles.fetch_candles(
-            symbol_info.native_symbol, bar=timeframe, limit=limit, start_ms=from_ms, end_ms=to_ms
-        )
-        candles = [normalize_okx_row(row, symbol_id=symbol_info.id) for row in rows]
-        candles.sort(key=lambda c: c.time)  # OKX returns newest-first; normalize to ascending like Binance
-    else:
-        raise ValueError(f"unknown exchange: {symbol_info.exchange}")
+    native_tf = _native_timeframe(symbol_info.exchange, timeframe)
+    try:
+        if symbol_info.exchange == "binance":
+            rows = await binance_klines.fetch_klines(
+                symbol_info.native_symbol, interval=native_tf, limit=limit, start_ms=from_ms, end_ms=to_ms
+            )
+            candles = [normalize_binance_row(row, symbol_id=symbol_info.id) for row in rows]
+        elif symbol_info.exchange == "okx":
+            rows = await okx_candles.fetch_candles(
+                symbol_info.native_symbol, bar=native_tf, limit=limit, start_ms=from_ms, end_ms=to_ms
+            )
+            candles = [normalize_okx_row(row, symbol_id=symbol_info.id) for row in rows]
+            candles.sort(key=lambda c: c.time)  # OKX returns newest-first; normalize to ascending like Binance
+        else:
+            raise ValueError(f"unknown exchange: {symbol_info.exchange}")
+    except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+        raise HTTPException(status_code=502, detail="upstream exchange error") from exc
 
     if from_ms is not None:
         candles = [c for c in candles if c.time * 1000 >= from_ms]

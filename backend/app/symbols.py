@@ -12,24 +12,44 @@ from app.schemas import Symbol
 
 _DISPLAY_NAMES = {"BTC": "Bitcoin", "ETH": "Ethereum"}
 
+# Trading metadata the frontend's paper-trading engine needs (margin/PnL math,
+# price formatting). Mirrors src/services/demo/instruments.ts's BTC/ETH values
+# so paper-trading behavior is unchanged by the real-data cutover. Static by
+# design — no exchangeInfo fetching (see Phase 3 plan decision #2).
+_TRADING_META = {
+    "BTC": {"tickSize": 0.01, "tickValue": 0.01, "marginPercent": 1, "maxLeverage": 100},
+    "ETH": {"tickSize": 0.01, "tickValue": 0.01, "marginPercent": 1, "maxLeverage": 100},
+}
+
 
 @dataclass(frozen=True)
 class SymbolInfo:
     id: str  # "BINANCE:BTCUSD"
     exchange: str  # "binance" | "okx"
     base: str  # "BTC"
-    name: str  # "BTCUSD"
+    name: str  # == id — see Symbol.name docstring
     display_name: str  # "Bitcoin"
     cryptofeed_symbol: str  # "BTC-USDT-PERP" — CryptoFeed's exchange-agnostic normalized form
     native_symbol: str  # exchange's own REST symbol: "BTCUSDT" (Binance) | "BTC-USDT-SWAP" (OKX)
 
     def to_schema(self) -> Symbol:
+        meta = _TRADING_META[self.base]
         return Symbol(
             id=self.id,
             name=self.name,
             displayName=self.display_name,
             exchange=self.exchange,
             category="CRYPTO",
+            contractSize=1,
+            tickSize=meta["tickSize"],
+            tickValue=meta["tickValue"],
+            marginPercent=meta["marginPercent"],
+            maxLeverage=meta["maxLeverage"],
+            commission=0,
+            swapLong=0,
+            swapShort=0,
+            tradingHoursStart=None,
+            tradingHoursEnd=None,
             isActive=True,
         )
 
@@ -51,7 +71,7 @@ def _build_registry() -> dict[str, SymbolInfo]:
                 id=symbol_id,
                 exchange=exchange,
                 base=base,
-                name=f"{base}USD",
+                name=symbol_id,
                 display_name=_DISPLAY_NAMES[base],
                 cryptofeed_symbol=f"{base}-{QUOTE}-PERP",
                 native_symbol=_native_symbol(exchange, base),

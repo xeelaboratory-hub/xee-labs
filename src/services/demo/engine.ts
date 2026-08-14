@@ -1,6 +1,5 @@
-import type { Account, ClosedPosition, Fill, Order, Position } from "../schemas.ts";
+import type { Account, ClosedPosition, Fill, Order, Position, Symbol } from "../schemas.ts";
 import { publish } from "./bus.ts";
-import { getDemoSymbol } from "./instruments.ts";
 
 /**
  * In-browser paper-trading engine. The single source of truth for the demo
@@ -35,6 +34,14 @@ const orders: Order[] = [];
 const closed: ClosedPosition[] = [];
 const fills: Fill[] = [];
 const lastPrice = new Map<string, number>();
+const contractSizeBySymbol = new Map<string, number>();
+
+/** Populates margin/PnL contract-size lookups from the live symbol registry
+ * (called once after api.getSymbols() resolves) instead of a static table. */
+export function setSymbolMeta(symbols: Symbol[]): void {
+  contractSizeBySymbol.clear();
+  for (const s of symbols) contractSizeBySymbol.set(s.name, s.contractSize);
+}
 
 export function getAccount(): Account {
   return { ...account };
@@ -59,12 +66,12 @@ export function getLastPrice(symbol: string): number {
 }
 
 function notional(symbol: string, qty: number, price: number): number {
-  const contractSize = getDemoSymbol(symbol)?.contractSize ?? 1;
+  const contractSize = contractSizeBySymbol.get(symbol) ?? 1;
   return price * qty * contractSize;
 }
 
 function pnlOf(pos: Position, price: number): number {
-  const contractSize = getDemoSymbol(pos.symbolName)?.contractSize ?? 1;
+  const contractSize = contractSizeBySymbol.get(pos.symbolName) ?? 1;
   const dir = pos.side === "LONG" ? 1 : -1;
   return (price - pos.entryPrice) * pos.quantity * contractSize * dir;
 }
@@ -108,7 +115,7 @@ function openPosition(symbol: string, side: string, qty: number, price: number, 
     currentPrice: price,
     unrealizedPnl: 0,
     margin: notional(symbol, qty, price) / DEFAULT_LEVERAGE,
-    contractSize: getDemoSymbol(symbol)?.contractSize ?? 1,
+    contractSize: contractSizeBySymbol.get(symbol) ?? 1,
     openedAt: new Date().toISOString(),
     takeProfit: tp ?? null,
     stopLoss: sl ?? null,

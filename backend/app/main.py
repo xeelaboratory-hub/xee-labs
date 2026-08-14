@@ -3,6 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.market_data import router as market_data_router
 from app.api.ws_gateway import router as ws_router
@@ -25,6 +26,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Xee.Labs Market Data Backend", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(market_data_router)
 app.include_router(ws_router)
 

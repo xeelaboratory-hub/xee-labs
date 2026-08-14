@@ -31,6 +31,16 @@ async def get_candles(symbol: str, body: CandlesRequest | None = None) -> Candle
     return CandlesResponse(candles=candles, metadata=metadata)
 
 
+@router.get("/ticks/{symbol}", response_model=Tick)
+async def get_tick(symbol: str) -> Tick:
+    if get_symbol(symbol) is None:
+        raise HTTPException(status_code=404, detail=f"unknown symbol: {symbol}")
+    tick = store.get_tick(symbol)
+    if tick is None:
+        raise HTTPException(status_code=404, detail=f"no tick yet for symbol: {symbol}")
+    return tick
+
+
 @router.get("/ticks", response_model=dict[str, Tick])
 async def get_ticks() -> dict[str, Tick]:
     return store.get_all_ticks()

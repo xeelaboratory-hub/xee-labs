@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { api } from "./api.ts";
 import { wsClient } from "./ws.ts";
+import { setSymbolMeta } from "./demo/engine.ts";
 import type { Account, Order, Position, Symbol, User } from "./schemas.ts";
 
 type LoginMfaResponse = {
@@ -329,7 +330,7 @@ export const useTradingStore = create<TradingState>((set, get) => ({
   positions: [],
   orders: [],
   symbols: [],
-  selectedSymbol: "BTCUSD",
+  selectedSymbol: "BINANCE:BTCUSD",
   ticks: {},
   liveTicks: {},
   liveCandleUpdates: {},
@@ -383,6 +384,7 @@ export const useTradingStore = create<TradingState>((set, get) => ({
 
   loadSymbols: async () => {
     const symbols = await api.getSymbols();
+    setSymbolMeta(symbols);
     set({ symbols });
   },
 
