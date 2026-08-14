@@ -6,9 +6,10 @@ dev server (`npm run dev`, `localhost:5173`) on 2026-08-14.
 
 Some components could not be screenshotted because they're unreachable in the current
 build — either gated off by a feature flag, never actually rendered anywhere (dead code
-left over from the PropSim fork — see [`architecture-map.html`](../../../architecture-map.html)
-for that history), or only appear in states this pass didn't trigger (e.g. an error boundary
-mid-crash). Those are marked **⛔ not reachable** with a one-line reason instead of a screenshot.
+left over from the PropSim fork — see [`docs/PROJECT-CONTEXT.md`](../PROJECT-CONTEXT.md)
+for that provenance), or only appear in states this pass didn't trigger (e.g. an error
+boundary mid-crash). Those are marked **⛔ not reachable** with a one-line reason instead
+of a screenshot.
 
 ---
 
@@ -144,4 +145,4 @@ Small shadcn/Radix-style building blocks, used throughout every screenshot above
 | Hidden pending QA | `TradeJournalPanel` (bottom-tab commented out) |
 | Structurally unreachable in the demo engine | `OrderModifyDialog` — orders fill instantly rather than staying pending |
 
-See [`../../../architecture-map.html`](file:///home/xee/Desktop/architecture-map.html) for how these components wire into the data layer.
+See [`docs/architecture/OVERVIEW.md`](../architecture/OVERVIEW.md) for how these components wire into the data layer.
