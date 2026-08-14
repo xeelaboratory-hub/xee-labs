@@ -7,6 +7,11 @@ const LINE_WIDTH = 2;
 const FIB_BAND_ALPHA = 0.08;
 const RECT_FILL_ALPHA = 0.14;
 
+// Matches the app-wide font stack (see ChartPanel.tsx's layout.fontFamily and
+// tooltip-element.ts) -- TradingView's own font stack, no dedicated monospace face.
+const CANVAS_FONT_FAMILY =
+  "-apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif";
+
 interface BPt {
   x: number;
   y: number;
@@ -253,7 +258,7 @@ function renderTriangle(scope: BitmapCoordinatesRenderingScope, e: ResolvedEntry
 function textFont(d: ResolvedEntry["d"], sizePx: number): string {
   const style = d.italic ? "italic " : "";
   const weight = d.bold ? "bold " : "";
-  return `${style}${weight}${Math.round(sizePx)}px sans-serif`;
+  return `${style}${weight}${Math.round(sizePx)}px ${CANVAS_FONT_FAMILY}`;
 }
 
 function renderText(scope: BitmapCoordinatesRenderingScope, e: ResolvedEntry): void {
@@ -394,7 +399,7 @@ function drawLabelBox(
   const hpr = scope.horizontalPixelRatio;
   const vpr = scope.verticalPixelRatio;
   ctx.save();
-  ctx.font = `${Math.round(10 * vpr)}px monospace`;
+  ctx.font = `${Math.round(10 * vpr)}px ${CANVAS_FONT_FAMILY}`;
   const lineH = 13 * vpr;
   const pad = 6 * hpr;
   const width = Math.max(...lines.map((l) => ctx.measureText(l).width)) + pad * 2;
@@ -473,7 +478,7 @@ function drawStatsBox(
   const angleDeg = Math.round((Math.atan2(from.y - at.y, at.x - from.x) * 180) / Math.PI);
   const lines = [...stats, `${angleDeg}°`];
   ctx.save();
-  ctx.font = `${Math.round(10 * vpr)}px monospace`;
+  ctx.font = `${Math.round(10 * vpr)}px ${CANVAS_FONT_FAMILY}`;
   const lineH = 13 * vpr;
   const pad = 6 * hpr;
   const width = Math.max(...lines.map((l) => ctx.measureText(l).width)) + pad * 2;
@@ -594,7 +599,7 @@ function renderFibLevel(
   strokeLine(scope, { x: xA, y }, { x: xB, y }, lvl.color, 1);
   const ctx = scope.context;
   ctx.save();
-  ctx.font = `${Math.round(10 * scope.verticalPixelRatio)}px monospace`;
+  ctx.font = `${Math.round(10 * scope.verticalPixelRatio)}px ${CANVAS_FONT_FAMILY}`;
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   ctx.fillStyle = lvl.color;
