@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-08-14
+
+### Added
+- `docs/components/COMPONENTS.md` — a full UI component reference (~58
+  components) with live screenshots captured from the running dev
+  server, organized by area. Components unreachable in the current
+  build (feature-flagged, hidden pending QA, or dead code) are called
+  out explicitly.
+
 ## [1.0.6] - 2026-08-14
 
 ### Changed
