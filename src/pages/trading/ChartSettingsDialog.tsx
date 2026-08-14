@@ -47,28 +47,24 @@ const RESET_BY_TAB: Partial<Record<TabId, Partial<ChartPreferences>>> = {
   appearance: {
     showWicks: true,
     showCandleBorders: true,
-    showVolume: true,
-    showGrid: true,
-    showWatermark: true,
+    showVolume: false,
+    showWatermark: false,
     showCountdown: true,
-    showOhlcLegend: true,
+    showOhlcLegend: false,
   },
   colors: {
     candleUpColor: "",
     candleDownColor: "",
     colorBackground: "",
-    colorGrid: "",
     colorScaleText: "",
     colorCrosshair: "",
-    colorBidLine: "",
-    colorAskLine: "",
     colorPositionLong: "",
     colorPositionShort: "",
     colorOrderLine: "",
     colorTpLine: "",
     colorSlLine: "",
   },
-  trading: { showBidLine: true, showAskLine: true, overlayPositionsOnChart: true },
+  trading: { overlayPositionsOnChart: true },
   challenge: {
     challengeOverlay: true,
     challengeDailyLossLine: true,
@@ -223,11 +219,6 @@ function AppearanceTab({ prefs }: { prefs: ChartPreferences }) {
         onChange={(v) => set({ showVolume: v })}
       />
       <ToggleRow
-        label="Grid lines"
-        checked={prefs.showGrid}
-        onChange={(v) => set({ showGrid: v })}
-      />
-      <ToggleRow
         label="Symbol watermark"
         checked={prefs.showWatermark}
         onChange={(v) => set({ showWatermark: v })}
@@ -259,12 +250,6 @@ function ElementColorRows({ prefs, theme }: { prefs: ChartPreferences; theme: Ch
         onChange={(v) => set({ colorBackground: v })}
       />
       <ColorRow
-        label="Grid"
-        value={prefs.colorGrid}
-        fallback={theme.grid}
-        onChange={(v) => set({ colorGrid: v })}
-      />
-      <ColorRow
         label="Scales text"
         value={prefs.colorScaleText}
         fallback={theme.text}
@@ -285,18 +270,6 @@ function LineColorRows({ prefs, theme }: { prefs: ChartPreferences; theme: Chart
   return (
     <>
       <SectionTitle>Price &amp; order lines</SectionTitle>
-      <ColorRow
-        label="Bid line"
-        value={prefs.colorBidLine}
-        fallback={theme.bidLine}
-        onChange={(v) => set({ colorBidLine: v })}
-      />
-      <ColorRow
-        label="Ask line"
-        value={prefs.colorAskLine}
-        fallback={theme.askLine}
-        onChange={(v) => set({ colorAskLine: v })}
-      />
       <ColorPairRow
         label="Open positions"
         a={{
@@ -361,17 +334,6 @@ function TradingTab({ prefs }: { prefs: ChartPreferences }) {
   const set = updateChartPreferences;
   return (
     <div>
-      <SectionTitle>Price lines</SectionTitle>
-      <ToggleRow
-        label="Bid line"
-        checked={prefs.showBidLine}
-        onChange={(v) => set({ showBidLine: v })}
-      />
-      <ToggleRow
-        label="Ask line"
-        checked={prefs.showAskLine}
-        onChange={(v) => set({ showAskLine: v })}
-      />
       <SectionTitle>Positions &amp; orders</SectionTitle>
       <ToggleRow
         label="Show positions and orders on chart"

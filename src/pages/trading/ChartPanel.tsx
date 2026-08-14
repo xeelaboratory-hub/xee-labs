@@ -349,8 +349,6 @@ interface RtCtx {
   liveCandleTs: Ref<number>;
   legendVol: Ref<number>;
   gapAt: Ref<number>;
-  bidLine: Ref<IPriceLine | null>;
-  askLine: Ref<IPriceLine | null>;
   midLine: Ref<IPriceLine | null>;
   colors: ChartColors;
   timeframe: Timeframe;
@@ -513,40 +511,13 @@ function upsertPriceLine(
   ref.current = series.createPriceLine(opts);
 }
 
-function applyBidAskLines(
-  tick: TickData | undefined,
-  prefs: { showBidLine: boolean; showAskLine: boolean },
-  ctx: RtCtx,
-): void {
+function applyMidPriceLine(tick: TickData | undefined, ctx: RtCtx): void {
   const series = ctx.series;
   if (!tick) {
-    removePriceLineSafe(ctx.bidLine, series);
-    removePriceLineSafe(ctx.askLine, series);
     removePriceLineSafe(ctx.midLine, series);
     return;
   }
-  upsertPriceLine(ctx.bidLine, series, prefs.showBidLine, {
-    price: tick.bid,
-    color: ctx.colors.bidLine,
-    lineWidth: 2,
-    lineStyle: LineStyle.Dashed,
-    axisLabelVisible: true,
-    title: "Bid",
-    axisLabelColor: ctx.colors.bidLabelBg,
-    axisLabelTextColor: "#ffffff",
-  });
-  upsertPriceLine(ctx.askLine, series, prefs.showAskLine, {
-    price: tick.ask,
-    color: ctx.colors.askLine,
-    lineWidth: 2,
-    lineStyle: LineStyle.Dashed,
-    axisLabelVisible: true,
-    title: "Ask",
-    axisLabelColor: ctx.colors.askLabelBg,
-    axisLabelTextColor: "#ffffff",
-  });
-  // Mid line only when both bid+ask are hidden — otherwise it overlaps them.
-  upsertPriceLine(ctx.midLine, series, !prefs.showBidLine && !prefs.showAskLine, {
+  upsertPriceLine(ctx.midLine, series, true, {
     price: (tick.bid + tick.ask) / 2,
     color: "#7aa2ff99",
     lineWidth: 1,
@@ -909,37 +880,17 @@ function OhlcvLegendRow({ legend, pipDigits }: { legend: OhlcvLegend; pipDigits:
   );
 }
 
-function BidAskRow({ tick, pipDigits }: { tick: TickData; pipDigits: number }) {
-  const spread = ((tick.ask - tick.bid) * 10 ** pipDigits).toFixed(1);
-  return (
-    <div className="flex items-center gap-2 text-[10px] font-mono">
-      <span className="text-muted-foreground/50">Bid</span>
-      <span className="text-[#0ecb81]/80">{tick.bid.toFixed(pipDigits)}</span>
-      <span className="text-muted-foreground/50">Ask</span>
-      <span className="text-[#f6465d]/80">{tick.ask.toFixed(pipDigits)}</span>
-      <span className="text-muted-foreground/50">Spread</span>
-      <span className="text-foreground/50">{spread}</span>
-    </div>
-  );
-}
-
 // Symbol / timeframe / OHLCV / countdown header in the chart's top-left corner.
 // Extracted so the visibility branching doesn't inflate ChartPanel's CC.
 function ChartLegendHeader({
-  selectedSymbol,
-  timeframe,
   legend,
   countdown,
-  tick,
   pipDigits,
   showOhlcLegend,
   showCountdown,
 }: {
-  selectedSymbol: string;
-  timeframe: Timeframe;
   legend: OhlcvLegend | null;
   countdown: string;
-  tick?: TickData;
   pipDigits: number;
   showOhlcLegend: boolean;
   showCountdown: boolean;
@@ -947,10 +898,6 @@ function ChartLegendHeader({
   return (
     <div className="absolute top-2 left-3 z-10 pointer-events-none select-none">
       <div className="flex items-center gap-2 text-[11px] font-mono leading-none mb-1">
-        <span className="text-foreground font-bold text-[13px] tracking-tight">
-          {selectedSymbol}
-        </span>
-        <span className="text-muted-foreground font-medium">{timeframe}</span>
         {legend && showOhlcLegend && <OhlcvLegendRow legend={legend} pipDigits={pipDigits} />}
         {countdown && showCountdown && (
           <span className="text-muted-foreground/60 flex items-center gap-0.5">
@@ -959,8 +906,6 @@ function ChartLegendHeader({
           </span>
         )}
       </div>
-      {/* Secondary info row: Bid / Ask / Spread */}
-      {tick && <BidAskRow tick={tick} pipDigits={pipDigits} />}
     </div>
   );
 }
@@ -1126,8 +1071,6 @@ export function ChartPanel({
   // TF change — see the TF-change effect below).
   const timeframeRef = useRef(timeframe);
   const chartPluginsRef = useRef<ISeriesPrimitive<Time>[]>([]);
-  const bidLineRef = useRef<IPriceLine | null>(null);
-  const askLineRef = useRef<IPriceLine | null>(null);
   const midLineRef = useRef<IPriceLine | null>(null);
 
   // ── SL/TP drag-to-edit state ──
@@ -1441,12 +1384,16 @@ export function ChartPanel({
       layout: {
         background: { type: ColorType.Solid, color: colors.background },
         textColor: colors.text,
-        fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif",
         fontSize: 11,
+        // Attribution requirement is met via the "Charts by TradingView" link
+        // in the app Footer instead (see lightweight-charts license terms).
+        attributionLogo: false,
       },
       grid: {
-        vertLines: { color: colors.grid, style: LineStyle.Dotted },
-        horzLines: { color: colors.grid, style: LineStyle.Dotted },
+        vertLines: { visible: false },
+        horzLines: { visible: false },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -1641,8 +1588,6 @@ export function ChartPanel({
       chartRef.current = null;
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
-      bidLineRef.current = null;
-      askLineRef.current = null;
       midLineRef.current = null;
       chartPluginsRef.current = [];
       // Clear per-chart state so it doesn't bleed into the recreated chart
@@ -1716,15 +1661,6 @@ export function ChartPanel({
     volumeSeriesRef.current?.applyOptions({ visible: chartPrefs.showVolume });
   }, [chartPrefs.showVolume, chartEpoch]);
 
-  useEffect(() => {
-    chartRef.current?.applyOptions({
-      grid: {
-        vertLines: { visible: chartPrefs.showGrid },
-        horzLines: { visible: chartPrefs.showGrid },
-      },
-    });
-  }, [chartPrefs.showGrid, chartEpoch]);
-
   // Timeframe change — the chart instance is NOT recreated (so drawings stay
   // attached); instead we update the persistent chart's options and re-point
   // the drawing manager's interval/createdTf at the new TF in place.
@@ -1769,8 +1705,6 @@ export function ChartPanel({
       liveCandleTs: liveCandleTsRef,
       legendVol: legendVolRef,
       gapAt: lastGapRefetchAtRef,
-      bidLine: bidLineRef,
-      askLine: askLineRef,
       midLine: midLineRef,
       colors,
       timeframe,
@@ -1894,18 +1828,14 @@ export function ChartPanel({
     );
   }, [activePlugins, isDark, selectedSymbol, timeframe, symbolCategory]);
 
-  // ── Live bid/ask price tracking lines ──────────────────────
-  // applyBidAskLines moves the existing price lines in-place (applyOptions) or
-  // creates them — remove+create would force two full chart redraws per tick.
+  // ── Live current-price tracking line ───────────────────────
+  // applyMidPriceLine moves the existing price line in-place (applyOptions) or
+  // creates it — remove+create would force two full chart redraws per tick.
   useEffect(() => {
     const series = candleSeriesRef.current;
     if (!series) return;
-    applyBidAskLines(
-      tick,
-      { showBidLine: chartPrefs.showBidLine, showAskLine: chartPrefs.showAskLine },
-      makeRtCtx(series),
-    );
-  }, [tick, chartPrefs.showBidLine, chartPrefs.showAskLine, makeRtCtx]);
+    applyMidPriceLine(tick, makeRtCtx(series));
+  }, [tick, makeRtCtx]);
 
   // ── Position/order overlays ────────────────────────────────
   useEffect(() => {
@@ -1942,11 +1872,8 @@ export function ChartPanel({
     <div className="relative w-full h-full">
       {/* OHLCV Legend Overlay */}
       <ChartLegendHeader
-        selectedSymbol={selectedSymbol}
-        timeframe={timeframe}
         legend={legend}
         countdown={countdown}
-        tick={tick}
         pipDigits={pipDigits}
         showOhlcLegend={chartPrefs.showOhlcLegend}
         showCountdown={chartPrefs.showCountdown}

@@ -1,12 +1,12 @@
 <div align="center">
 
-# 📈 OpenCharts
+# 📈 Xee.Labs
 
 **An open-source trading terminal that runs entirely in your browser — no backend, no signup, no API keys.**
 
 Advanced charting · full drawing-tool suite · watchlist · depth-of-market · order panel · built-in paper-trading engine, seeded with **real** market history.
 
-![OpenCharts trading terminal](docs/screenshot.png)
+![Xee.Labs trading terminal](docs/screenshot.png)
 
 </div>
 
@@ -14,7 +14,7 @@ Advanced charting · full drawing-tool suite · watchlist · depth-of-market · 
 
 ## Table of contents
 
-- [What is OpenCharts?](#what-is-opencharts)
+- [What is Xee.Labs?](#what-is-xeelabs)
 - [Features](#features)
 - [Quick start](#quick-start)
 - [How it works](#how-it-works)
@@ -31,9 +31,9 @@ Advanced charting · full drawing-tool suite · watchlist · depth-of-market · 
 
 ---
 
-## What is OpenCharts?
+## What is Xee.Labs?
 
-OpenCharts is a self-contained, professional-grade **trading terminal UI**. Open it
+Xee.Labs is a self-contained, professional-grade **trading terminal UI**. Open it
 and you land straight in a live-feeling terminal: a candlestick chart with a full
 drawing toolbar, a watchlist, a depth-of-market ladder, and an order ticket — all
 wired to an **in-browser paper-trading engine**.
@@ -107,7 +107,7 @@ npm run preview    # serve the production build locally
 
 ## How it works
 
-OpenCharts keeps the entire UI **backend-agnostic**. The terminal talks to two
+Xee.Labs keeps the entire UI **backend-agnostic**. The terminal talks to two
 service modules — a REST-shaped `api` and a streaming `wsClient` — and never cares
 where the data comes from. In this repo, both are implemented by a small in-browser
 **demo layer**:
@@ -142,7 +142,7 @@ where the data comes from. In this repo, both are implemented by a small in-brow
   normalized so it looks live).
 - **`services/api.ts` / `services/ws.ts`** — thin shims that expose the exact REST
   + pub/sub contracts the components use, backed by the demo layer. Swapping these
-  two files is all it takes to point OpenCharts at a real backend.
+  two files is all it takes to point Xee.Labs at a real backend.
 
 Because the data layer sits behind a stable interface, **no UI component had to
 change** to run without a server.
@@ -186,11 +186,11 @@ node scripts/fetch-demo-data.mjs
 ```
 
 This re-pulls 1000 bars per symbol across every timeframe and rewrites the bundled
-files. The data is genuine market history — OpenCharts never ships synthetic candles.
+files. The data is genuine market history — Xee.Labs never ships synthetic candles.
 
 ## Bring your own data / backend
 
-To connect OpenCharts to real (or your own simulated) data, implement two files
+To connect Xee.Labs to real (or your own simulated) data, implement two files
 against your APIs — the rest of the app is untouched:
 
 1. **`src/services/api.ts`** — the request/response methods the UI calls

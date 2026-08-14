@@ -63,6 +63,10 @@ function handleChunkLoadError(event: ErrorEvent | PromiseRejectionEvent) {
 window.addEventListener("error", handleChunkLoadError);
 window.addEventListener("unhandledrejection", handleChunkLoadError);
 
+if (import.meta.env.DEV) {
+  document.title = "Xee.Labs DEV MODE";
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>

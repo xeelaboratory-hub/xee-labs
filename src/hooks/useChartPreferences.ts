@@ -7,8 +7,6 @@ import {
 } from "./useTraderPreferences.ts";
 
 export interface ChartPreferences {
-  showBidLine: boolean;
-  showAskLine: boolean;
   overlayPositionsOnChart: boolean;
   /** Snap drawing anchors to nearby candle O/H/L/C values. */
   drawingMagnet: boolean;
@@ -25,11 +23,8 @@ export interface ChartPreferences {
   candleDownColor: string;
   // ── Color overrides (Chart Settings → Colors; empty = theme default) ──
   colorBackground: string;
-  colorGrid: string;
   colorScaleText: string;
   colorCrosshair: string;
-  colorBidLine: string;
-  colorAskLine: string;
   colorPositionLong: string;
   colorPositionShort: string;
   colorOrderLine: string;
@@ -43,7 +38,6 @@ export interface ChartPreferences {
   showWicks: boolean;
   showCandleBorders: boolean;
   showVolume: boolean;
-  showGrid: boolean;
   showWatermark: boolean;
   showCountdown: boolean;
   showOhlcLegend: boolean;
@@ -60,8 +54,6 @@ type TraderPrefs = Record<string, string>;
 const CHART_PREFS_UPDATED_EVENT = "chart-preferences-updated";
 
 const DEFAULT_CHART_PREFS: ChartPreferences = {
-  showBidLine: true,
-  showAskLine: true,
   overlayPositionsOnChart: true,
   drawingMagnet: false,
   magnetMode: "none",
@@ -70,11 +62,8 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   candleUpColor: "",
   candleDownColor: "",
   colorBackground: "",
-  colorGrid: "",
   colorScaleText: "",
   colorCrosshair: "",
-  colorBidLine: "",
-  colorAskLine: "",
   colorPositionLong: "",
   colorPositionShort: "",
   colorOrderLine: "",
@@ -84,11 +73,10 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   chartTemplateAutosave: false,
   showWicks: true,
   showCandleBorders: true,
-  showVolume: true,
-  showGrid: true,
-  showWatermark: true,
+  showVolume: false,
+  showWatermark: false,
   showCountdown: true,
-  showOhlcLegend: true,
+  showOhlcLegend: false,
   challengeOverlay: false,
   challengeDailyLossLine: false,
   challengeMaxDrawdownLine: false,
@@ -97,15 +85,12 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
 
 /** Boolean preference keys read straight through `toBool` with their default. */
 const BOOL_PREF_KEYS = [
-  "showBidLine",
-  "showAskLine",
   "overlayPositionsOnChart",
   "drawingMagnet",
   "stayInDrawingMode",
   "showWicks",
   "showCandleBorders",
   "showVolume",
-  "showGrid",
   "showWatermark",
   "showCountdown",
   "showOhlcLegend",
@@ -121,11 +106,8 @@ const STRING_PREF_KEYS = [
   "candleUpColor",
   "candleDownColor",
   "colorBackground",
-  "colorGrid",
   "colorScaleText",
   "colorCrosshair",
-  "colorBidLine",
-  "colorAskLine",
   "colorPositionLong",
   "colorPositionShort",
   "colorOrderLine",
@@ -140,13 +122,10 @@ const STRING_PREF_KEYS = [
  * drawing-mode) and the template bookkeeping keys themselves.
  */
 export const TEMPLATE_PREF_KEYS = [
-  "showBidLine",
-  "showAskLine",
   "overlayPositionsOnChart",
   "showWicks",
   "showCandleBorders",
   "showVolume",
-  "showGrid",
   "showWatermark",
   "showCountdown",
   "showOhlcLegend",
@@ -157,11 +136,8 @@ export const TEMPLATE_PREF_KEYS = [
   "candleUpColor",
   "candleDownColor",
   "colorBackground",
-  "colorGrid",
   "colorScaleText",
   "colorCrosshair",
-  "colorBidLine",
-  "colorAskLine",
   "colorPositionLong",
   "colorPositionShort",
   "colorOrderLine",

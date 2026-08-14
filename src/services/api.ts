@@ -1,7 +1,7 @@
 /**
  * Demo API facade.
  *
- * OpenCharts runs without a backend: all real data the terminal needs is served
+ * Xee.Labs runs without a backend: all real data the terminal needs is served
  * by the in-browser demo layer (services/demo). `api` is the demo implementation
  * wrapped in a Proxy whose fallback returns a benign async no-op for any method
  * not implemented in demo mode — so leftover calls from non-terminal code resolve

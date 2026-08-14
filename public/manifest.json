@@ -1,6 +1,6 @@
 {
-  "name": "OpenCharts",
-  "short_name": "OpenCharts",
+  "name": "Xee.Labs",
+  "short_name": "Xee.Labs",
   "description": "Open-source trading terminal — advanced charts, drawing tools, and paper trading.",
   "start_url": "/",
   "display": "standalone",
