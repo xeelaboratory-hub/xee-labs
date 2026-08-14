@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-14
+
+### Added
+- Real market data: the terminal now runs on live Binance and OKX perpetual
+  futures data (BTC and ETH, both exchanges) via a new standalone FastAPI +
+  CryptoFeed backend (`backend/`), replacing the in-process demo/mock engine
+  for symbols, historical candles, and live ticks. Symbol ids are now
+  exchange-qualified (e.g. `BINANCE:BTCUSD`, `OKX:BTCUSD`); all 8 chart
+  timeframes (1m–1w) are served over REST, and a reconnecting WebSocket
+  delivers live ticks and 1-minute candle updates. Paper trading is
+  unchanged in mechanics — orders now fill and mark-to-market against real
+  prices instead of replayed demo data.
+- The demo/mock data engine remains on disk, unused, as a temporary
+  fallback during the migration; full removal is planned as a follow-up.
+
 ## [1.0.14] - 2026-08-14
 
 ### Fixed
