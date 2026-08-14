@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2026-08-14
+
+### Changed
+- Terminal typography now matches TradingView's own font stack instead
+  of a dedicated self-hosted mono/sans pair. Body text, the chart's own
+  labels, and every numeric value (price, P&L, quantities) render in the
+  same system font stack (`-apple-system, BlinkMacSystemFont,
+  "Trebuchet MS", Roboto, Ubuntu, sans-serif`) that tradingview.com
+  itself uses, verified live against the site. Removed the
+  `@fontsource-variable/inter` and `@fontsource-variable/jetbrains-mono`
+  self-hosted fonts.
+
 ## [1.0.7] - 2026-08-14
 
 ### Added
