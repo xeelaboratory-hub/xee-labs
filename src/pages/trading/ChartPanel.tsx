@@ -1441,7 +1441,8 @@ export function ChartPanel({
       layout: {
         background: { type: ColorType.Solid, color: colors.background },
         textColor: colors.text,
-        fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+        fontFamily:
+          "-apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif",
         fontSize: 11,
         // Attribution requirement is met via the "Charts by TradingView" link
         // in the app Footer instead (see lightweight-charts license terms).
