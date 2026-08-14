@@ -155,6 +155,7 @@ export const SymbolSchema = z.object({
   id: z.string(),
   name: z.string(),
   displayName: z.string().nullable(),
+  exchange: z.string().optional(),
   category: z.string(),
   contractSize: z.number(),
   tickSize: z.number(),
@@ -178,6 +179,7 @@ export const CandleSchema = z.object({
   close: z.number(),
   volume: z.number(),
   timestamp: z.union([z.number(), z.string()]).optional(),
+  exchange: z.string().optional(),
 });
 export type Candle = z.infer<typeof CandleSchema>;
 

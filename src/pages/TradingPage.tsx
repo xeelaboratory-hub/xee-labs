@@ -318,26 +318,29 @@ export function TradingPage() {
   }, []);
 
   // Deep-history target used after the initial fast render completes.
+  // Capped at 1500 — the backend's hard per-request limit (CandlesRequest.limit
+  // le=1500); ChartPanel's scroll-back pagination fetches further history on
+  // demand beyond this window.
   const deepCandleLimit = useMemo(() => {
     switch (timeframe) {
       case "1m":
-        return 3_000;
+        return 1_500;
       case "5m":
-        return 5_000;
+        return 1_500;
       case "15m":
-        return 12_000;
+        return 1_500;
       case "30m":
-        return 8_000;
+        return 1_500;
       case "1h":
-        return 8_760;
+        return 1_500;
       case "4h":
-        return 2_500;
+        return 1_500;
       case "1d":
         return 1_000;
       case "1w":
         return 520;
       default:
-        return 5_000;
+        return 1_500;
     }
   }, [timeframe]);
   // First paint: viewport-sized so the initial fetch is as small as possible.
