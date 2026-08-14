@@ -84,7 +84,7 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   showVolume: false,
   showWatermark: false,
   showCountdown: true,
-  showOhlcLegend: true,
+  showOhlcLegend: false,
   challengeOverlay: false,
   challengeDailyLossLine: false,
   challengeMaxDrawdownLine: false,
