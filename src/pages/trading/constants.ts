@@ -65,7 +65,6 @@ export type ChartColors = (typeof CHART_COLORS)["dark"];
  */
 export interface ChartColorOverrides {
   colorBackground: string;
-  colorGrid: string;
   colorScaleText: string;
   colorCrosshair: string;
   colorBidLine: string;
@@ -82,7 +81,6 @@ export interface ChartColorOverrides {
 
 const COLOR_OVERRIDE_MAP: ReadonlyArray<[keyof ChartColorOverrides, keyof ChartColors]> = [
   ["colorBackground", "background"],
-  ["colorGrid", "grid"],
   ["colorScaleText", "text"],
   ["colorCrosshair", "crosshair"],
   ["colorBidLine", "bidLine"],

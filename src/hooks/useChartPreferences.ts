@@ -25,7 +25,6 @@ export interface ChartPreferences {
   candleDownColor: string;
   // ── Color overrides (Chart Settings → Colors; empty = theme default) ──
   colorBackground: string;
-  colorGrid: string;
   colorScaleText: string;
   colorCrosshair: string;
   colorBidLine: string;
@@ -43,7 +42,6 @@ export interface ChartPreferences {
   showWicks: boolean;
   showCandleBorders: boolean;
   showVolume: boolean;
-  showGrid: boolean;
   showWatermark: boolean;
   showCountdown: boolean;
   showOhlcLegend: boolean;
@@ -70,7 +68,6 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   candleUpColor: "",
   candleDownColor: "",
   colorBackground: "",
-  colorGrid: "",
   colorScaleText: "",
   colorCrosshair: "",
   colorBidLine: "",
@@ -85,7 +82,6 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   showWicks: true,
   showCandleBorders: true,
   showVolume: true,
-  showGrid: true,
   showWatermark: false,
   showCountdown: true,
   showOhlcLegend: true,
@@ -105,7 +101,6 @@ const BOOL_PREF_KEYS = [
   "showWicks",
   "showCandleBorders",
   "showVolume",
-  "showGrid",
   "showWatermark",
   "showCountdown",
   "showOhlcLegend",
@@ -121,7 +116,6 @@ const STRING_PREF_KEYS = [
   "candleUpColor",
   "candleDownColor",
   "colorBackground",
-  "colorGrid",
   "colorScaleText",
   "colorCrosshair",
   "colorBidLine",
@@ -146,7 +140,6 @@ export const TEMPLATE_PREF_KEYS = [
   "showWicks",
   "showCandleBorders",
   "showVolume",
-  "showGrid",
   "showWatermark",
   "showCountdown",
   "showOhlcLegend",
@@ -157,7 +150,6 @@ export const TEMPLATE_PREF_KEYS = [
   "candleUpColor",
   "candleDownColor",
   "colorBackground",
-  "colorGrid",
   "colorScaleText",
   "colorCrosshair",
   "colorBidLine",

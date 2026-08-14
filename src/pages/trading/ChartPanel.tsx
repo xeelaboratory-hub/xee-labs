@@ -1448,8 +1448,8 @@ export function ChartPanel({
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: colors.grid, style: LineStyle.Dotted },
-        horzLines: { color: colors.grid, style: LineStyle.Dotted },
+        vertLines: { visible: false },
+        horzLines: { visible: false },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -1718,15 +1718,6 @@ export function ChartPanel({
   useEffect(() => {
     volumeSeriesRef.current?.applyOptions({ visible: chartPrefs.showVolume });
   }, [chartPrefs.showVolume, chartEpoch]);
-
-  useEffect(() => {
-    chartRef.current?.applyOptions({
-      grid: {
-        vertLines: { visible: chartPrefs.showGrid },
-        horzLines: { visible: chartPrefs.showGrid },
-      },
-    });
-  }, [chartPrefs.showGrid, chartEpoch]);
 
   // Timeframe change — the chart instance is NOT recreated (so drawings stay
   // attached); instead we update the persistent chart's options and re-point

@@ -48,7 +48,6 @@ const RESET_BY_TAB: Partial<Record<TabId, Partial<ChartPreferences>>> = {
     showWicks: true,
     showCandleBorders: true,
     showVolume: true,
-    showGrid: true,
     showWatermark: false,
     showCountdown: true,
     showOhlcLegend: true,
@@ -57,7 +56,6 @@ const RESET_BY_TAB: Partial<Record<TabId, Partial<ChartPreferences>>> = {
     candleUpColor: "",
     candleDownColor: "",
     colorBackground: "",
-    colorGrid: "",
     colorScaleText: "",
     colorCrosshair: "",
     colorBidLine: "",
@@ -223,11 +221,6 @@ function AppearanceTab({ prefs }: { prefs: ChartPreferences }) {
         onChange={(v) => set({ showVolume: v })}
       />
       <ToggleRow
-        label="Grid lines"
-        checked={prefs.showGrid}
-        onChange={(v) => set({ showGrid: v })}
-      />
-      <ToggleRow
         label="Symbol watermark"
         checked={prefs.showWatermark}
         onChange={(v) => set({ showWatermark: v })}
@@ -257,12 +250,6 @@ function ElementColorRows({ prefs, theme }: { prefs: ChartPreferences; theme: Ch
         value={prefs.colorBackground}
         fallback={theme.background}
         onChange={(v) => set({ colorBackground: v })}
-      />
-      <ColorRow
-        label="Grid"
-        value={prefs.colorGrid}
-        fallback={theme.grid}
-        onChange={(v) => set({ colorGrid: v })}
       />
       <ColorRow
         label="Scales text"
