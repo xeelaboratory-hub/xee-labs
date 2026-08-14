@@ -1,7 +1,7 @@
 /**
  * Demo WebSocket client.
  *
- * OpenCharts ships without a backend, so this replaces the real reconnecting
+ * Xee.Labs ships without a backend, so this replaces the real reconnecting
  * WebSocket with an in-process client backed by the demo event bus + feed
  * (services/demo). It exposes the same public surface the app already uses
  * (connect / subscribe / subscribeAccounts / onStateChange / state), so no
