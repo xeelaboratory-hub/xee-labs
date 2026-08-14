@@ -2,7 +2,12 @@
 
 Every React component in `src/` — what it's called, what it does, and a screenshot of it
 in the running app where one could be captured. Screenshots were taken against the local
-dev server (`npm run dev`, `localhost:5173`) on 2026-08-14.
+dev server (`npm run dev`, `localhost:5173`) on 2026-08-14, **before** the real
+market-data backend was wired in later the same day — symbol names/prices
+visible in these screenshots reflect the old demo-only state (bare names like
+`BTCUSD`) rather than the current exchange-qualified real symbols (e.g.
+`BINANCE:BTCUSD`). Component structure and reachability notes below are still
+current; treat symbol/price values in the images as stale.
 
 Some components could not be screenshotted because they're unreachable in the current
 build — either gated off by a feature flag, never actually rendered anywhere (dead code
@@ -29,7 +34,7 @@ of a screenshot.
 | **TradingPage** | `src/pages/TradingPage.tsx` | ![default](screenshots/01-default-desktop.png) | The terminal shell. Owns UI state (timeframe, active panel, dialogs) and lays out every panel below. |
 | **ChartToolbar** | `src/pages/trading/ChartToolbar.tsx` | *(top bar, visible in every screenshot)* | Symbol/timeframe selectors, Templates, Indicators, drawing tools, chart-plugin toggles, right-panel switcher. |
 | **Footer** | `src/components/Footer.tsx` | *(bottom bar, visible in every screenshot)* | "Xee.Labs" + TradingView attribution link + version badge. |
-| **MarketClosedBanner** | `src/pages/trading/MarketClosedBanner.tsx` | ⛔ not reachable | Banner for closed markets, driven by symbol trading-hours data. The bundled demo symbols are all crypto (24/7), so this condition never fires. |
+| **MarketClosedBanner** | `src/pages/trading/MarketClosedBanner.tsx` | ⛔ not reachable | Banner for closed markets, driven by symbol trading-hours data. Both the real backend's symbols and the demo fallback's are crypto perpetuals/spot (24/7), so this condition never fires. |
 
 ## 3. Chart & drawing tools
 
@@ -56,7 +61,7 @@ of a screenshot.
 |---|---|---|---|
 | **OrderPanel** | `src/pages/trading/OrderPanel.tsx` | ![default](screenshots/01-default-desktop.png) | Market/Limit/Stop order form with TP/SL, live risk analysis (R:R, risk $/%), and margin estimate. Default right-panel view. |
 | **DOMPanel** | `src/pages/trading/DOMPanel.tsx` | ![DOM](screenshots/02-right-panel-dom.png) | Depth-of-market ladder. Cosmetic only — bid/ask sizes are randomized, not real order-book data. |
-| **WatchlistPanel** | `src/pages/trading/WatchlistPanel.tsx` | ![watchlist](screenshots/03-right-panel-watchlist.png) | Live bid/ask list of all demo symbols, favoritable, one-click order placement per row. |
+| **WatchlistPanel** | `src/pages/trading/WatchlistPanel.tsx` | ![watchlist](screenshots/03-right-panel-watchlist.png) | Live bid/ask list of all symbols (real backend symbols today — `BINANCE:BTCUSD` etc.), favoritable, one-click order placement per row. |
 | **BottomPanel** | `src/pages/trading/BottomPanel.tsx` | ![positions tab](screenshots/01-default-desktop.png) | Tabbed dock (Positions/Orders/Trade History/Calendar/News). Owns the close/cancel mutations for the tables it wraps. |
 | **PositionsTable** — empty | `src/pages/trading/PositionsTable.tsx` | ![empty](screenshots/01-default-desktop.png) | Open-positions list: modify, partial close, close, select-symbol. Pure presentational — mutations live in `BottomPanel`. |
 | **PositionsTable** — with a row | same file | ![with row](screenshots/20-bottom-positions-with-row.png) | Same component after a market BUY was placed via the automated capture. |
@@ -112,7 +117,7 @@ All in `src/components/TradingPowerFeatures.tsx`. `NewsFeed` is live (§4); the 
 
 | Component | Path | Screenshot | What it does |
 |---|---|---|---|
-| **DisconnectedTradingBanner** | `src/components/ConnectionIndicator.tsx` | ⛔ not reachable | Shown inside `OrderPanel` when the feed is down. The demo feed is effectively always "up," so this doesn't naturally trigger. |
+| **DisconnectedTradingBanner** | `src/components/ConnectionIndicator.tsx` | ⛔ not reachable | Shown inside `OrderPanel` (`!isDemo && !isFeedConnected`) when the feed is down. The market-data feed can genuinely disconnect now (it's a real WebSocket to `backend/`) — the gate that actually keeps this unreachable is `isDemo`, which is `true` for the whole session since the app boots via `demoLogin()`. |
 | **ConnectionIndicator** (visual component) | same file | ⛔ dead code | Connected/connecting/disconnected badge. The *hooks* in this file (`useIsFeedConnected`, `useConnectionState`) are used everywhere; the component itself is never rendered. |
 | **StaleDataBanner** | same file | ⛔ dead code | Same story — the `useStaleData` hook has no consumer that renders this banner. |
 

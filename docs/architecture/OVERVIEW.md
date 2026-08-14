@@ -6,59 +6,120 @@
 > is actually called) against the live code before relying on them, rather
 > than trusting this document at face value.
 
-This is a **backend-less trading terminal**: a candlestick chart (drawing
-tools, indicators, watchlist, DOM, order panel) wired to an **in-browser
-paper-trading engine** seeded with real historical OHLC. There is no server
-anywhere in this repo — understanding how the "backend" is faked is the key
-to working in this codebase productively.
+This is a **trading terminal** — a candlestick chart (drawing tools,
+indicators, watchlist, DOM, order panel) wired to an **in-browser
+paper-trading engine** — paired with a **real market-data backend**
+(`backend/`). Understanding the facade/backend split below is the key to
+working in this codebase productively: market data is real and networked,
+trading/accounts/auth are still an in-browser demo layer.
 
-## The facade / demo-engine split
+## The facade / backend split
 
-The UI never talks to `services/demo/*` directly. It talks to two facades:
+The UI never talks to `services/demo/*` or `backend/` directly. It talks to
+two facades:
 
-- **`services/api.ts`** — `export const api = new Proxy(demoApi, { get })`.
-  `demoApi` (`services/demo/api.ts`) implements the trading-relevant surface
-  (orders, positions, candles, symbols, chart drawings). Any method the UI
-  calls that `demoApi` doesn't implement resolves to a benign no-op returning
-  `null` instead of throwing — **this is load-bearing, not a bug**: it lets
-  `services/queries.ts` (a large set of TanStack Query hooks, inherited from
-  this app's previous incarnation — see [PROJECT-CONTEXT.md](../PROJECT-CONTEXT.md))
-  keep exporting hooks for features that don't exist in this build
-  (leaderboards, competitions, AI-trader, bot integrations, MFA, push
-  notifications, …) without crashing anything. Don't infer a working feature
-  from a hook's existence in `queries.ts` — check whether `demoApi` actually
-  implements the underlying method.
-- **`services/ws.ts`** — `DemoWsClient`, exposing the same
-  `connect`/`subscribe`/`subscribeAccounts`/`onStateChange` surface a real
-  WebSocket client would. Internally it starts the tick feed and forwards to
-  `services/demo/bus.ts`, a synchronous in-process pub/sub
-  (`Map<channel, Set<handler>>`) shaped exactly like a WS channel contract.
+- **`services/api.ts`** — a `Proxy` over `demoApi`
+  (`services/demo/api.ts`, which implements orders, positions, chart
+  drawings, and other trading-relevant surface) with four market-data
+  methods (`getSymbols`, `getTick`, `getCandles`, `getCandlesWithMeta`)
+  overridden ahead of it to call `marketdataApi`
+  (`services/api/market-data.ts`), a real typed HTTP client hitting
+  `backend/`. Any method neither the overrides nor `demoApi` implement
+  resolves to a benign no-op returning `null` instead of throwing — **this
+  is load-bearing, not a bug**: it lets `services/queries.ts` (a large set
+  of TanStack Query hooks, inherited from this app's previous incarnation —
+  see [PROJECT-CONTEXT.md](../PROJECT-CONTEXT.md)) keep exporting hooks for
+  features that don't exist in this build (leaderboards, competitions,
+  AI-trader, bot integrations, MFA, push notifications, …) without crashing
+  anything. Don't infer a working feature from a hook's existence in
+  `queries.ts` — check whether `demoApi`/the real overrides actually
+  implement the underlying method.
+- **`services/ws.ts`** — a real reconnecting `WebSocket` client
+  (`RealWsClient`) connecting to `backend/`'s `/ws` gateway, exposing the
+  same `connect`/`subscribe`/`subscribeAccounts`/`onStateChange` surface the
+  old demo client did. It always subscribes to the backend's full symbol
+  universe on connect (the backend has no per-symbol resubscribe), republishes
+  every `MarketTick`/`CandleUpdate`/`CandleClosed` frame onto
+  `services/demo/bus.ts` (the same synchronous in-process pub/sub the demo
+  layer still uses for `account`/`positions`/`orders` events), and calls
+  `services/demo/engine.ts`'s `mark(symbol, price)` directly on each tick so
+  the paper-trading engine marks-to-market against real prices.
 
-To point this app at a real backend: reimplement `services/api.ts` and
-`services/ws.ts` against your own API, keeping the shapes in
-`services/schemas.ts` (Zod). No other file needs to change —
 `src/components/MarketDataBridge.tsx` is the one place that documents exactly
 which events (`MarketTick`, `CandleUpdate`, `Position*`, `Order*`,
 `EquityUpdated`) the UI consumes off the `market-data`/`positions`/`orders`/
-`account` channels. See also
+`account` channels — this didn't need to change when the market-data side of
+`api.ts`/`ws.ts` was pointed at the real backend. See also
 [decisions/0003-protected-backend-integration-seams.md](../decisions/0003-protected-backend-integration-seams.md).
 
-## The demo engine itself (`services/demo/`)
+## The real backend (`backend/`)
+
+A standalone FastAPI + CryptoFeed service, unrelated to the Node/Vite
+frontend build. Serves live Binance and OKX perpetual futures (BTC, ETH on
+both exchanges — symbol ids are exchange-qualified, e.g. `BINANCE:BTCUSD`,
+never merged across exchanges).
+
+- **`app/symbols.py`** — the symbol registry (cross product of exchanges ×
+  `SYMBOL_BASES`) plus a static trading-metadata table (`_TRADING_META`:
+  tick size, contract size, leverage, …) the paper-trading engine needs.
+- **`app/historical/`** — per-exchange REST clients (`binance_klines.py`,
+  `okx_candles.py`) plus a generic-timeframe → exchange-native-interval map
+  (`config.TIMEFRAME_MAP`) so callers can request any of the 8 frontend
+  timeframes without knowing Binance vs. OKX's differing interval
+  vocabulary.
+- **`app/feeds/`** — CryptoFeed wiring per exchange, supervised with capped/
+  jittered reconnect backoff (`feeds/cryptofeed_runner.py`). `feeds/okx.py`
+  subclasses CryptoFeed's `OKX` feed to route the `CANDLES` channel to
+  `/ws/v5/business` — CryptoFeed 2.5.0 hardcodes the `/ws/v5/public`
+  endpoint, which OKX rejects for candle subscriptions.
+- **`app/api/market_data.py`** — REST routes (`/symbols`, `/candles/{symbol}`,
+  `/ticks`, `/ticks/{symbol}`, `/health`).
+- **`app/api/ws_gateway.py`** — the `/ws` WebSocket gateway: negotiates a
+  one-time subscribe frame, replays a warmup window of recent 1m candles,
+  then streams live events. No resubscribe/unsubscribe support today —
+  changing symbol interest requires a new connection (see
+  [DATA-FLOW.md](DATA-FLOW.md)).
+- **`app/store.py` / `app/bus.py`** — in-memory latest-tick/candle/health
+  cache and a per-connection `asyncio.Queue` pub/sub. No persistence — a
+  restart loses all in-memory state; candles simply re-fetch from the
+  exchange on the next request.
+
+**Docker topology**: `docker-compose.yml` runs `backend` (published on
+`:3000`) and `frontend` (nginx on `:8080`) together. `nginx.conf` reverse-
+proxies `/api` and `/ws` from the frontend container to `backend:3000` over
+the compose network, so the browser only ever talks to one origin — the same
+same-origin shape `vite.config.ts`'s dev proxy gives local dev. See
+[../../README.md](../../README.md#running-with-docker).
+
+## The demo engine and fallback layer (`services/demo/`)
+
+Still the source of truth for everything the real backend doesn't cover
+(accounts, orders/positions, chart drawings, …), and the offline/local-dev
+fallback for market data.
 
 - **`engine.ts`** — single source of truth for the account/positions/orders,
   as module-scoped singletons (resets on page refresh by design).
   `placeOrder()` fills **instantly** at the latest tick price regardless of
   order type — LIMIT/STOP orders do not stay pending in this build, so
   `OrderModifyDialog` (edit a pending order) is effectively unreachable
-  through normal use. `mark(symbol, price)` — called every tick — re-marks
-  positions and auto-closes on SL/TP.
+  through normal use. `mark(symbol, price)` — called on every real tick from
+  `services/ws.ts` — re-marks positions and auto-closes on SL/TP.
+  `setSymbolMeta(symbols)` (called once from `store.tsx`'s `loadSymbols()`
+  after the real `getSymbols()` resolves) populates the contract-size lookup
+  the margin/PnL math uses, keyed by the real backend's exchange-qualified
+  symbol ids — this replaced an earlier lookup against the demo
+  `instruments.ts` table, which used bare names (`"BTCUSD"`) that no longer
+  match live symbol ids (`"BINANCE:BTCUSD"`).
 - **`candles.ts`** — bundles all of `services/demo/data/*.json` at build time
   via `import.meta.glob`, then serves them with every bar's timestamp shifted
   so the last real bar aligns to "now." OHLC values are always genuine; only
-  the clock is synthetic.
+  the clock is synthetic. Only reached today via `services/api.ts`'s fallback
+  to `demoApi` — the real backend serves candles primarily.
 - **`feed.ts`** — replays each symbol's real 1-minute closes as an infinite
-  looping tick stream (600ms interval), driving both the live UI and
-  `engine.mark()`.
+  looping tick stream (600ms interval). **Currently unimported/dead** —
+  `services/ws.ts` calls `engine.mark()` directly from real backend ticks
+  instead. Left on disk pending the Phase 4 demo-removal cleanup (see
+  [PROJECT-CONTEXT.md](../PROJECT-CONTEXT.md)).
 
 ## Chart plugin architecture
 
@@ -93,9 +154,13 @@ or beyond loaded history — via logical-index interpolation/extrapolation
 rather than `lightweight-charts`' native (integers-only)
 `logicalToCoordinate`.
 
-## Data flow: WS event → UI (no network round trip)
+## Data flow: WS event → UI
 
-`services/demo/bus.ts` publishes are synchronous.
+Market-data events (`MarketTick`/`CandleUpdate`/`CandleClosed`) travel over a
+real network WebSocket from `backend/` before `services/ws.ts` republishes
+them onto `services/demo/bus.ts`; `account`/`positions`/`orders` events still
+originate locally from `services/demo/engine.ts` with no network round trip
+at all. From `bus.ts` onward, publishes are synchronous either way.
 `src/components/MarketDataBridge.tsx` — mounted once, deliberately **above**
 `ErrorBoundary` in `main.tsx` so a crashing route can't kill the tick handler
 — is the only subscriber that matters: it patches the TanStack Query cache
@@ -131,9 +196,12 @@ consistency net on top of this, not the primary update path.
   in `services/api/accounts.ts`) calls real `/api/...` endpoints that don't
   exist in this build — bypassing the demo facade entirely, wrapped in
   `.catch(() => null)`.
-- `services/api/*.ts` (a real, typed REST client — `request.ts`,
-  `accounts.ts`, `auth.ts`, `market-data.ts`, `journal.ts`) is mostly dead
-  weight in this demo build but is deliberately kept — see
+- `services/api/*.ts` is a real, typed REST client (`request.ts`,
+  `accounts.ts`, `auth.ts`, `market-data.ts`, `journal.ts`). `request.ts` and
+  `market-data.ts` are now live and load-bearing — `services/api.ts`'s
+  market-data overrides call `market-data.ts`'s `marketdataApi`, built on
+  `request.ts`. `accounts.ts` is partially live (chart templates). `auth.ts`
+  and `journal.ts` are still unused but deliberately kept — see
   [decisions/0003-protected-backend-integration-seams.md](../decisions/0003-protected-backend-integration-seams.md).
 - `src/pages/AiTraderPage.tsx` is two stub components that return `null`;
   the AI-trader feature is not part of this product.
@@ -147,5 +215,7 @@ consistency net on top of this, not the primary update path.
 
 - [PROJECT-CONTEXT.md](../PROJECT-CONTEXT.md) — what this project is, its
   provenance, current goals, and known limitations.
+- [DATA-FLOW.md](DATA-FLOW.md) — detailed data-path and backend-contract map;
+  complements this file's architecture-level overview.
 - [decisions/](../decisions/) — why key parts of this architecture look the
   way they do, and what future agents should not casually reverse.

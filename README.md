@@ -2,9 +2,9 @@
 
 # 📈 Xee.Labs
 
-**An open-source trading terminal that runs entirely in your browser — no backend, no signup, no API keys.**
+**An open-source trading terminal with a real live market-data backend — no signup, no API keys of your own to configure.**
 
-Advanced charting · full drawing-tool suite · watchlist · depth-of-market · order panel · built-in paper-trading engine, seeded with **real** market history.
+Advanced charting · full drawing-tool suite · watchlist · depth-of-market · order panel · built-in paper-trading engine, fed by **real** live Binance and OKX perpetual futures data.
 
 ![Xee.Labs trading terminal](docs/screenshot.png)
 
@@ -19,7 +19,8 @@ Advanced charting · full drawing-tool suite · watchlist · depth-of-market · 
 - [Quick start](#quick-start)
 - [How it works](#how-it-works)
 - [Project structure](#project-structure)
-- [Refreshing the bundled market data](#refreshing-the-bundled-market-data)
+- [Running with Docker](#running-with-docker)
+- [Refreshing the bundled demo data](#refreshing-the-bundled-demo-data)
 - [Bring your own data / backend](#bring-your-own-data--backend)
 - [Adding instruments](#adding-instruments)
 - [Scripts](#scripts)
@@ -33,21 +34,32 @@ Advanced charting · full drawing-tool suite · watchlist · depth-of-market · 
 
 ## What is Xee.Labs?
 
-Xee.Labs is a self-contained, professional-grade **trading terminal UI**. Open it
-and you land straight in a live-feeling terminal: a candlestick chart with a full
-drawing toolbar, a watchlist, a depth-of-market ladder, and an order ticket — all
-wired to an **in-browser paper-trading engine**.
+Xee.Labs is a professional-grade **trading terminal UI** paired with its own
+**real market-data backend**. Open it and you land straight in a live-feeling
+terminal: a candlestick chart with a full drawing toolbar, a watchlist, a
+depth-of-market ladder, and an order ticket — all wired to an **in-browser
+paper-trading engine**.
 
-There is **no server to run**. The demo session is seeded with *genuine* historical
-OHLC data (pulled from a public exchange API, never synthetically generated) and a
-tick stream is replayed forward from the present, so the chart and prices move like
-a real feed while you place and manage paper trades.
+The backend (`backend/`, a standalone FastAPI + CryptoFeed service) streams
+**live Binance and OKX perpetual futures data** — no exchange account or API
+key required, since it only reads each exchange's public market data. The
+frontend never talks to Binance/OKX directly; it talks to this backend over
+REST (historical candles, symbols) and a WebSocket (live ticks and candle
+updates), and the paper-trading engine fills and marks-to-market against
+those real prices.
+
+A backend-less **demo mode** also still exists (real historical OHLC bundled
+at build time, replayed forward as a synthetic tick stream) and is used as
+the frontend's fallback for anything the real backend doesn't cover yet
+(accounts, orders/positions persistence, auth, journal, …) — see
+[How it works](#how-it-works).
 
 It's ideal as:
 
-- A **standalone charting / paper-trading app** you can host anywhere static.
+- A **self-hostable charting / paper-trading terminal** for real crypto
+  perpetuals, with no third-party API keys to manage.
 - A **reference UI** you can point at your own market-data and trading backend
-  (the data layer is cleanly isolated — see [Bring your own data](#bring-your-own-data--backend)).
+  instead (the data layer is cleanly isolated — see [Bring your own data](#bring-your-own-data--backend)).
 - A **learning sandbox** for charting, technical drawing, and order management.
 
 ## Features
@@ -80,37 +92,65 @@ It's ideal as:
 - Stop-loss / take-profit are evaluated automatically and close positions when hit.
 - Account equity, balance, used/free margin update in real time.
 
-### 🛰️ Real market data, no backend
-- Demo OHLC is **real** historical data bundled at build time (no random walks).
-- A replay feed streams ticks forward from "now" so the terminal feels live.
-- Everything runs client-side — deploy it as a static site.
+### 🛰️ Real market data
+- Live Binance and OKX perpetual futures (BTC, ETH on both exchanges) via the
+  bundled `backend/` service — historical candles over REST, live ticks and
+  candle updates over WebSocket.
+- No API keys to configure — the backend only reads each exchange's public
+  market data.
+- A backend-less demo mode (real historical OHLC, replayed forward) is also
+  available and used as a fallback for what the real backend doesn't cover.
 
 ## Quick start
 
-> Requires **Node 20+**.
+The frontend talks to the real backend for market data, so both need to be
+running. Two ways to do that:
+
+### Option A — Docker (fastest)
+
+> Requires **Docker** + **Docker Compose**.
 
 ```bash
+docker compose up --build
+```
+
+Open `http://localhost:8080`. Nginx serves the built frontend and reverse-proxies
+`/api` and `/ws` to the backend container — see [Running with Docker](#running-with-docker).
+
+### Option B — local dev (hot reload)
+
+> Requires **Node 20+** and **Python 3.11+**.
+
+```bash
+# Terminal 1 — backend
+cd backend
+pip install -e ".[dev]"
+uvicorn app.main:app --reload --port 3000
+
+# Terminal 2 — frontend
 npm install
 npm run dev
 ```
 
-Open the printed local URL (e.g. `http://localhost:5173`). The app boots straight
-into a demo session with a funded paper-trading account — pick a symbol from the
-watchlist, set a size in the order panel, and go long or short.
+Open the printed local URL (e.g. `http://localhost:5173`) — Vite proxies `/api`
+and `/ws` to `localhost:3000`. The app boots straight into a funded paper-trading
+account — pick a symbol from the watchlist, set a size in the order panel, and go
+long or short. If the backend isn't running, market data requests will fail; there
+is currently no automatic fallback to demo data when the frontend is pointed at a
+live (non-demo) session.
 
 To build for production:
 
 ```bash
 npm run build      # outputs to dist/
-npm run preview    # serve the production build locally
+npm run preview    # serve the production build locally (still needs the backend)
 ```
 
 ## How it works
 
 Xee.Labs keeps the entire UI **backend-agnostic**. The terminal talks to two
 service modules — a REST-shaped `api` and a streaming `wsClient` — and never cares
-where the data comes from. In this repo, both are implemented by a small in-browser
-**demo layer**:
+where the data comes from underneath. Today that's a mix of two sources:
 
 ```
                 ┌─────────────────────────────────────────────┐
@@ -121,31 +161,42 @@ where the data comes from. In this repo, both are implemented by a small in-brow
                 ┌───────────────▼───────┐ ┌──────▼───────────────┐
                 │   services/api.ts      │ │   services/ws.ts      │
                 │  (REST-shaped facade)  │ │  (streaming client)   │
-                └───────────────┬───────┘ └──────┬───────────────┘
-                                │                 │
-                ┌───────────────▼─────────────────▼───────────────┐
-                │                services/demo/                    │
-                │  engine.ts   paper-trading (positions, P&L, SL/TP)│
-                │  feed.ts     replays real ticks → bus → store     │
-                │  candles.ts  serves bundled OHLC (shifted to now) │
-                │  instruments.ts / data/  real OHLC + symbol specs │
-                └──────────────────────────────────────────────────┘
+                └───┬───────────────┬───┘ └──────┬───────────────┘
+                    │ market data   │ everything  │ real ticks/candles
+                    │               │ else        │
+        ┌───────────▼────────┐ ┌────▼────────────┐│
+        │      backend/       │ │  services/demo/  │◄┘
+        │  FastAPI + Crypto-   │ │  paper-trading    │
+        │  Feed — REST + WS,    │ │  engine, chart     │
+        │  live Binance/OKX      │ │  drawings, auth      │
+        │  data                   │ │  stubs, accounts       │
+        └────────────────────────┘ └───────────────────────┘
 ```
 
+- **`backend/`** — a standalone FastAPI + CryptoFeed service. Serves symbols and
+  historical candles over REST and streams live ticks + 1-minute candle updates
+  over a WebSocket. This is the source of truth for **market data**: symbols,
+  candles, and live prices.
 - **`services/demo/engine.ts`** — the paper-trading engine and single source of
-  truth for the account, positions, and orders. It marks positions to market and
-  publishes the same position/order/equity events the UI already consumed.
-- **`services/demo/feed.ts`** — replays the bundled real 1-minute closes for every
-  symbol as a forward-moving tick stream at wall-clock time.
-- **`services/demo/candles.ts`** — serves the bundled history, time-shifted so the
-  most recent bar aligns to "now" (values stay real; only the timeline is
-  normalized so it looks live).
-- **`services/api.ts` / `services/ws.ts`** — thin shims that expose the exact REST
-  + pub/sub contracts the components use, backed by the demo layer. Swapping these
-  two files is all it takes to point Xee.Labs at a real backend.
+  truth for the account, positions, and orders. It's fed real prices from the
+  backend's live ticks (via `services/ws.ts`), marks positions to market, and
+  publishes the same position/order/equity events the UI already consumed. Order
+  and account state is still local/ephemeral — there's no trading backend yet.
+- **`services/demo/candles.ts` / `instruments.ts` / `data/`** — the backend-less
+  fallback: real bundled historical OHLC, time-shifted to look live. Used for
+  anything the real backend doesn't (yet) cover, and as an offline/local-dev mode.
+- **`services/api.ts` / `services/ws.ts`** — the facade every UI component
+  actually calls. `api.ts` routes market-data methods (`getSymbols`,
+  `getCandles`, `getTick`, …) to the real backend and everything else to the demo
+  layer; `ws.ts` is a real reconnecting WebSocket client that republishes backend
+  events onto the same local event bus the paper-trading engine and UI already
+  expect.
 
-Because the data layer sits behind a stable interface, **no UI component had to
-change** to run without a server.
+Because the data layer sits behind this stable interface, swapping what's behind
+`api.ts`/`ws.ts` — backend-less demo → real market-data backend, as happened here
+— never required changing a UI component. See
+[docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md) for the full
+breakdown.
 
 ## Project structure
 
@@ -166,17 +217,51 @@ src/
 ├─ components/              # shared UI (order/position dialogs, ui primitives…)
 ├─ hooks/                   # chart drawings, preferences, indicators…
 ├─ services/
-│  ├─ api.ts                # REST-shaped facade (demo-backed)
-│  ├─ ws.ts                 # streaming client (demo-backed)
+│  ├─ api.ts                # REST-shaped facade (real backend + demo fallback)
+│  ├─ ws.ts                 # streaming client (real reconnecting WebSocket)
 │  ├─ store.tsx             # zustand stores (auth + trading state)
 │  ├─ schemas.ts            # zod schemas / shared types
-│  └─ demo/                 # engine, feed, candles, instruments, bundled data
+│  └─ demo/                 # paper-trading engine, bundled OHLC fallback
 └─ styles/
 scripts/
-└─ fetch-demo-data.mjs      # refresh the bundled real OHLC
+└─ fetch-demo-data.mjs      # refresh the bundled demo OHLC
+backend/                    # FastAPI + CryptoFeed market-data service
+├─ app/
+│  ├─ main.py                # app assembly, CORS, feed supervisor startup
+│  ├─ api/                   # market_data.py (REST), ws_gateway.py (WebSocket)
+│  ├─ historical/            # per-exchange REST clients + timeframe mapping
+│  ├─ feeds/                 # CryptoFeed wiring (Binance, OKX)
+│  ├─ symbols.py             # symbol registry + trading metadata
+│  ├─ store.py / bus.py      # in-memory latest-state cache + WS pub/sub
+│  └─ schemas.py             # pydantic response/event models
+├─ tests/
+└─ Dockerfile
+nginx.conf                  # frontend container's /api, /ws reverse proxy
+docker-compose.yml          # frontend + backend, wired via nginx.conf
 ```
 
-## Refreshing the bundled market data
+## Running with Docker
+
+```bash
+docker compose up --build
+```
+
+This builds and runs both services:
+
+- **`backend`** — the FastAPI service, published on `:3000`.
+- **`frontend`** — the production build served by nginx on `:8080`, which
+  reverse-proxies `/api` and `/ws` to the `backend` service over the compose
+  network (see [`nginx.conf`](nginx.conf)). The browser only ever talks to
+  `:8080` — REST and WebSocket both go through the same origin, mirroring
+  `vite.config.ts`'s dev proxy so no frontend code needs to know about the
+  container topology.
+
+Rebuild (`docker compose build`) whenever `Dockerfile`, `backend/Dockerfile`,
+`backend/pyproject.toml`, `nginx.conf`, or `package*.json` changes — see
+[AGENTS.md](AGENTS.md#local-dev-vs-docker) for the full local-dev-vs-Docker
+guidance.
+
+## Refreshing the bundled demo data
 
 The demo OHLC lives in `src/services/demo/data/` as JSON and is fetched from the
 public **Binance klines** endpoint (no API key required):
@@ -190,8 +275,11 @@ files. The data is genuine market history — Xee.Labs never ships synthetic can
 
 ## Bring your own data / backend
 
-To connect Xee.Labs to real (or your own simulated) data, implement two files
-against your APIs — the rest of the app is untouched:
+Xee.Labs ships with its own market-data backend (`backend/`), but the frontend
+doesn't hard-depend on it — the UI only ever talks to two facade files, so
+pointing it at a different backend (a different exchange, your own trading
+backend, a paper-trading service, …) means implementing those two files against
+your APIs — the rest of the app is untouched:
 
 1. **`src/services/api.ts`** — the request/response methods the UI calls
    (`getSymbols`, `getCandles`, `placeOrder`, `getPositions`, `closePosition`, …).
@@ -202,14 +290,22 @@ against your APIs — the rest of the app is untouched:
    events on the `market-data` / `positions` / `orders` / `account` channels.
 
 `src/components/MarketDataBridge.tsx` shows exactly which events the UI consumes.
+See [docs/architecture/DATA-FLOW.md](docs/architecture/DATA-FLOW.md) for the full
+contract the bundled `backend/` already implements.
 
 ## Adding instruments
 
-Demo instruments are defined in `src/services/demo/instruments.ts`. To add one:
+Two separate symbol registries exist today — the bundled backend's (what the
+live terminal actually uses) and the demo fallback's:
 
-1. Add a `Symbol` entry (name, tick size, contract size, etc.).
-2. Add its trading pair to the `SYMBOLS` map in `scripts/fetch-demo-data.mjs`.
-3. Run `node scripts/fetch-demo-data.mjs` to fetch and bundle its history.
+- **Real backend** — `backend/app/symbols.py` builds the registry from
+  `SYMBOL_BASES` in `backend/app/config.py` (currently `BTC`, `ETH`) crossed
+  with the supported exchanges. Add a base there, add its trading metadata to
+  `_TRADING_META` in `symbols.py`, and add a display name to `_DISPLAY_NAMES`.
+- **Demo fallback** — instruments are defined in `src/services/demo/instruments.ts`:
+  1. Add a `Symbol` entry (name, tick size, contract size, etc.).
+  2. Add its trading pair to the `SYMBOLS` map in `scripts/fetch-demo-data.mjs`.
+  3. Run `node scripts/fetch-demo-data.mjs` to fetch and bundle its history.
 
 ## Scripts
 
@@ -221,10 +317,14 @@ Demo instruments are defined in `src/services/demo/instruments.ts`. To add one:
 | `npm run typecheck` | Type-check the project with `tsc` |
 | `npm run test` | Run the unit test suite (Vitest) |
 | `npm run test:watch` | Run tests in watch mode |
-| `node scripts/fetch-demo-data.mjs` | Refresh bundled real OHLC |
+| `node scripts/fetch-demo-data.mjs` | Refresh bundled demo OHLC |
+| `docker compose up --build` | Build and run frontend + backend together |
+| `cd backend && uvicorn app.main:app --reload --port 3000` | Run the backend alone (hot reload) |
+| `cd backend && pytest` | Run the backend test suite |
 
 ## Tech stack
 
+**Frontend**
 - **React 19** + **TypeScript** + **Vite 6**
 - **lightweight-charts** (+ custom plugins) for the chart engine
 - **Zustand** for state, **TanStack Query** for data caching
@@ -232,16 +332,31 @@ Demo instruments are defined in `src/services/demo/instruments.ts`. To add one:
 - **Zod** for schema validation
 - **Vitest** + **Testing Library** for tests
 
+**Backend** (`backend/`)
+- **FastAPI** + **CryptoFeed** for the REST API and WebSocket gateway
+- **httpx** for the per-exchange historical-candle REST clients
+- **pytest** + **pytest-asyncio** for tests
+
 ## Known limitations
 
-- **Demo state is ephemeral** — positions, orders, and account balance reset on
-  reload (chart drawings and templates persist via `localStorage`).
-- **Timeline is normalized** — bundled history is shifted so the latest bar is
-  "now". OHLC values are real; the timestamps are remapped to feel live.
-- **Crypto-only demo symbols** out of the box (the bundled data source is Binance).
-  Wire your own adapter for FX, futures, or equities.
+- **Paper-trading state is ephemeral** — positions, orders, and account balance
+  reset on reload (chart drawings and templates persist via `localStorage`).
+  This is true regardless of whether market data comes from the real backend or
+  demo mode — there is no trading backend yet, only a market-data one.
+- **The real backend has no persistence** — symbols, candles, and ticks are
+  served from public exchange APIs and an in-memory cache; nothing is written to
+  a database, and a restart loses all in-memory state (candles simply
+  re-fetch from the exchange on the next request).
+- **Crypto perpetuals only** — both the real backend (Binance/OKX BTC and ETH
+  perpetual futures) and the demo fallback (Binance spot) are crypto-only out of
+  the box. Wire your own adapter for FX, futures, or equities.
+- **Demo mode's timeline is normalized** — its bundled history is shifted so the
+  latest bar is "now." OHLC values are real; only the demo timestamps are
+  remapped to feel live. The real backend has no such shift — its timestamps are
+  genuine.
 - The production `build` runs Vite only; run `npm run typecheck` separately for
-  full type checking.
+  full type checking (currently fails with pre-existing errors inherited from
+  this app's previous incarnation — see [AGENTS.md](AGENTS.md)).
 
 ## Contributing
 

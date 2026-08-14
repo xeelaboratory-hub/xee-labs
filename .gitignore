@@ -10,6 +10,10 @@ coverage
 playwright-report
 test-results
 
+# local docker-compose overrides (e.g. alternate host ports for testing) —
+# never intended to be committed
+docker-compose.override.yml
+
 # backend (Python)
 backend/.venv
 **/__pycache__

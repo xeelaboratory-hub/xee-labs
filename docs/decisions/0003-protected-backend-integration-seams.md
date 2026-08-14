@@ -2,7 +2,19 @@
 
 ## Status
 
-Decided.
+Decided. **Partially acted on (2026-08-14):** the real-backend-integration
+scenario this decision anticipated has happened for market data — see
+[PROJECT-CONTEXT.md](../PROJECT-CONTEXT.md) and
+[architecture/OVERVIEW.md](../architecture/OVERVIEW.md). `services/api.ts`
+and `services/ws.ts` were reimplemented against a real backend (`backend/`)
+exactly as this decision's "Consequences" section describes, without
+touching UI components. One correction to the list below:
+`services/api/market-data.ts` was protected here as unused-but-kept
+groundwork — it is **no longer unused**; `services/api.ts` now calls it
+directly. Trading/accounts/auth remain demo-served, so the rest of the
+protected list (and `services/demo/*` staying kept) is still accurate as
+written. This note is a status update, not a decision reversal — the ADR
+below is left as originally written.
 
 ## Context
 
