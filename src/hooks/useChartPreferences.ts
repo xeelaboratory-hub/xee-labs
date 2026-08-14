@@ -58,8 +58,8 @@ type TraderPrefs = Record<string, string>;
 const CHART_PREFS_UPDATED_EVENT = "chart-preferences-updated";
 
 const DEFAULT_CHART_PREFS: ChartPreferences = {
-  showBidLine: true,
-  showAskLine: true,
+  showBidLine: false,
+  showAskLine: false,
   overlayPositionsOnChart: true,
   drawingMagnet: false,
   magnetMode: "none",

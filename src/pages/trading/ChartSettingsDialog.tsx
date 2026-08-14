@@ -66,7 +66,7 @@ const RESET_BY_TAB: Partial<Record<TabId, Partial<ChartPreferences>>> = {
     colorTpLine: "",
     colorSlLine: "",
   },
-  trading: { showBidLine: true, showAskLine: true, overlayPositionsOnChart: true },
+  trading: { showBidLine: false, showAskLine: false, overlayPositionsOnChart: true },
   challenge: {
     challengeOverlay: true,
     challengeDailyLossLine: true,
