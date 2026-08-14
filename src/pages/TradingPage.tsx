@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsFeedConnected } from "../components/ConnectionIndicator.tsx";
+import { Footer } from "../components/Footer.tsx";
 import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import {
   OrderConfirmDialog,
@@ -699,6 +700,9 @@ export function TradingPage() {
         symbolInfo={symbolInfo}
         loading={confirmLoading}
       />
+
+      {/* ── Footer ──────────────────────────────────────── */}
+      <Footer />
     </div>
   );
 }
