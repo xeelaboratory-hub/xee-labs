@@ -81,7 +81,7 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   chartTemplateAutosave: false,
   showWicks: true,
   showCandleBorders: true,
-  showVolume: true,
+  showVolume: false,
   showWatermark: false,
   showCountdown: true,
   showOhlcLegend: true,
