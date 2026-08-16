@@ -2,19 +2,29 @@
 
 ## Status
 
-Decided. **Partially acted on (2026-08-14):** the real-backend-integration
-scenario this decision anticipated has happened for market data — see
-[PROJECT-CONTEXT.md](../PROJECT-CONTEXT.md) and
-[architecture/OVERVIEW.md](../architecture/OVERVIEW.md). `services/api.ts`
-and `services/ws.ts` were reimplemented against a real backend (`backend/`)
-exactly as this decision's "Consequences" section describes, without
-touching UI components. One correction to the list below:
-`services/api/market-data.ts` was protected here as unused-but-kept
-groundwork — it is **no longer unused**; `services/api.ts` now calls it
-directly. Trading/accounts/auth remain demo-served, so the rest of the
-protected list (and `services/demo/*` staying kept) is still accurate as
-written. This note is a status update, not a decision reversal — the ADR
-below is left as originally written.
+**Superseded (2026-08-16, Phase 4).** The real-backend-integration scenario
+this decision anticipated is now fully complete, not just for market data
+but for auth/accounts/trading too — see [PROJECT-CONTEXT.md](../PROJECT-CONTEXT.md)
+and [architecture/OVERVIEW.md](../architecture/OVERVIEW.md). `services/demo/*`
+— the one thing this ADR protected outright, independent of the market-data
+migration — has been **deleted**, along with the `services/api.ts` fallback
+to `demoApi` and the `benign` no-op for unimplemented methods. This was a
+deliberate reversal of this ADR's "worth keeping even after a real backend
+exists" stance on `services/demo/*`, made explicitly by the project owner
+when scoping Phase 4 (real auth + real OKX trading made the demo layer's
+offline/fallback role fully redundant).
+
+What's still accurate from the list below: `services/api/request.ts`,
+`services/api.ts`, `services/ws.ts`, and `services/schemas.ts` are still the
+integration seam — they were reimplemented against real backends (auth,
+OKX trading, market data), not deleted, exactly as this ADR's "Consequences"
+intended. `services/api/accounts.ts`, `services/api/auth.ts`, and
+`services/api/journal.ts` — listed here as protected or as unused-but-kept —
+turned out to have zero real UI consumers once replay was also removed, and
+were deleted along with `services/demo/*`.
+
+This page is kept for historical context (why the demo layer existed and was
+protected for as long as it was) — it's not an active constraint anymore.
 
 ## Context
 
