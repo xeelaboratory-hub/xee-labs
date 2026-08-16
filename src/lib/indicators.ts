@@ -259,7 +259,7 @@ export function vwap(candles: CandleData[]): IndicatorPoint[] {
 }
 
 // ── Indicator Registry (for UI) ──────────────────────────────
-export type IndicatorType = "SMA" | "EMA" | "RSI" | "MACD" | "BOLL" | "ATR" | "STOCH" | "VWAP";
+export type IndicatorType = "SMA" | "EMA" | "RSI" | "MACD" | "BOLL" | "ATR" | "STOCH" | "VWAP" | "ETF_FLOW";
 
 export type IndicatorPane = "overlay" | "below";
 
@@ -327,5 +327,14 @@ export const INDICATOR_REGISTRY: IndicatorConfig[] = [
     pane: "overlay",
     defaultParams: {},
     color: "#42a5f5",
+  },
+  {
+    type: "ETF_FLOW",
+    label: "ETF Flow (BTC)",
+    pane: "overlay",
+    defaultParams: {},
+    // Used only for this toggle menu's dot; actual markers are green/red
+    // per-value, computed in useIndicators.ts from the chart's up/down colors.
+    color: "#0ecb81",
   },
 ];

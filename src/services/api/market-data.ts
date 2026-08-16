@@ -51,6 +51,13 @@ export interface MarketDataTick {
   timestamp?: number | string;
 }
 
+export interface EtfFlow {
+  flowDate: string;
+  totalNetFlow: number;
+  observedAt: string | null;
+  updatedAt: string;
+}
+
 export interface EconomicEvent {
   id: string;
   time: string;
@@ -132,4 +139,12 @@ export const marketdataApi = {
   },
 
   getMarketDataStaleness: () => request<Record<string, unknown>>("/market-data/staleness"),
+
+  getEtfFlows: (from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const qs = params.toString();
+    return request<EtfFlow[]>(`/market-data/etf-flows${qs ? `?${qs}` : ""}`);
+  },
 };

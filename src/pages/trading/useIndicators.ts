@@ -13,8 +13,10 @@ import {
   INDICATOR_REGISTRY,
   type IndicatorType,
 } from "../../lib/indicators.ts";
-import { toIndicatorCandles } from "./utils.ts";
+import { toIndicatorCandles, computeEtfFlowMarkers } from "./utils.ts";
 import { CHART_COLORS } from "./constants.ts";
+import type { Timeframe } from "./constants.ts";
+import type { EtfFlow } from "../../services/api/market-data.ts";
 
 export function useIndicators(
   chartRef: React.RefObject<IChartApi | null>,
@@ -22,6 +24,8 @@ export function useIndicators(
   chartData: CandlestickData<Time>[],
   activeIndicators: IndicatorType[],
   isDark: boolean,
+  etfFlowData: EtfFlow[] | undefined,
+  timeframe: Timeframe,
 ): void {
   const indicatorSeriesRef = useRef<Map<string, ISeriesApi<"Line"> | ISeriesApi<"Histogram">>>(
     new Map(),
@@ -198,7 +202,17 @@ export function useIndicators(
         }
       }
     }
+
+    // ETF Flow markers — native series markers on the candle series itself,
+    // not a Line/Histogram series, so it lives outside indicatorSeriesRef.
+    // setMarkers() replaces the whole set (v4.2 semantics, nothing else in
+    // the app calls it), so this must run unconditionally every effect pass.
+    if (!activeIndicators.includes("ETF_FLOW") || !etfFlowData?.length) {
+      candleSeriesRef.current.setMarkers([]);
+    } else {
+      candleSeriesRef.current.setMarkers(computeEtfFlowMarkers(etfFlowData, chartData, timeframe, colors));
+    }
     // chartRef/candleSeriesRef are stable refs; colors derived from isDark dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndicators, chartData, isDark]);
+  }, [activeIndicators, chartData, isDark, etfFlowData, timeframe]);
 }

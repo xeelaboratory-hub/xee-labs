@@ -39,7 +39,7 @@ import { TooltipPrimitive } from "../../lib/chart-plugins/tooltip/tooltip.ts";
 import type { IndicatorType } from "../../lib/indicators.ts";
 import { cn } from "../../lib/utils.ts";
 import { api } from "../../services/api.ts";
-import { queryKeys } from "../../services/queries.ts";
+import { queryKeys, useEtfFlows } from "../../services/queries.ts";
 import type { Candle, Order, Position, Symbol } from "../../services/schemas.ts";
 import { toast } from "../../services/toast.ts";
 import {
@@ -1273,7 +1273,8 @@ export function ChartPanel({
     [onAddDrawing, pipDigits, timeframe, selectedSymbol],
   );
 
-  useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark);
+  const { data: etfFlowData } = useEtfFlows();
+  useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, etfFlowData, timeframe);
 
   // ── Candle close countdown timer ───────────────────────────
   useEffect(() => {

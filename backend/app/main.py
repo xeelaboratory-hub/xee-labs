@@ -10,6 +10,7 @@ from app.api.market_data import router as market_data_router
 from app.api.trading import router as trading_router
 from app.api.ws_gateway import router as ws_router
 from app.auth.router import router as auth_router
+from app.db.etf_flow_listener import run_etf_flow_listener
 from app.feeds.cryptofeed_runner import run_supervised_feed
 
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +22,7 @@ _EXCHANGES = ("binance", "okx")
 async def lifespan(app: FastAPI):
     stop_event = asyncio.Event()
     tasks = [asyncio.create_task(run_supervised_feed(exchange, stop_event)) for exchange in _EXCHANGES]
+    tasks.append(asyncio.create_task(run_etf_flow_listener(stop_event)))
     try:
         yield
     finally:

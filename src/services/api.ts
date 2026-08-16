@@ -74,6 +74,7 @@ const realImplementation = {
   getCandlesWithMeta: marketdataApi.getCandlesWithMeta,
   getMarketDataHealth: marketdataApi.getMarketDataHealth,
   getEconomicCalendar: marketdataApi.getEconomicCalendar,
+  getEtfFlows: marketdataApi.getEtfFlows,
 
   // ── Trading (OKX, via backend) ──
   getAccount: (mode: TradingMode) => request<Account>(`/account?mode=${mode}`),

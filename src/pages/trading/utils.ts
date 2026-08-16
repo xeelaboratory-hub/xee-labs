@@ -1,5 +1,6 @@
-import type { CandlestickData, Time } from "lightweight-charts";
+import type { CandlestickData, SeriesMarker, Time } from "lightweight-charts";
 import type { CandleData } from "../../lib/indicators.ts";
+import type { EtfFlow } from "../../services/api/market-data.ts";
 import { KNOWN_CURRENCIES } from "./constants.ts";
 import type { Timeframe } from "./constants.ts";
 
@@ -96,4 +97,78 @@ export function getCandleBucketTime(timestampMs: number, tf: Timeframe): number 
   };
   const ms = intervals[tf];
   return Math.floor((Math.floor(timestampMs / ms) * ms) / 1000);
+}
+
+/**
+ * Historical ETF Flow backfill rows have no real observation timestamp
+ * (Farside publishes by date only). This computes a synthetic, display-only
+ * anchor — flow_date @ 07:00 Asia/Jerusalem, DST-aware — for marker
+ * placement only; it must never be persisted as `observed_at`. No date
+ * library exists in this repo, so this uses the native Intl.DateTimeFormat
+ * offset trick rather than adding one.
+ */
+export function flowDateToIsraelMorningUtcMs(flowDate: string): number {
+  const [y, m, d] = flowDate.split("-").map(Number);
+  const naiveUtcMs = Date.UTC(y!, m! - 1, d!, 7, 0, 0);
+  const offsetMs = getTimeZoneOffsetMs("Asia/Jerusalem", naiveUtcMs);
+  return naiveUtcMs - offsetMs;
+}
+
+/** Offset (ms) of `timeZone` from UTC at the instant `atUtcMs`, DST-aware. */
+function getTimeZoneOffsetMs(timeZone: string, atUtcMs: number): number {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const parts = Object.fromEntries(dtf.formatToParts(new Date(atUtcMs)).map((p) => [p.type, p.value]));
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return asUtc - atUtcMs;
+}
+
+/**
+ * Pure marker-array computation for the ETF Flow indicator — extracted from
+ * useIndicators.ts so it's independently testable without a live chart.
+ * 0 and missing values produce no marker; markers only appear for times that
+ * match an already-loaded candle (lightweight-charts v4.2 requirement), and
+ * are returned sorted ascending (also a v4.2 requirement for setMarkers()).
+ */
+export function computeEtfFlowMarkers(
+  etfFlowData: EtfFlow[],
+  chartData: CandlestickData<Time>[],
+  timeframe: Timeframe,
+  colors: { up: string; down: string },
+): SeriesMarker<Time>[] {
+  const loadedTimes = new Set(chartData.map((c) => c.time as number));
+  const markers: SeriesMarker<Time>[] = [];
+
+  for (const flow of etfFlowData) {
+    if (flow.totalNetFlow === 0) continue;
+    const anchorMs =
+      flow.observedAt != null ? new Date(flow.observedAt).getTime() : flowDateToIsraelMorningUtcMs(flow.flowDate);
+    const bucketTime = getCandleBucketTime(anchorMs, timeframe);
+    if (!loadedTimes.has(bucketTime)) continue;
+    markers.push({
+      time: bucketTime as Time,
+      position: flow.totalNetFlow > 0 ? "belowBar" : "aboveBar",
+      shape: flow.totalNetFlow > 0 ? "arrowUp" : "arrowDown",
+      color: flow.totalNetFlow > 0 ? colors.up : colors.down,
+      id: flow.flowDate,
+    });
+  }
+
+  markers.sort((a, b) => (a.time as number) - (b.time as number));
+  return markers;
 }
