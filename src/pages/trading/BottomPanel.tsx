@@ -1,21 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { TrendingUp, Clock, History, Globe, Newspaper, Bot } from "lucide-react";
-import { useAuthStore } from "../../services/store.tsx";
-import { useTradingStore } from "../../services/store.tsx";
-import {
-  useCancelOrder,
-  useClosePosition,
-  useCloseAllPositions,
-  useClosedPositions,
-} from "../../services/queries.ts";
-import type {
-  JournalEntry,
-  CreateJournalEntryInput,
-  UpdateJournalEntryInput,
-} from "../../services/api/journal.ts";
-import type { Account, ClosedPosition, Order, Position } from "../../services/schemas.ts";
+import { useCancelOrder, useClosePosition, useCloseAllPositions, useTradeHistory } from "../../services/queries.ts";
+import type { Order, Position, TradingMode } from "../../services/schemas.ts";
 import { Button } from "../../components/ui/button.tsx";
-import { TradeJournalPanel } from "../../components/TradingDialogs.tsx";
 import { AiTraderPanel } from "../AiTraderPage.tsx";
 import { TradingViewEconomicCalendar } from "../../components/TradingViewWidgets.tsx";
 import { toast } from "../../services/toast.ts";
@@ -24,13 +11,12 @@ import { MOCK_EVENTS, MOCK_NEWS } from "./constants.ts";
 import { PositionsTable } from "./PositionsTable.tsx";
 import { OrdersTable } from "./OrdersTable.tsx";
 import { computeLivePnl, computeLivePrice } from "../../lib/livePnl.ts";
+import { useTradingStore } from "../../services/store.tsx";
 
 type TradingActionError = {
   error?: { message?: string };
   message?: string;
 };
-
-type AccountOption = Pick<Account, "id"> & { label?: string | null };
 
 function getErrorMessage(error: unknown): string {
   const actionError = error as TradingActionError;
@@ -38,22 +24,15 @@ function getErrorMessage(error: unknown): string {
 }
 
 export interface BottomPanelProps {
-  tab: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "ai-trader";
-  onTabChange: (
-    t: "positions" | "orders" | "history" | "journal" | "calendar" | "news" | "ai-trader",
-  ) => void;
+  tab: "positions" | "orders" | "history" | "calendar" | "news" | "ai-trader";
+  onTabChange: (t: "positions" | "orders" | "history" | "calendar" | "news" | "ai-trader") => void;
   positions: Position[];
   orders: Order[];
-  accountId: string | null;
+  mode: TradingMode;
   onModifyPosition?: (position: Position) => void;
   onModifyOrder?: (order: Order) => void;
   onSelectPositionSymbol?: (symbolName: string) => void;
   onSelectOrderSymbol?: (symbolName: string) => void;
-  journalEntries: JournalEntry[];
-  journalLoading: boolean;
-  onCreateJournal: (data: CreateJournalEntryInput) => void;
-  onUpdateJournal: (id: string, data: UpdateJournalEntryInput) => void;
-  onDeleteJournal: (id: string) => void;
   aiTraderEnabled?: boolean;
   height?: number;
   isFeedConnected?: boolean;
@@ -64,39 +43,29 @@ export function BottomPanel({
   onTabChange,
   positions,
   orders,
-  accountId,
+  mode,
   onModifyPosition,
   onModifyOrder,
   onSelectPositionSymbol,
   onSelectOrderSymbol,
-  journalEntries,
-  journalLoading,
-  onCreateJournal,
-  onUpdateJournal,
-  onDeleteJournal,
   aiTraderEnabled,
   height = 220,
   isFeedConnected = true,
 }: BottomPanelProps) {
-  const isDemo = useAuthStore((s) => s.isDemo);
   const cancelOrder = useCancelOrder();
   const closePosition = useClosePosition();
   const closeAllPositions = useCloseAllPositions();
-  const accounts = useTradingStore((s) => s.accounts as AccountOption[]);
-  const activeAccount = accounts.find((account) => account.id === accountId);
 
   const handleCancel = (orderId: string) => {
-    if (!accountId || isDemo) {
-      if (isDemo) toast.warning("Demo Mode", "Trading actions are disabled in demo mode");
-      return;
-    }
     if (!isFeedConnected) {
       toast.warning("No Data Feed", "Cannot cancel orders while disconnected");
       return;
     }
     if (cancelOrder.isPending) return;
+    const symbol = orders.find((o) => o.id === orderId)?.symbolName;
+    if (!symbol) return;
     cancelOrder.mutate(
-      { orderId, accountId },
+      { orderId, mode, symbol },
       {
         onSuccess: () => toast.info("Order Cancelled", "Pending order has been cancelled"),
         onError: (err: unknown) => toast.error("Cancel Failed", getErrorMessage(err)),
@@ -105,17 +74,13 @@ export function BottomPanel({
   };
 
   const handleClosePosition = (positionId: string) => {
-    if (!accountId || isDemo) {
-      if (isDemo) toast.warning("Demo Mode", "Trading actions are disabled in demo mode");
-      return;
-    }
     if (!isFeedConnected) {
       toast.warning("No Data Feed", "Cannot close positions while disconnected");
       return;
     }
     if (closePosition.isPending) return;
     closePosition.mutate(
-      { positionId, accountId },
+      { positionId, mode },
       {
         onSuccess: () => toast.success("Position Closed", "Position has been closed"),
         onError: (err: unknown) => toast.error("Close Failed", getErrorMessage(err)),
@@ -124,17 +89,13 @@ export function BottomPanel({
   };
 
   const handlePartialClose = (positionId: string, quantity: number) => {
-    if (!accountId || isDemo) {
-      if (isDemo) toast.warning("Demo Mode", "Trading actions are disabled in demo mode");
-      return;
-    }
     if (!isFeedConnected) {
       toast.warning("No Data Feed", "Cannot close positions while disconnected");
       return;
     }
     if (closePosition.isPending) return;
     closePosition.mutate(
-      { positionId, accountId, quantity },
+      { positionId, mode, quantity },
       {
         onSuccess: () =>
           toast.success("Partial Close", `Closed ${quantity} lot(s) of the position`),
@@ -144,18 +105,17 @@ export function BottomPanel({
   };
 
   const handleCloseAll = () => {
-    if (!accountId || isDemo) {
-      if (isDemo) toast.warning("Demo Mode", "Trading actions are disabled in demo mode");
-      return;
-    }
     if (!isFeedConnected) {
       toast.warning("No Data Feed", "Cannot close positions while disconnected");
       return;
     }
-    closeAllPositions.mutate(accountId, {
-      onSuccess: () => toast.success("All Closed", "All positions have been closed"),
-      onError: (err: unknown) => toast.error("Close All Failed", getErrorMessage(err)),
-    });
+    closeAllPositions.mutate(
+      { mode, positionIds: positions.filter((p) => p.quantity > 0).map((p) => p.id) },
+      {
+        onSuccess: () => toast.success("All Closed", "All positions have been closed"),
+        onError: (err: unknown) => toast.error("Close All Failed", getErrorMessage(err)),
+      },
+    );
   };
 
   const ticks = useTradingStore((s) => s.ticks);
@@ -184,7 +144,6 @@ export function BottomPanel({
     { key: "positions", label: "Positions", icon: TrendingUp, count: openPositions.length },
     { key: "orders", label: "Orders", icon: Clock, count: pendingOrders.length },
     { key: "history", label: "Trade History", icon: History },
-    // { key: "journal", label: "Journal", icon: BookOpen }, // hidden pending QA (PS-285)
     { key: "calendar", label: "Calendar", icon: Globe },
     { key: "news", label: "News", icon: Newspaper },
     ...(aiTraderEnabled ? [{ key: "ai-trader" as const, label: "AI Trader", icon: Bot }] : []),
@@ -229,18 +188,17 @@ export function BottomPanel({
               size="sm"
               onClick={handleCloseAll}
               className="text-[10px] h-5"
-              disabled={closeAllPositions.isPending || isDemo || !isFeedConnected}
+              disabled={closeAllPositions.isPending || !isFeedConnected}
             >
               Close All
             </Button>
           </div>
         )}
 
-        {activeAccount &&
-          (tab === "positions" || tab === "orders" || tab === "history") &&
+        {(tab === "positions" || tab === "orders" || tab === "history") &&
           !(tab === "positions" && openPositions.length > 0) && (
-            <span className="ml-auto text-[10px] text-muted-foreground font-mono px-2">
-              {activeAccount.label || accountId?.slice(0, 8)}
+            <span className="ml-auto text-[10px] text-muted-foreground font-mono px-2 uppercase">
+              {mode}
             </span>
           )}
       </div>
@@ -264,63 +222,19 @@ export function BottomPanel({
             onSelectSymbol={onSelectOrderSymbol}
           />
         )}
-        {tab === "history" && <TradeHistoryTable accountId={accountId} />}
-        {tab === "journal" && (
-          <TradeJournalPanel
-            entries={journalEntries}
-            isLoading={journalLoading}
-            accountId={accountId}
-            onCreateEntry={
-              onCreateJournal as unknown as (
-                data: Partial<{ notes: string; tags: string[] }> & {
-                  notes: string;
-                  tags: string[];
-                },
-              ) => void
-            }
-            onUpdateEntry={
-              onUpdateJournal as unknown as (
-                id: string,
-                data: Partial<{ notes: string; tags: string[] }> & {
-                  notes: string;
-                  tags: string[];
-                },
-              ) => void
-            }
-            onDeleteEntry={onDeleteJournal}
-          />
-        )}
+        {tab === "history" && <TradeHistoryTable mode={mode} />}
         {tab === "calendar" && <EconomicCalendar />}
         {tab === "news" && <NewsFeed />}
-        {tab === "ai-trader" && <AiTraderPanel accountId={accountId} />}
+        {tab === "ai-trader" && <AiTraderPanel mode={mode} />}
       </div>
     </div>
   );
 }
 
 // ── Trade History Table ──────────────────────────────────────
-function TradeHistoryTable({ accountId }: { accountId: string | null }) {
-  const [page, setPage] = useState(1);
-  const { data: closedData, isLoading } = useClosedPositions(accountId, page);
-  const trades: ClosedPosition[] = closedData?.data || [];
-  const totalPages = closedData?.totalPages || 1;
-  const accounts = useTradingStore((s) => s.accounts as AccountOption[]);
-  const activeAccount = accounts.find((account) => account.id === accountId);
+function TradeHistoryTable({ mode }: { mode: TradingMode }) {
+  const { data: trades = [], isLoading } = useTradeHistory(mode);
 
-  const prevAccRef = useRef(accountId);
-  useEffect(() => {
-    if (prevAccRef.current !== accountId) {
-      setPage(1);
-      prevAccRef.current = accountId;
-    }
-  }, [accountId]);
-
-  if (!accountId)
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
-        Select an account
-      </div>
-    );
   if (isLoading)
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
@@ -330,8 +244,7 @@ function TradeHistoryTable({ accountId }: { accountId: string | null }) {
   if (trades.length === 0)
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
-        No trade history yet
-        {activeAccount ? ` for ${activeAccount.label || accountId?.slice(0, 8)}` : ""}
+        No trade history yet for {mode}
       </div>
     );
 
@@ -340,72 +253,31 @@ function TradeHistoryTable({ accountId }: { accountId: string | null }) {
       <table className="w-full text-[11px]">
         <thead className="sticky top-0 bg-card z-10">
           <tr>
-            <th>Closed</th>
+            <th>Time</th>
             <th>Symbol</th>
             <th>Side</th>
             <th>Volume</th>
-            <th>Entry</th>
-            <th>Exit</th>
-            <th>Commission</th>
-            <th>Gross P&L</th>
-            <th>Net P&L</th>
+            <th>Price</th>
+            <th>Fee</th>
+            <th>P&L</th>
           </tr>
         </thead>
         <tbody>
-          {trades.map((t) => {
-            const comm = t.commission ?? 0;
-            const gross = t.realizedPnl ?? 0;
-            const net = gross - comm;
-            return (
-              <tr key={t.id} className="hover:bg-secondary/30">
-                <td className="text-muted-foreground font-mono">
-                  {formatDate(t.closedAt || t.openedAt)}
-                </td>
-                <td className="font-semibold">{t.symbolName}</td>
-                <td className={t.side === "LONG" ? "text-buy" : "text-sell"}>{t.side}</td>
-                <td className="font-mono">{t.quantity}</td>
-                <td className="font-mono">{t.entryPrice ? formatNumber(t.entryPrice, 5) : "--"}</td>
-                <td className="font-mono">{t.exitPrice ? formatNumber(t.exitPrice, 5) : "--"}</td>
-                <td className="font-mono text-muted-foreground">
-                  {comm > 0 ? `-${comm.toFixed(2)}` : "0.00"}
-                </td>
-                <td
-                  className={cn(
-                    "font-mono",
-                    gross >= 0 ? "text-success/70" : "text-destructive/70",
-                  )}
-                >
-                  {`${gross >= 0 ? "+" : ""}${gross.toFixed(2)}`}
-                </td>
-                <td className={cn("font-mono font-semibold", pnlClass(net))}>
-                  {`${net >= 0 ? "+" : ""}${net.toFixed(2)}`}
-                </td>
-              </tr>
-            );
-          })}
+          {trades.map((t) => (
+            <tr key={t.id} className="hover:bg-secondary/30">
+              <td className="text-muted-foreground font-mono">{formatDate(t.timestamp)}</td>
+              <td className="font-semibold">{t.symbolName}</td>
+              <td className={t.side === "BUY" ? "text-buy" : "text-sell"}>{t.side}</td>
+              <td className="font-mono">{t.quantity}</td>
+              <td className="font-mono">{formatNumber(t.price, 5)}</td>
+              <td className="font-mono text-muted-foreground">{t.fee.toFixed(2)}</td>
+              <td className={cn("font-mono font-semibold", pnlClass(t.realizedPnl))}>
+                {`${t.realizedPnl >= 0 ? "+" : ""}${t.realizedPnl.toFixed(2)}`}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 py-1 border-t border-border text-[10px]">
-          <button
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page <= 1}
-            className="px-1.5 py-0.5 rounded bg-secondary hover:bg-secondary/80 disabled:opacity-40"
-          >
-            Prev
-          </button>
-          <span className="text-muted-foreground">
-            {page} / {totalPages}
-          </span>
-          <button
-            onClick={() => setPage(Math.min(totalPages, page + 1))}
-            disabled={page >= totalPages}
-            className="px-1.5 py-0.5 rounded bg-secondary hover:bg-secondary/80 disabled:opacity-40"
-          >
-            Next
-          </button>
-        </div>
-      )}
     </div>
   );
 }

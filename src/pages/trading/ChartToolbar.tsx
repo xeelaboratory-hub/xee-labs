@@ -44,12 +44,10 @@ import {
   type DrawingLine,
   type DrawingTool,
   type MagnetMode,
-  REPLAY_ENABLED,
   TIMEFRAMES,
   type Timeframe,
 } from "./constants.ts";
 import { ChartTemplatesMenu } from "./ChartTemplatesMenu.tsx";
-import { ReplayHUD } from "./ReplayHUD.tsx";
 
 export interface ChartToolbarProps {
   selectedSymbol: string;
@@ -91,9 +89,6 @@ export interface ChartToolbarProps {
     marginPercent?: number;
     commission?: number;
   };
-  isReplaying?: boolean;
-  /** Account whose sessions can be replayed — mounts the replay HUD when set. */
-  replayAccountId?: string | null;
   activePlugins?: string[];
   onTogglePlugin?: (id: string) => void;
   /** Replace the full indicator list (template load). Enables the templates menu. */
@@ -127,8 +122,6 @@ export function ChartToolbar({
   tick,
   symbolInfo,
   aiTraderEnabled,
-  isReplaying = false,
-  replayAccountId,
   activePlugins = [],
   onTogglePlugin,
   onSetIndicators,
@@ -269,29 +262,23 @@ export function ChartToolbar({
         </div>
       )}
 
-      {/* Timeframe Selector — locked to 1m while a replay session is active */}
+      {/* Timeframe Selector */}
       <div className="flex items-center gap-0.5 ml-1 shrink-0">
         {TIMEFRAMES.map((tf) => (
           <button
             key={tf}
             onClick={() => onTimeframeChange(tf)}
-            disabled={isReplaying}
-            title={isReplaying ? "Timeframe is fixed to 1m during replay" : undefined}
             className={cn(
               "px-2 py-1 rounded-md text-xs font-medium transition-all",
               tf === timeframe
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "hover:bg-secondary/80 text-muted-foreground hover:text-foreground",
-              isReplaying && "opacity-40 cursor-default",
             )}
           >
             {tf}
           </button>
         ))}
       </div>
-
-      {/* Session replay controls — disabled until the feature is QA'd */}
-      {REPLAY_ENABLED && replayAccountId != null && <ReplayHUD accountId={replayAccountId} />}
 
       {/* Chart layout templates (save/load/autosave) */}
       {onSetIndicators && onSetPlugins && (

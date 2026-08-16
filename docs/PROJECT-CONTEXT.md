@@ -8,11 +8,13 @@ when the project's goals, scope, or provenance change, not on every task.
 ## What this is
 
 **Xee.Labs** is a trading terminal: a candlestick chart (drawing tools,
-indicators, watchlist, depth-of-market, order panel) wired to an in-browser
-paper-trading engine, fed by a bundled real market-data backend (`backend/`,
-FastAPI + CryptoFeed) streaming live Binance and OKX perpetual futures. A
-backend-less demo mode (real historical OHLC, replayed forward) also exists
-as a fallback and offline/local-dev path. See
+indicators, watchlist, depth-of-market, order panel) wired to **real
+accounts and real order execution on OKX** (Demo Trading and Live Trading),
+fed by a bundled real market-data backend (`backend/`, FastAPI + CryptoFeed)
+streaming live Binance and OKX perpetual futures. There is no
+mock/demo/paper-trading fallback anywhere — every account, position, order,
+and fill shown in the terminal is a real round-trip to OKX's API for the
+credentials the signed-in user connected. See
 [architecture/OVERVIEW.md](architecture/OVERVIEW.md) for how that's built.
 
 ## Provenance (FACT)
@@ -60,11 +62,10 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
   are not yet defined. Treat this as the umbrella under which incremental UI
   work is currently happening, not as a fixed spec — check the issue itself
   or ask before assuming scope.
-- The real market-data backend goal referenced in earlier versions of this
-  doc has been delivered — see "Current implementation state" below. The
-  demo/replay engine's planned removal (once the real pipeline covers
-  everything it currently doesn't) is tracked as unscheduled work — see
-  "Known limitations / TODO" below.
+- **Phase 4 (real exchange integration, replacing the demo layer) is
+  complete** — see "Current implementation state" below. Order Book
+  persistence, Large Order Statistics, and ETF Flow were explicitly scoped
+  out of Phase 4 and are tracked as separate future work, not started.
 
 ## Current implementation state (FACT)
 
@@ -72,85 +73,86 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
   serves symbols and historical candles over REST, and live ticks + 1-minute
   candle updates over a WebSocket, for Binance and OKX perpetual futures
   (BTC, ETH on both exchanges; symbol ids are exchange-qualified, e.g.
-  `BINANCE:BTCUSD`, never merged across exchanges). `docker-compose.yml` +
-  `nginx.conf` run it alongside the frontend behind a single origin — nginx
-  reverse-proxies `/api` and `/ws` to the backend container, mirroring
-  `vite.config.ts`'s dev proxy. See
-  [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
-- `services/api.ts` routes market-data methods (`getSymbols`, `getCandles`,
-  `getCandlesWithMeta`, `getTick`) to this real backend; `services/ws.ts` is
-  a real reconnecting WebSocket client. **Everything else the terminal
-  needs — auth, accounts, orders/positions, journal, chart drawings,
-  preferences — is still served by `services/demo/*`.** There is no
-  trading/accounts/auth backend yet, only a market-data one.
-- `services/demo/engine.ts` is still the paper-trading engine — an in-browser
-  module-scoped singleton (resets on refresh, starts fully funded) — but it's
-  now fed real prices from the backend's live ticks (via `services/ws.ts`)
-  instead of the old replayed tick stream. `services/demo/feed.ts` itself has
-  no remaining importers — it's dead code left on disk pending the Phase 4
-  demo-removal cleanup (see below).
+  `BINANCE:BTCUSD`, never merged across exchanges).
+- **The same backend also owns auth, users, and OKX trading** — Postgres
+  (`users`, `refresh_tokens`, `exchange_credentials` tables, Alembic
+  migrations) backs real multi-user registration/login (JWT access tokens +
+  rotating, revocable refresh tokens), and per-user encrypted OKX API
+  credentials (Fernet, server-side key) drive real account balance,
+  positions, open orders, place/cancel order, close position, and trade
+  history calls against OKX's REST API — both OKX **Demo Trading** and
+  **Live Trading** environments, selected per-request via a `mode` param
+  (`demo` | `live`), never mixed.
+- `docker-compose.yml` runs three services — `postgres` (internal only),
+  `backend` (runs `alembic upgrade head` automatically on container start,
+  then serves on `:3000`), and `frontend` (nginx on `:8080`, reverse-proxying
+  `/api`/`/ws` to `backend`). See [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
+- `services/api.ts` calls the real backend for everything the UI needs — no
+  Proxy fallback, no mock data. A method with no real backend implementation
+  (leaderboards, competitions, AI-trader, bot integrations, trade journal,
+  and other PropSim-era surface with zero UI consumers) throws a clear "not
+  implemented" error instead of silently no-op'ing.
+- There is **no paper-trading engine anymore** — `services/demo/*` was
+  deleted in Phase 4, along with the session-replay feature and the dead
+  `services/api/{auth,journal,accounts}.ts` REST wrappers.
 - Chart drawings, chart templates, and chart preferences persist to
-  `localStorage` only — no backend involved even in concept.
-- `npm run typecheck` currently fails with pre-existing errors in
-  `services/queries.ts` / `services/store.tsx`, inherited from the PropSim
-  fork. Not expected to be fixed incidentally by unrelated work.
+  `localStorage` only — no backend involved even in concept. (This was true
+  before Phase 4 too and didn't change.)
+- `npm run typecheck` currently fails with pre-existing errors confined to
+  `src/services/queries.ts` and `src/hooks/useTraderPreferences.ts` — both
+  are PropSim-fork leftovers with zero UI consumers for the affected code
+  paths (verified). Not expected to be fixed incidentally by unrelated work.
 - `npm run lint` has no ESLint config in the repo and fails immediately.
 
 ## Known limitations / intentional decisions (FACT)
 
-- Paper-trading account state (positions, orders, balance) is ephemeral and
-  resets on page reload, by design — true regardless of whether market data
-  is coming from the real backend or demo mode.
-- The demo fallback's bundled OHLC timeline is normalized — timestamps are
-  shifted so the latest bar aligns to "now," but the OHLC values themselves
-  are always genuine historical data, never synthetic. The real backend has
-  no such shift; its timestamps are genuine live data.
-- Crypto perpetuals only, on both data sources — the real backend serves
-  Binance/OKX BTC and ETH perpetual futures; the demo fallback is
-  Binance spot.
-- Session replay (`ReplayHUD`, `ReplayScrubber`, `useReplayChartData`/
-  `Playback`) is gated off via `REPLAY_ENABLED = false` in
-  `pages/trading/constants.ts`; its transport calls real `/api/...`
-  endpoints that don't exist in this build.
+- **OKX conditional/algo orders are not wired up.** STOP orders,
+  take-profit/stop-loss (on order placement or on an existing position), and
+  amending a pending order are all **disabled in the UI** with an explicit
+  "not supported yet" message — not silently dropped. Wiring these means
+  integrating OKX's `attachAlgoOrds` / conditional-order API, which is a
+  distinct, not-yet-scoped piece of work.
+- **No real-time push for positions/orders/account balance.** The backend's
+  `/ws` gateway only streams market data — OKX's private WS channels
+  (account/positions/orders) aren't wired in. The frontend keeps these fresh
+  via REST polling (30s interval) plus an immediate refetch after each
+  trading mutation.
+- Trade history comes from OKX's fills-history endpoint — a flat list of
+  individual executions (symbol, side, price, fee, realized P&L, timestamp),
+  not a paired open/close "closed position" record. OKX doesn't expose
+  position lifecycle pairing directly, so this is an honest single-price
+  trade log rather than a fabricated entry/exit pair.
+- Crypto perpetuals only — BTC and ETH on Binance and OKX. Wire your own
+  adapter for other assets or exchanges.
 - `src/pages/AiTraderPage.tsx` is two stub components returning `null` — the
   AI-trader feature is not part of this product.
 - `docs/components/COMPONENTS.md` catalogs every UI component with
-  screenshots and flags which are unreachable/dead in the current build.
+  screenshots and flags which are unreachable/dead in the current build —
+  note it predates Phase 4 and may reference removed demo-mode components.
 
 ## Known limitations / TODO (unscheduled — not a commitment)
 
-The following PropSim-era leftovers were identified as candidates for
-deletion, but nothing has been actioned — this is an agreed-but-not-yet-
-scoped backlog, not a plan:
-
 - `services/queries.ts` hooks with zero call sites: leaderboard/competitions/
   certificates, support tickets + coupons, bot integrations + push
-  notifications, profile/scaling/profit-split/account-merge (~30+ hooks
-  total across these groups).
+  notifications, profile/scaling/profit-split/account-merge, trade journal,
+  analytics, payouts (~60+ hooks total across these groups — grew after
+  Phase 4 removed the demo stubs that used to make some of them look live).
+  All throw a clear error via `services/api.ts` if ever called; none are.
 - AI-trader: the related `queries.ts` hooks plus `src/pages/AiTraderPage.tsx`.
-- `services/api/auth.ts` (MFA/devices/sessions), `services/api/journal.ts` —
-  unused REST wrappers; the demo layer stubs these instead.
-  (`services/api/market-data.ts` was on this list previously — it's no
-  longer unused, `services/api.ts` now calls it directly for real market
-  data.)
 - `googleLogin` in `services/store.tsx` — calls a real endpoint that doesn't
-  exist, fails silently.
-- The replay session feature needs an actual product decision, not just
-  cleanup: either delete it, or it's the first feature to wire up once a
-  backend covering accounts/replay sessions exists (distinct from the
-  market-data backend that exists today — its transport,
-  `accountsApi.replay*` in `services/api/accounts.ts`, calls real
-  `/api/...` endpoints that still don't exist).
-- **Demo layer removal (Phase 4)**: once the real backend covers everything
-  the demo layer currently provides, `services/demo/*`,
-  `scripts/fetch-demo-data.mjs`, and the `services/api.ts` fallback to
-  `demoApi` are intended to be deleted outright (not renamed-and-kept) — see
-  [decisions/0003](decisions/0003-protected-backend-integration-seams.md)'s
-  status note. Not started; no scope/timeline defined yet.
+  exist, fails silently. Predates Phase 4; Phase 4's real login/register flow
+  doesn't use it.
+- `useTraderPreferences.ts`'s `getPreferences`/`savePreferences` calls — the
+  hook that makes them (`useTraderPreferences()`) is never actually invoked
+  anywhere; only its sibling helper functions (`readTraderPrefs`,
+  `writeTraderPrefs`, both `localStorage`-only) are used directly.
+- OKX conditional/algo orders (STOP, TP/SL, amend order) — see "Known
+  limitations / intentional decisions" above. This is the main remaining
+  piece of real trading functionality, not cleanup.
+- Order Book persistence, Large Order Statistics, ETF Flow — explicitly out
+  of Phase 4's scope from the start; separate future initiatives.
 
-Before acting on any of this, confirm scope with the project owner — see
-[decisions/0003](decisions/0003-protected-backend-integration-seams.md) for
-what must **not** be touched under this same "cleanup" framing.
+Before acting on any of this, confirm scope with the project owner.
 
 ## Known documentation gaps
 

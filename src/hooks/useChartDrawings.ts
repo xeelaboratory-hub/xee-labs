@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DrawingLine } from "../pages/trading/constants";
-import { api } from "../services/api";
+import { localDrawings } from "../services/localDrawings";
 
 // One reversible mutation for the undo/redo stacks.
 type HistoryOp =
@@ -40,7 +40,7 @@ export function useChartDrawings(symbol: string, timeframe: string) {
     drawingsRef.current = [];
     undoStackRef.current = [];
     redoStackRef.current = [];
-    api.chartDrawings
+    localDrawings
       .list(symbol)
       .then((data) => {
         if (cancelled) return;
@@ -59,20 +59,20 @@ export function useChartDrawings(symbol: string, timeframe: string) {
   const applyAdd = useCallback((d: DrawingLine) => {
     drawingsRef.current = sortByZ([...drawingsRef.current, d]);
     setDrawings(drawingsRef.current);
-    api.chartDrawings.save(symbolRef.current, timeframeRef.current, d).catch(() => {});
+    localDrawings.save(symbolRef.current, timeframeRef.current, d).catch(() => {});
   }, []);
 
   // The drawings POST endpoint upserts by drawingId, so edits reuse save().
   const applyUpdate = useCallback((d: DrawingLine) => {
     drawingsRef.current = sortByZ(drawingsRef.current.map((x) => (x.id === d.id ? d : x)));
     setDrawings(drawingsRef.current);
-    api.chartDrawings.save(symbolRef.current, timeframeRef.current, d).catch(() => {});
+    localDrawings.save(symbolRef.current, timeframeRef.current, d).catch(() => {});
   }, []);
 
   const applyRemove = useCallback((id: string) => {
     drawingsRef.current = drawingsRef.current.filter((x) => x.id !== id);
     setDrawings(drawingsRef.current);
-    api.chartDrawings.remove(id).catch(() => {});
+    localDrawings.remove(symbolRef.current, id).catch(() => {});
   }, []);
 
   const pushHistory = useCallback((op: HistoryOp) => {
@@ -115,7 +115,7 @@ export function useChartDrawings(symbol: string, timeframe: string) {
     }
     drawingsRef.current = [];
     setDrawings([]);
-    api.chartDrawings.clear(symbolRef.current).catch(() => {});
+    localDrawings.clear(symbolRef.current).catch(() => {});
   }, [pushHistory]);
 
   // ── Undo / redo ──

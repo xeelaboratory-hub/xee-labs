@@ -19,81 +19,33 @@ export const AuthResponseSchema = z.object({
 });
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 
+// ── Trading mode: which OKX environment an action targets ──
+export const TradingModeSchema = z.enum(["demo", "live"]);
+export type TradingMode = z.infer<typeof TradingModeSchema>;
+
 // ── Accounts ──────────────────────────────────────────────
+// Backed by OKX's account/balance endpoint (backend/app/exchange/mapping.py
+// okx_balance_to_account) — no PropSim multi-account/challenge concept here,
+// just the live balance for whichever mode (demo|live) is selected.
 export const AccountSchema = z.object({
-  id: z.string(),
-  userId: z.string(),
-  templateId: z.string(),
-  label: z.string().nullable(),
-  status: z.string(),
   balance: z.number(),
   equity: z.number(),
   margin: z.number(),
   freeMargin: z.number(),
-  phase: z.string(),
-  startDate: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  isHftMode: z.boolean().optional().default(false),
-  template: z
-    .object({
-      name: z.string(),
-      startingBalance: z.number(),
-      instrumentType: z.enum(["FOREX", "FUTURES", "CRYPTO", "EQUITIES"]).optional(),
-    })
-    .optional(),
 });
 export type Account = z.infer<typeof AccountSchema>;
-
-export const AccountStatsSchema = z.object({
-  totalTrades: z.number(),
-  winRate: z.number(),
-  avgWin: z.number(),
-  avgLoss: z.number(),
-  profitFactor: z.number(),
-  bestTrade: z.number(),
-  worstTrade: z.number(),
-  sharpeRatio: z.number().optional(),
-  maxDrawdown: z.number().optional(),
-  expectancy: z.number().optional(),
-});
-export type AccountStats = z.infer<typeof AccountStatsSchema>;
-
-export const LedgerEntrySchema = z.object({
-  id: z.string(),
-  accountId: z.string(),
-  type: z.string(),
-  amount: z.number(),
-  balance: z.number(),
-  description: z.string().nullable(),
-  referenceId: z.string().nullable(),
-  createdAt: z.string(),
-});
-export type LedgerEntry = z.infer<typeof LedgerEntrySchema>;
-
-export const EquityPointSchema = z.object({
-  equity: z.number(),
-  balance: z.number(),
-  timestamp: z.string(),
-});
-export type EquityPoint = z.infer<typeof EquityPointSchema>;
 
 // ── Trading ───────────────────────────────────────────────
 export const OrderSchema = z.object({
   id: z.string(),
-  accountId: z.string(),
   symbolName: z.string(),
   side: z.enum(["BUY", "SELL"]),
-  type: z.enum(["MARKET", "LIMIT", "STOP"]),
+  type: z.enum(["MARKET", "LIMIT"]),
   quantity: z.number(),
   price: z.number().nullable(),
-  stopPrice: z.number().nullable(),
-  takeProfit: z.number().nullable(),
-  stopLoss: z.number().nullable(),
   status: z.string(),
   filledQuantity: z.number(),
   avgFillPrice: z.number().nullable(),
-  comment: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -101,18 +53,13 @@ export type Order = z.infer<typeof OrderSchema>;
 
 export const PositionSchema = z.object({
   id: z.string(),
-  accountId: z.string(),
   symbolName: z.string(),
   side: z.enum(["LONG", "SHORT"]),
   quantity: z.number(),
   entryPrice: z.number(),
-  currentPrice: z.number().optional(),
+  currentPrice: z.number().nullable().optional(),
   unrealizedPnl: z.number(),
-  // margin is computed from symbol contractSize + account leverage at REST time.
-  // WS-sourced positions use 0 and are corrected on the next REST sync.
   margin: z.number().default(0),
-  // contractSize is included so UI components (e.g. PositionModifyDialog) can
-  // compute correct per-instrument P&L estimates without hardcoding 100000.
   contractSize: z.number().optional(),
   openedAt: z.string(),
   takeProfit: z.number().nullable(),
@@ -120,36 +67,19 @@ export const PositionSchema = z.object({
 });
 export type Position = z.infer<typeof PositionSchema>;
 
-export const FillSchema = z.object({
+// Single trade execution (OKX fills-history) — not a paired open/close
+// position lifecycle, just a log row: symbol, side, price, fee, pnl, time.
+export const TradeHistoryEntrySchema = z.object({
   id: z.string(),
-  orderId: z.string(),
-  accountId: z.string(),
   symbolName: z.string(),
-  side: z.string(),
+  side: z.enum(["BUY", "SELL"]),
   quantity: z.number(),
   price: z.number(),
-  commission: z.number(),
-  realizedPnl: z.number().nullable(),
-  createdAt: z.string(),
-});
-export type Fill = z.infer<typeof FillSchema>;
-
-export const ClosedPositionSchema = z.object({
-  id: z.string(),
-  accountId: z.string().optional(),
-  symbolName: z.string(),
-  side: z.string(),
-  quantity: z.number(),
-  entryPrice: z.number(),
-  exitPrice: z.number(),
+  fee: z.number(),
   realizedPnl: z.number(),
-  commission: z.number(),
-  swap: z.number(),
-  openedAt: z.string(),
-  closedAt: z.string().nullable(),
-  isPartialClose: z.boolean().optional(),
+  timestamp: z.string(),
 });
-export type ClosedPosition = z.infer<typeof ClosedPositionSchema>;
+export type TradeHistoryEntry = z.infer<typeof TradeHistoryEntrySchema>;
 
 export const SymbolSchema = z.object({
   id: z.string(),
@@ -194,16 +124,17 @@ export const PaginatedSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
   });
 
 // ── Input schemas (for validation) ────────────────────────
+// STOP orders and take-profit/stop-loss are not sent to the backend yet —
+// OKX conditional/algo orders aren't wired up (see OrderPanel.tsx). Kept as
+// optional fields so the UI can still round-trip them locally without the
+// backend silently dropping them.
 export const PlaceOrderInputSchema = z.object({
-  accountId: z.string().uuid(),
+  mode: TradingModeSchema,
   symbol: z.string().min(1).max(20),
   side: z.enum(["BUY", "SELL"]),
-  type: z.enum(["MARKET", "LIMIT", "STOP", "STOP_LIMIT"]),
+  type: z.enum(["MARKET", "LIMIT"]),
   quantity: z.number().positive().max(1000),
   price: z.number().positive().optional(),
-  stopPrice: z.number().positive().optional(),
-  takeProfit: z.number().positive().optional(),
-  stopLoss: z.number().positive().optional(),
 });
 export type PlaceOrderInput = z.infer<typeof PlaceOrderInputSchema>;
 

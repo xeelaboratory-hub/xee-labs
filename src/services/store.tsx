@@ -1,27 +1,15 @@
 import { create } from "zustand";
 import { api } from "./api.ts";
 import { wsClient } from "./ws.ts";
-import { setSymbolMeta } from "./demo/engine.ts";
-import type { Account, Order, Position, Symbol, User } from "./schemas.ts";
-
-type LoginMfaResponse = {
-  mfaRequired: true;
-  mfaToken: string;
-  userId: string;
-};
+import type { Order, Position, Symbol, TradingMode, User } from "./schemas.ts";
 
 // ── Auth Store ──────────────────────────────────────────────
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   user: User | null;
-  isDemo: boolean;
-  mfaPending: { mfaToken: string; userId: string } | null;
   login: (email: string, password: string) => Promise<void>;
-  googleLogin: (credential: string, firmSlug: string) => Promise<void>;
-  demoLogin: () => Promise<void>;
-  completeMfa: (code: string) => Promise<void>;
-  cancelMfa: () => void;
+  register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
   logout: () => void;
   restoreSession: () => Promise<void>;
 }
@@ -30,120 +18,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   accessToken: localStorage.getItem("access_token"),
   refreshToken: localStorage.getItem("refresh_token"),
   user: JSON.parse(localStorage.getItem("user") || "null"),
-  isDemo: localStorage.getItem("is_demo") === "true",
-  mfaPending: null,
 
   login: async (email, password) => {
     const data = await api.login(email, password);
-    // Check if MFA is required
-    if ("mfaRequired" in data && data.mfaRequired) {
-      const mfaData = data as unknown as LoginMfaResponse;
-      set({
-        mfaPending: {
-          mfaToken: mfaData.mfaToken,
-          userId: mfaData.userId,
-        },
-      });
-      return;
-    }
     localStorage.setItem("access_token", data.accessToken);
     localStorage.setItem("refresh_token", data.refreshToken);
     localStorage.setItem("user", JSON.stringify(data.user));
-    localStorage.removeItem("is_demo");
-    set({
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      user: data.user,
-      isDemo: false,
-      mfaPending: null,
-    });
+    set({ accessToken: data.accessToken, refreshToken: data.refreshToken, user: data.user });
     wsClient.connect(data.accessToken);
   },
 
-  googleLogin: async (credential, firmSlug) => {
-    const BASE = import.meta.env.VITE_API_URL || "";
-    const res = await fetch(`${BASE}/api/auth/google`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credential, firmSlug }),
-    });
-    const json = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(json?.error?.message || "Google login failed");
-    const data = json?.data ?? json;
+  register: async (email, password, firstName, lastName) => {
+    const data = await api.register(email, password, firstName, lastName);
     localStorage.setItem("access_token", data.accessToken);
     localStorage.setItem("refresh_token", data.refreshToken);
     localStorage.setItem("user", JSON.stringify(data.user));
-    localStorage.removeItem("is_demo");
-    set({
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      user: data.user,
-      isDemo: false,
-      mfaPending: null,
-    });
+    set({ accessToken: data.accessToken, refreshToken: data.refreshToken, user: data.user });
     wsClient.connect(data.accessToken);
-  },
-
-  demoLogin: async () => {
-    // Clear any stale account selection from a previous session
-    localStorage.removeItem("active_account");
-    // Force dark mode for demo
-    localStorage.setItem("theme", "dark");
-    const data = await api.demoLogin();
-    localStorage.setItem("access_token", data.accessToken);
-    localStorage.setItem("refresh_token", data.refreshToken);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    localStorage.setItem("is_demo", "true");
-    set({
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      user: data.user,
-      isDemo: true,
-      mfaPending: null,
-    });
-    wsClient.connect(data.accessToken);
-  },
-
-  completeMfa: async (code) => {
-    const pending = get().mfaPending;
-    if (!pending) throw new Error("No MFA pending");
-    const data = await api.completeMfaLogin(pending.mfaToken, code);
-    localStorage.setItem("access_token", data.accessToken);
-    localStorage.setItem("refresh_token", data.refreshToken);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    set({
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      user: data.user,
-      mfaPending: null,
-    });
-    wsClient.connect(data.accessToken);
-  },
-
-  cancelMfa: () => {
-    set({ mfaPending: null });
   },
 
   logout: () => {
-    // AUTH-VULN-06/07: Send refresh token to server for proper revocation
     const rt = localStorage.getItem("refresh_token");
     api.logout(rt || undefined).catch(() => {});
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
-    localStorage.removeItem("is_demo");
-    localStorage.removeItem("active_account");
-    set({ accessToken: null, refreshToken: null, user: null, isDemo: false });
+    set({ accessToken: null, refreshToken: null, user: null });
     wsClient.disconnect();
+    stopTokenRefresh();
   },
 
   restoreSession: async () => {
     const token = localStorage.getItem("access_token");
     if (!token) return;
     const rt = localStorage.getItem("refresh_token");
-    // If the token is expired or within 5 minutes of expiry, refresh immediately
-    // rather than waiting for the scheduler (which floors at 60s and won't help
-    // a token that's already dead after the phone was locked).
     if (rt && isTokenStale(token)) {
       try {
         const result = await api.refreshToken(rt);
@@ -174,22 +82,17 @@ function isTokenStale(token: string, thresholdMs = 5 * 60 * 1000): boolean {
   }
 }
 
-// BUG-63 FIX: Calculate time-to-expiry from the JWT so the first refresh
-// fires before the token actually expires, not on a blind 13-min interval.
-// Floor is 60s — never refresh more often than once a minute, even if the
-// token expiry math returns something tiny (clock skew, short-TTL token).
-// Refreshing tighter than that just trips the gateway rate-limiter and
-// cascades into a forced logout.
+// Calculate time-to-expiry from the JWT so the first refresh fires before the
+// token actually expires, not on a blind interval. Floor is 60s.
 function getTokenExpiresIn(token: string): number {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]!));
     const exp = payload.exp;
-    if (typeof exp !== "number") return 13 * 60 * 1000; // fallback
+    if (typeof exp !== "number") return 13 * 60 * 1000;
     const msRemaining = exp * 1000 - Date.now();
-    // Refresh 60 seconds before expiry, with a hard floor of 60s.
     return Math.max(msRemaining - 60_000, 60_000);
   } catch {
-    return 13 * 60 * 1000; // fallback: 13 minutes
+    return 13 * 60 * 1000;
   }
 }
 
@@ -204,7 +107,7 @@ function startTokenRefresh() {
     if (!rt) return;
     try {
       const result = await api.refreshToken(rt);
-      retries = 0; // reset on success
+      retries = 0;
       localStorage.setItem("access_token", result.accessToken);
       localStorage.setItem("refresh_token", result.refreshToken);
       useAuthStore.setState({
@@ -212,23 +115,19 @@ function startTokenRefresh() {
         refreshToken: result.refreshToken,
       });
       wsClient.reauthenticate(result.accessToken);
-      // Schedule next refresh based on new token's expiry
       const nextDelay = getTokenExpiresIn(result.accessToken);
       refreshTimer = setTimeout(doRefresh, nextDelay);
     } catch {
       retries++;
       if (retries <= MAX_RETRIES) {
-        // Retry after a short backoff instead of logging out immediately
-        const backoff = retries * 5_000; // 5s, 10s, 15s
+        const backoff = retries * 5_000;
         refreshTimer = setTimeout(doRefresh, backoff);
       } else {
-        // All retries exhausted — force logout
         useAuthStore.getState().logout();
       }
     }
   };
 
-  // Schedule first refresh based on current token's actual expiry
   const currentToken = localStorage.getItem("access_token");
   const firstDelay = currentToken ? getTokenExpiresIn(currentToken) : 13 * 60 * 1000;
   refreshTimer = setTimeout(doRefresh, firstDelay);
@@ -276,8 +175,8 @@ function _pipDecimals(tickSize?: number | null): number {
 }
 
 interface TradingState {
-  activeAccountId: string | null;
-  accounts: Account[];
+  /** Which OKX environment (demo-trading vs live-trading) actions target. */
+  mode: TradingMode;
   positions: Position[];
   orders: Order[];
   symbols: Symbol[];
@@ -289,24 +188,8 @@ interface TradingState {
   liveTicks: Record<string, TickEntry>;
   /** Latest WS candle update keyed by "symbol:timeframe" */
   liveCandleUpdates: Record<string, CandleBar>;
-  /** Monotonic counter bumped on each ReplayStateChanged event — included in
-   *  the candle query key so React Query treats every replay session as a
-   *  brand-new query, eliminating any stale-data / structural-sharing issues. */
-  replayVersion: number;
-  /** Whether the market-data adapter is currently in replay mode (started, paused, or playing). */
-  isReplaying: boolean;
-  /** True only when replay is active but paused. */
-  replayPaused: boolean;
-  /** Current playback speed multiplier. */
-  replaySpeed: number;
-  /** Cursor position in the replay timeline (epoch ms). */
-  replayCursorTimestamp: number | null;
-  /** Session date (YYYY-MM-DD) of the active replay, set when replay starts. */
-  replaySessionDate: string | null;
 
-  setActiveAccount: (id: string) => void;
-  loadAccounts: () => Promise<void>;
-  updateAccountInStore: (updated: Partial<Account> & Pick<Account, "id">) => void;
+  setMode: (mode: TradingMode) => void;
   loadPositions: () => Promise<void>;
   loadOrders: () => Promise<void>;
   loadSymbols: () => Promise<void>;
@@ -316,17 +199,10 @@ interface TradingState {
   setSelectedSymbol: (symbol: string) => void;
   setPositions: (positions: Position[]) => void;
   setOrders: (orders: Order[]) => void;
-  setReplaySessionDate: (date: string | null) => void;
-  /** Bump replay version and update replay state — call on ReplayStateChanged WS events */
-  onReplayStateChanged: (
-    action: string,
-    opts?: { speed?: number; cursorTimestamp?: number },
-  ) => void;
 }
 
 export const useTradingStore = create<TradingState>((set, get) => ({
-  activeAccountId: localStorage.getItem("active_account"),
-  accounts: [],
+  mode: (localStorage.getItem("trading_mode") as TradingMode | null) ?? "demo",
   positions: [],
   orders: [],
   symbols: [],
@@ -334,57 +210,24 @@ export const useTradingStore = create<TradingState>((set, get) => ({
   ticks: {},
   liveTicks: {},
   liveCandleUpdates: {},
-  replayVersion: 0,
-  isReplaying: false,
-  replayPaused: false,
-  replaySpeed: 1,
-  replayCursorTimestamp: null,
-  replaySessionDate: null,
 
-  setActiveAccount: (id) => {
-    localStorage.setItem("active_account", id);
-    set({ activeAccountId: id });
-  },
-
-  loadAccounts: async () => {
-    const accounts = await api.getMyAccounts();
-    set({ accounts });
-    const currentId = get().activeAccountId;
-    // Auto-select first account if none selected OR if current selection isn't in the list
-    const currentValid = currentId && accounts.some((account) => account.id === currentId);
-    if (!currentValid && accounts.length > 0) {
-      const firstAccountId = accounts[0]?.id;
-      if (firstAccountId) get().setActiveAccount(firstAccountId);
-    }
-    // Register all account IDs with the WS client so EquityUpdated events are received
-    wsClient.subscribeAccounts(accounts.map((account) => account.id));
-  },
-
-  updateAccountInStore: (updated) => {
-    set((state) => ({
-      accounts: state.accounts.map((account) =>
-        account.id === updated.id ? { ...account, ...updated } : account,
-      ),
-    }));
+  setMode: (mode) => {
+    localStorage.setItem("trading_mode", mode);
+    set({ mode, positions: [], orders: [] });
   },
 
   loadPositions: async () => {
-    const id = get().activeAccountId;
-    if (!id) return;
-    const positions = await api.getPositions(id);
+    const positions = await api.getPositions(get().mode);
     set({ positions });
   },
 
   loadOrders: async () => {
-    const id = get().activeAccountId;
-    if (!id) return;
-    const orders = await api.getOrders(id);
+    const orders = await api.getOrders(get().mode);
     set({ orders });
   },
 
   loadSymbols: async () => {
     const symbols = await api.getSymbols();
-    setSymbolMeta(symbols);
     set({ symbols });
   },
 
@@ -480,54 +323,4 @@ export const useTradingStore = create<TradingState>((set, get) => ({
     ),
   setPositions: (positions) => set({ positions }),
   setOrders: (orders) => set({ orders }),
-  setReplaySessionDate: (date) => set({ replaySessionDate: date }),
-
-  onReplayStateChanged: (action, opts) => {
-    set((state) => nextReplayState(state, action, opts));
-  },
 }));
-
-/**
- * Play/pause state after a replay action. Seek and speed changes must not
- * alter it — a seek while paused stays paused; only transport actions and
- * stop change the flag.
- */
-function replayPausedAfter(action: string, prevPaused: boolean): boolean {
-  if (action === "stopped" || action === "started" || action === "resumed") return false;
-  if (action === "paused") return true;
-  return prevPaused;
-}
-
-function nextReplayState(
-  state: Pick<
-    TradingState,
-    "replayVersion" | "replayPaused" | "replaySpeed" | "replayCursorTimestamp" | "replaySessionDate"
-  >,
-  action: string,
-  opts?: { speed?: number; cursorTimestamp?: number },
-): Partial<TradingState> {
-  const isStopped = action === "stopped";
-  return {
-    replayVersion: state.replayVersion + 1,
-    isReplaying: !isStopped,
-    replayPaused: replayPausedAfter(action, state.replayPaused),
-    replaySpeed: isStopped ? 1 : (opts?.speed ?? state.replaySpeed),
-    replayCursorTimestamp: isStopped
-      ? null
-      : (opts?.cursorTimestamp ?? state.replayCursorTimestamp),
-    replaySessionDate: isStopped ? null : state.replaySessionDate,
-    liveCandleUpdates: {},
-  };
-}
-
-// Re-register account IDs on every WS (re)connect so sensitive-channel
-// subscriptions (positions/orders/account/ledger) never go out with an empty
-// accountIds filter after a reconnect, network blip, or token rotation.
-let wasWsConnected = wsClient.state === "connected";
-wsClient.onStateChange((state) => {
-  if (state === "connected" && !wasWsConnected) {
-    const accountIds = useTradingStore.getState().accounts.map((a) => a.id);
-    if (accountIds.length > 0) wsClient.subscribeAccounts(accountIds);
-  }
-  wasWsConnected = state === "connected";
-});

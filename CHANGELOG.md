@@ -5,6 +5,44 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-16
+
+### Added
+- **Real accounts and real order execution on OKX**, replacing the
+  in-browser paper-trading engine entirely. Register/log in (JWT session
+  with a rotating, revocable refresh token), connect OKX API credentials
+  per user (Fernet-encrypted at rest, separately for **Demo Trading** and
+  **Live Trading**), and trade: account balance, positions, open orders,
+  place/cancel order, close position, and trade history are all live calls
+  to OKX. No mock data or silent fallback remains anywhere — a failed
+  backend/exchange call now surfaces as a real error message.
+- Backend gained Postgres + Alembic migrations (`users`, `refresh_tokens`,
+  `exchange_credentials` tables) and a minimal OKX v5 REST client.
+- New `LoginPage` (register/login) and `AccountPanel` (demo/live mode
+  switch + connect-exchange dialog) — the app no longer auto-logs into an
+  anonymous demo session on load.
+- `docker-compose.yml` gained a `postgres` service; the backend image now
+  runs database migrations automatically on container start.
+
+### Removed
+- `services/demo/*` (the paper-trading engine and its bundled OHLC
+  fallback data), the session-replay feature, and the dead
+  `services/api/{auth,journal,accounts}.ts` REST wrappers — all deleted
+  outright, not renamed-and-kept.
+- The `services/api.ts` silent-null fallback for unimplemented methods —
+  replaced with a Proxy that throws a clear error instead.
+
+### Changed
+- `services/schemas.ts`'s `Account`/`Order`/`Position` shapes reshaped to
+  match what OKX actually returns; dropped every PropSim-era field with no
+  real-exchange equivalent.
+- STOP orders, take-profit/stop-loss, and amending a pending order are
+  intentionally disabled in the UI (OKX conditional/algo orders aren't
+  wired up yet) rather than silently accepted and dropped.
+- Positions/orders/account balance are now kept fresh via REST polling
+  (30s/15s) plus a refetch after each trading mutation, not a WebSocket
+  push — the backend's `/ws` gateway only streams market data.
+
 ## [1.1.0] - 2026-08-14
 
 ### Added

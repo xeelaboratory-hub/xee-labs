@@ -20,15 +20,9 @@ describe("services/api.ts facade", () => {
     });
   });
 
-  it("still routes non-market-data methods to demoApi", async () => {
-    const { api } = await import("../services/api.ts");
-    const account = await api.getMyAccounts();
-    expect(Array.isArray(account)).toBe(true);
-  });
-
-  it("resolves unknown methods to a benign null instead of throwing", async () => {
+  it("throws for methods with no real backend, instead of silently succeeding", async () => {
     const { api } = await import("../services/api.ts");
     const unknownMethod = (api as unknown as Record<string, () => Promise<unknown>>).someUnknownMethod;
-    await expect(unknownMethod!()).resolves.toBeNull();
+    await expect(unknownMethod!()).rejects.toThrow(/not implemented/);
   });
 });
