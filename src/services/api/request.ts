@@ -71,7 +71,10 @@ async function resolveResponse<T>(res: Response): Promise<T> {
     // (e.g. "Invalid email address") instead of the generic "Request validation failed."
     const fieldErrors = (err.details?.validation?.fieldErrors ?? {}) as Record<string, string[]>;
     const firstFieldMessage = Object.values(fieldErrors).flat()[0];
-    const message = firstFieldMessage || err.message || res.statusText;
+    // Real backend errors (backend/) use FastAPI's default {detail: "..."} shape,
+    // not the {error: {message}} envelope — fall back to that before statusText.
+    const detail = typeof json?.detail === "string" ? json.detail : undefined;
+    const message = firstFieldMessage || err.message || detail || res.statusText;
     throw new ApiError(res.status, code, message, err.details);
   }
   return json?.data ?? json;

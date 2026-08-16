@@ -1,19 +1,11 @@
 import { useState, useEffect } from "react";
 import { api } from "../../services/api";
+import { useTradingStore } from "../../services/store";
 import { toast } from "../../services/toast";
 import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useInstrumentLabels } from "../../hooks/useInstrumentLabels.ts";
-import {
-  X,
-  TrendingUp,
-  TrendingDown,
-  Shield,
-  SlidersHorizontal,
-  Target,
-  ArrowLeftRight,
-  WifiOff,
-} from "lucide-react";
+import { X, TrendingUp, TrendingDown, SlidersHorizontal, ArrowLeftRight, WifiOff } from "lucide-react";
 
 interface Position {
   id: string;
@@ -21,7 +13,7 @@ interface Position {
   side: string;
   quantity: number;
   entryPrice: number;
-  currentPrice?: number;
+  currentPrice?: number | null;
   unrealizedPnl?: number;
   stopLoss?: number | null;
   takeProfit?: number | null;
@@ -46,21 +38,13 @@ export function PositionModifyDialog({
   isFeedConnected = true,
 }: PositionModifyDialogProps) {
   const { formatQty, unitLabel, isFutures, instrumentType } = useInstrumentLabels();
-  const [tp, setTp] = useState("");
-  const [sl, setSl] = useState("");
+  const mode = useTradingStore((s) => s.mode);
   const [partialQty, setPartialQty] = useState("");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"modify" | "partial">("modify");
 
-  // BUG-62 FIX: Reinitialize form fields when the selected position changes.
-  // Previously used useState() callback which only runs on initial mount,
-  // meaning switching positions kept stale TP/SL values.
   useEffect(() => {
-    if (position) {
-      setTp(position.takeProfit != null ? String(position.takeProfit) : "");
-      setSl(position.stopLoss != null ? String(position.stopLoss) : "");
-      setPartialQty("");
-    }
+    if (position) setPartialQty("");
   }, [position]);
 
   if (!position) return null;
@@ -76,49 +60,6 @@ export function PositionModifyDialog({
       ? currentPrice - position.entryPrice
       : position.entryPrice - currentPrice;
 
-  const handleModify = async () => {
-    if (!isFeedConnected) {
-      toast.error("No Data Feed", "Cannot modify positions while disconnected from the data feed");
-      return;
-    }
-    const mods: { takeProfit?: number | null; stopLoss?: number | null } = {};
-    // Empty string means "remove this level". Non-empty means "set to this value".
-    // We only send the field if it actually changed from the persisted value.
-    if (tp === "" && position.takeProfit != null) {
-      mods.takeProfit = null; // removal
-    } else if (tp !== "" && parseFloat(tp) !== position.takeProfit) {
-      mods.takeProfit = parseFloat(tp);
-    }
-    if (sl === "" && position.stopLoss != null) {
-      mods.stopLoss = null; // removal
-    } else if (sl !== "" && parseFloat(sl) !== position.stopLoss) {
-      mods.stopLoss = parseFloat(sl);
-    }
-    if (Object.keys(mods).length === 0) {
-      toast.info("No Changes", "No modifications to apply");
-      return;
-    }
-    setSaving(true);
-    try {
-      await api.modifyPosition(position.id, mods);
-      toast.success("Position Modified", "TP/SL updated successfully");
-      onSaved();
-      onClose();
-    } catch (err: unknown) {
-      const e = err as { code?: string; message?: string };
-      if (e?.code === "REQUEST_TIMEOUT") {
-        toast.error(
-          "Request Timed Out",
-          "The server didn't respond in time. Check your connection and try again.",
-        );
-      } else {
-        toast.error("Modify Failed", e.message || "Could not modify position");
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handlePartialClose = async () => {
     if (!isFeedConnected) {
       toast.error("No Data Feed", "Cannot close positions while disconnected from the data feed");
@@ -131,7 +72,7 @@ export function PositionModifyDialog({
     }
     setSaving(true);
     try {
-      await api.closePosition(position.id, qty);
+      await api.closePosition(position.id, mode, qty);
       toast.success("Partial Close", `Closed ${formatQty(qty)} of ${formatQty(position.quantity)}`);
       onSaved();
       onClose();
@@ -149,32 +90,6 @@ export function PositionModifyDialog({
       setSaving(false);
     }
   };
-
-  const handleSetBreakeven = () => {
-    setSl(String(position.entryPrice));
-    toast.info("Breakeven", "Stop Loss set to entry price — click Save to apply");
-  };
-
-  // Risk/reward calculation
-  const tpVal = parseFloat(tp);
-  const slVal = parseFloat(sl);
-  const riskReward =
-    !isNaN(tpVal) && !isNaN(slVal) && slVal !== position.entryPrice
-      ? Math.abs((tpVal - position.entryPrice) / (position.entryPrice - slVal))
-      : null;
-
-  // Estimated P&L at TP/SL — use per-instrument contractSize if available.
-  const contractSize = position.contractSize ?? 100000;
-  const tpPnl = !isNaN(tpVal)
-    ? (position.side === "LONG" ? tpVal - position.entryPrice : position.entryPrice - tpVal) *
-      position.quantity *
-      contractSize
-    : null;
-  const slPnl = !isNaN(slVal)
-    ? (position.side === "LONG" ? slVal - position.entryPrice : position.entryPrice - slVal) *
-      position.quantity *
-      contractSize
-    : null;
 
   return (
     <>
@@ -283,121 +198,10 @@ export function PositionModifyDialog({
           {/* Content */}
           <div className="px-5 py-4 space-y-3">
             {activeTab === "modify" && (
-              <>
-                {/* Take Profit */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                      <Target className="h-3 w-3 text-buy" /> Take Profit
-                    </label>
-                    {tpPnl !== null && (
-                      <span
-                        className={cn(
-                          "text-[10px] font-mono",
-                          tpPnl >= 0 ? "text-buy" : "text-sell",
-                        )}
-                      >
-                        Est: {tpPnl >= 0 ? "+" : ""}
-                        {formatCurrency(tpPnl)}
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    value={tp}
-                    onChange={(e) => setTp(e.target.value)}
-                    placeholder={position.takeProfit ? String(position.takeProfit) : "Not set"}
-                    className="w-full text-sm font-mono"
-                    step="0.00001"
-                  />
-                  {tp && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-[10px] h-5 mt-1 text-muted-foreground"
-                      onClick={() => setTp("")}
-                    >
-                      Remove TP
-                    </Button>
-                  )}
-                </div>
-
-                {/* Stop Loss */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                      <Shield className="h-3 w-3 text-sell" /> Stop Loss
-                    </label>
-                    {slPnl !== null && (
-                      <span
-                        className={cn(
-                          "text-[10px] font-mono",
-                          slPnl >= 0 ? "text-buy" : "text-sell",
-                        )}
-                      >
-                        Est: {slPnl >= 0 ? "+" : ""}
-                        {formatCurrency(slPnl)}
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="number"
-                    value={sl}
-                    onChange={(e) => setSl(e.target.value)}
-                    placeholder={position.stopLoss ? String(position.stopLoss) : "Not set"}
-                    className="w-full text-sm font-mono"
-                    step="0.00001"
-                  />
-                  <div className="flex gap-1 mt-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-[10px] h-5 text-muted-foreground"
-                      onClick={handleSetBreakeven}
-                    >
-                      Breakeven ({formatNumber(position.entryPrice, 5)})
-                    </Button>
-                    {sl && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-[10px] h-5 text-muted-foreground"
-                        onClick={() => setSl("")}
-                      >
-                        Remove SL
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Risk/Reward */}
-                {riskReward !== null && (
-                  <div className="bg-secondary/50 rounded-lg p-2 text-center">
-                    <span className="text-[10px] text-muted-foreground">Risk:Reward</span>
-                    <span
-                      className={cn(
-                        "text-sm font-mono font-semibold ml-2",
-                        riskReward >= 2
-                          ? "text-buy"
-                          : riskReward >= 1
-                            ? "text-foreground"
-                            : "text-sell",
-                      )}
-                    >
-                      1:{riskReward.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-
-                <Button
-                  className="w-full"
-                  onClick={handleModify}
-                  disabled={saving || !isFeedConnected}
-                  loading={saving}
-                >
-                  {saving ? "Saving..." : !isFeedConnected ? "Disconnected" : "Save Changes"}
-                </Button>
-              </>
+              <div className="text-center text-xs text-muted-foreground py-4">
+                Editing take-profit/stop-loss on an open position isn't supported yet — OKX
+                conditional orders aren't wired up.
+              </div>
             )}
 
             {activeTab === "partial" && (

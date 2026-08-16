@@ -11,7 +11,6 @@ import {
   type ISeriesPrimitive,
   LineStyle,
   type LogicalRange,
-  type SeriesMarker,
   type Time,
 } from "lightweight-charts";
 import { Clock, ListTree } from "lucide-react";
@@ -231,34 +230,19 @@ export interface ChartPanelProps {
     positionId: string,
     mods: { takeProfit?: number | null; stopLoss?: number | null },
   ) => void;
-  replayTradeEvents?: Array<{
-    id: string;
-    type: "entry" | "exit" | "violation";
-    timestamp: string;
-    symbolName: string | null;
-    side: string | null;
-    price: number | null;
-    pnl: number | null;
-    ruleCode?: string;
-  }>;
   activePlugins?: string[];
   /** Toggle a chart plugin (session breaks etc.) — used by the settings dialog. */
   onTogglePlugin?: (id: string) => void;
   /** Account equity — feeds the position tool's $-risk / size readout. */
   accountEquity?: number;
-  /** Active account — enables the challenge-aware level overlay. */
-  accountId?: string | null;
+  /** Which OKX environment (demo|live) is active — enables the challenge-aware level overlay. */
+  mode?: string | null;
   /** Context-menu quick order at the clicked price (opens the confirm dialog). */
   onQuickOrder?: (side: "BUY" | "SELL", type: "LIMIT" | "STOP", price: number) => void;
   /** Context-menu "Remove N drawings". */
   onClearDrawings?: () => void;
   /** Context-menu "Remove N indicators". */
   onClearIndicators?: () => void;
-  /**
-   * Session replay is active — candles are a historical slice, so the
-   * staleness watchdog must not treat the old last-bar as a data gap.
-   */
-  isReplaying?: boolean;
 }
 
 // ── Chart plugin overlays ─────────────────────────────────────────────────────
@@ -782,48 +766,6 @@ function restoreLegendOnLeave(
   restored.current = true;
 }
 
-// ── Replay trade-event marker helpers ────────────────────────────────────────
-
-type ReplayTradeEvent = NonNullable<ChartPanelProps["replayTradeEvents"]>[number];
-
-function entryMarker(ev: ReplayTradeEvent, time: Time): SeriesMarker<Time> {
-  const isBuy = ev.side === "BUY";
-  return {
-    time,
-    position: isBuy ? "belowBar" : "aboveBar",
-    color: isBuy ? "#2196F3" : "#FF9800",
-    shape: isBuy ? "arrowUp" : "arrowDown",
-    text: isBuy ? "B" : "S",
-  };
-}
-
-function exitMarker(ev: ReplayTradeEvent, time: Time): SeriesMarker<Time> {
-  const profit = ev.pnl != null && ev.pnl >= 0;
-  const text = ev.pnl != null ? `${ev.pnl >= 0 ? "+" : ""}$${Math.abs(ev.pnl).toFixed(0)}` : "Exit";
-  return {
-    time,
-    position: profit ? "aboveBar" : "belowBar",
-    color: profit ? "#0ecb81" : "#f6465d",
-    shape: "circle",
-    text,
-  };
-}
-
-function buildReplayMarker(ev: ReplayTradeEvent, timeframe: Timeframe): SeriesMarker<Time> | null {
-  const evMs = new Date(ev.timestamp).getTime();
-  if (Number.isNaN(evMs)) return null;
-  const time = getCandleBucketTime(evMs, timeframe) as Time;
-  if (ev.type === "entry") return entryMarker(ev, time);
-  if (ev.type === "exit") return exitMarker(ev, time);
-  return {
-    time,
-    position: "aboveBar",
-    color: "#FF1744",
-    shape: "square",
-    text: ev.ruleCode ?? "Rule",
-  };
-}
-
 // ── HUD presentational sub-components ────────────────────────────────────────
 // Extracted so the legend's per-value colour ternaries live here instead of
 // inflating the ChartPanel render function's cognitive complexity.
@@ -1038,15 +980,13 @@ export function ChartPanel({
   pipDigits,
   symbolInfo,
   onModifyPosition,
-  replayTradeEvents,
   activePlugins = [],
   onTogglePlugin,
   accountEquity = 0,
-  accountId,
+  mode,
   onQuickOrder,
   onClearDrawings,
   onClearIndicators,
-  isReplaying = false,
 }: ChartPanelProps) {
   const queryClient = useQueryClient();
   const lastGapRefetchAtRef = useRef<number>(0);
@@ -1257,9 +1197,10 @@ export function ChartPanel({
   );
 
   // ── Challenge-aware rule levels (daily loss / max DD / profit target) ──
+  // No-op — see useChallengeLevels.ts docstring (PropSim-only concept).
   const challengeFlags = useMemo(
     () => ({
-      enabled: chartPrefs.challengeOverlay && !!accountId,
+      enabled: chartPrefs.challengeOverlay && !!mode,
       dailyLoss: chartPrefs.challengeDailyLossLine,
       maxDrawdown: chartPrefs.challengeMaxDrawdownLine,
       profitTarget: chartPrefs.challengeProfitTargetLine,
@@ -1269,11 +1210,11 @@ export function ChartPanel({
       chartPrefs.challengeDailyLossLine,
       chartPrefs.challengeMaxDrawdownLine,
       chartPrefs.challengeProfitTargetLine,
-      accountId,
+      mode,
     ],
   );
   useChallengeLevels({
-    accountId,
+    accountId: mode,
     selectedSymbol,
     positions,
     tick,
@@ -1333,27 +1274,6 @@ export function ChartPanel({
   );
 
   useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark);
-
-  // ── Replay trade event markers ─────────────────────────────
-  useEffect(() => {
-    const series = candleSeriesRef.current;
-    if (!series) return;
-    if (!replayTradeEvents || replayTradeEvents.length === 0) {
-      series.setMarkers([]);
-      return;
-    }
-    const markers: SeriesMarker<Time>[] = [];
-    for (const ev of replayTradeEvents) {
-      const marker = buildReplayMarker(ev, timeframe);
-      if (marker) markers.push(marker);
-    }
-    // lightweight-charts requires markers sorted by time ascending
-    markers.sort((a, b) => (a.time as number) - (b.time as number));
-    series.setMarkers(markers);
-    return () => {
-      series.setMarkers([]);
-    };
-  }, [replayTradeEvents, timeframe]);
 
   // ── Candle close countdown timer ───────────────────────────
   useEffect(() => {
@@ -1798,9 +1718,6 @@ export function ChartPanel({
   // tick effects only run when their props change, so this interval is the
   // only recovery path when neither prop is updating.
   useEffect(() => {
-    // Replay shows a historical slice — its last bar is hours or days old by
-    // design, so the staleness check would fire a refetch loop. Skip it.
-    if (isReplaying) return;
     const intervalSec = (TF_INTERVAL_MS[timeframe] ?? 60_000) / 1000;
     const id = setInterval(() => {
       if (!lastCandleRef.current) return;
@@ -1809,7 +1726,7 @@ export function ChartPanel({
       requestGapRefetch(lastGapRefetchAtRef, queryClient, selectedSymbol, timeframe);
     }, 30_000);
     return () => clearInterval(id);
-  }, [selectedSymbol, timeframe, queryClient, isReplaying]);
+  }, [selectedSymbol, timeframe, queryClient]);
 
   // ── Chart plugin overlays ──────────────────────────────────
   // Re-runs when active plugins change or the chart is recreated (isDark /
@@ -1992,7 +1909,7 @@ export function ChartPanel({
         activePlugins={activePlugins}
         onTogglePlugin={onTogglePlugin}
         onOpenNewsConfig={() => setShowNewsConfigDialog(true)}
-        hasAccount={!!accountId}
+        hasAccount={!!mode}
       />
 
       {/* Chart container — cursor is managed imperatively by DrawingToolsManager */}

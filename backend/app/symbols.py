@@ -87,6 +87,13 @@ _BY_EXCHANGE_AND_CRYPTOFEED_SYMBOL: dict[tuple[str, str], str] = {
     (info.exchange, info.cryptofeed_symbol): info.id for info in SYMBOLS.values()
 }
 
+# (exchange, native_symbol) -> our id, for mapping trading-API responses
+# (positions/orders/fills carry the exchange's own instId, e.g. "BTC-USDT-SWAP")
+# back to our symbol id ("OKX:BTCUSD") so the frontend can navigate to them.
+_BY_EXCHANGE_AND_NATIVE_SYMBOL: dict[tuple[str, str], str] = {
+    (info.exchange, info.native_symbol): info.id for info in SYMBOLS.values()
+}
+
 
 def get_symbol(symbol_id: str) -> SymbolInfo | None:
     return SYMBOLS.get(symbol_id)
@@ -98,6 +105,11 @@ def list_symbols() -> list[SymbolInfo]:
 
 def resolve_from_feed(exchange: str, cryptofeed_symbol: str) -> SymbolInfo | None:
     symbol_id = _BY_EXCHANGE_AND_CRYPTOFEED_SYMBOL.get((exchange, cryptofeed_symbol))
+    return SYMBOLS.get(symbol_id) if symbol_id else None
+
+
+def resolve_from_native(exchange: str, native_symbol: str) -> SymbolInfo | None:
+    symbol_id = _BY_EXCHANGE_AND_NATIVE_SYMBOL.get((exchange, native_symbol))
     return SYMBOLS.get(symbol_id) if symbol_id else None
 
 

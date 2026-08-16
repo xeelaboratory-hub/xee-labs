@@ -1,0 +1,190 @@
+from typing import Literal
+
+from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth.deps import get_current_user
+from app.db.models import ExchangeCredential, User
+from app.db.session import get_db
+from app.exchange.errors import ExchangeError
+from app.exchange.mapping import (
+    okx_balance_to_account,
+    okx_fill_to_trade_history_entry,
+    okx_order_to_order,
+    okx_position_to_position,
+)
+from app.exchange.okx_client import OKXClient
+from app.security.encryption import decrypt_json
+from app.symbols import get_symbol
+
+router = APIRouter(prefix="/api")
+
+Mode = Literal["demo", "live"]
+
+
+async def _get_okx_client(mode: Mode, user: User, db: AsyncSession) -> OKXClient:
+    cred = await db.scalar(
+        select(ExchangeCredential).where(
+            ExchangeCredential.user_id == user.id,
+            ExchangeCredential.exchange == "okx",
+            ExchangeCredential.is_demo == (mode == "demo"),
+        )
+    )
+    if cred is None:
+        raise HTTPException(
+            status_code=404, detail=f"no OKX {mode} credentials configured for this account"
+        )
+    secrets = decrypt_json(cred.encrypted_payload)
+    return OKXClient(
+        api_key=secrets["apiKey"],
+        api_secret=secrets["apiSecret"],
+        passphrase=secrets["passphrase"],
+        is_demo=(mode == "demo"),
+    )
+
+
+class PlaceOrderRequest(BaseModel):
+    symbol: str  # our symbol id, e.g. "OKX:BTCUSD" — not the exchange's own instId
+    side: Literal["BUY", "SELL"]
+    type: Literal["MARKET", "LIMIT"]
+    quantity: float
+    price: float | None = None
+
+
+class ClosePositionRequest(BaseModel):
+    symbol: str  # our symbol id, e.g. "OKX:BTCUSD"
+    posSide: Literal["long", "short", "net"]  # OKX's raw posSide — used verbatim for a full close
+    side: Literal["LONG", "SHORT"]  # our derived side — picks the reduce-only order direction
+    quantity: float | None = None  # omit for a full close
+
+
+_CLOSING_ORDER_SIDE = {"LONG": "sell", "SHORT": "buy"}
+
+
+def _okx_native_symbol(symbol: str) -> str:
+    """Our symbol id ("OKX:BTCUSD") -> OKX's own instId ("BTC-USDT-SWAP")."""
+    info = get_symbol(symbol)
+    if info is None or info.exchange != "okx":
+        raise HTTPException(status_code=400, detail=f"unknown OKX symbol: {symbol}")
+    return info.native_symbol
+
+
+@router.get("/account")
+async def get_account(
+    mode: Mode = Query(...), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+) -> dict:
+    client = await _get_okx_client(mode, user, db)
+    try:
+        balance = await client.get_balance()
+    except ExchangeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    return okx_balance_to_account(balance)
+
+
+@router.get("/positions")
+async def get_positions(
+    mode: Mode = Query(...), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+) -> list[dict]:
+    client = await _get_okx_client(mode, user, db)
+    try:
+        positions = await client.get_positions()
+    except ExchangeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    return [okx_position_to_position(p) for p in positions if float(p.get("pos") or 0) != 0]
+
+
+@router.get("/orders")
+async def get_orders(
+    mode: Mode = Query(...), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+) -> list[dict]:
+    client = await _get_okx_client(mode, user, db)
+    try:
+        orders = await client.get_open_orders()
+    except ExchangeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    return [okx_order_to_order(o) for o in orders]
+
+
+@router.post("/orders", status_code=201)
+async def place_order(
+    body: PlaceOrderRequest,
+    mode: Mode = Query(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    client = await _get_okx_client(mode, user, db)
+    inst_id = _okx_native_symbol(body.symbol)
+    try:
+        result = await client.place_order(
+            inst_id=inst_id,
+            side=body.side.lower(),
+            ord_type=body.type.lower(),
+            size=str(body.quantity),
+            price=str(body.price) if body.price is not None else None,
+        )
+    except ExchangeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    if not result or result[0].get("sCode") != "0":
+        msg = result[0].get("sMsg") if result else "order placement failed"
+        raise HTTPException(status_code=502, detail=msg)
+    return {"orderId": result[0]["ordId"]}
+
+
+@router.post("/positions/close")
+async def close_position(
+    body: ClosePositionRequest,
+    mode: Mode = Query(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    client = await _get_okx_client(mode, user, db)
+    inst_id = _okx_native_symbol(body.symbol)
+    try:
+        if body.quantity is None:
+            result = await client.close_position(inst_id=inst_id, pos_side=body.posSide)
+        else:
+            result = await client.place_reduce_only_order(
+                inst_id=inst_id,
+                side=_CLOSING_ORDER_SIDE[body.side],
+                size=str(body.quantity),
+            )
+    except ExchangeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    if not result or result[0].get("sCode") not in ("0", None):
+        msg = result[0].get("sMsg") if result else "position close failed"
+        raise HTTPException(status_code=502, detail=msg)
+    return {"success": True}
+
+
+@router.get("/trades/history")
+async def get_trade_history(
+    mode: Mode = Query(...), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+) -> list[dict]:
+    client = await _get_okx_client(mode, user, db)
+    try:
+        fills = await client.get_fills_history()
+    except ExchangeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    return [okx_fill_to_trade_history_entry(f) for f in fills]
+
+
+@router.delete("/orders/{order_id}")
+async def cancel_order(
+    order_id: str,
+    symbol: str = Query(..., description="Our symbol id the order belongs to, e.g. 'OKX:BTCUSD'"),
+    mode: Mode = Query(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    client = await _get_okx_client(mode, user, db)
+    inst_id = _okx_native_symbol(symbol)
+    try:
+        result = await client.cancel_order(inst_id=inst_id, order_id=order_id)
+    except ExchangeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    if not result or result[0].get("sCode") != "0":
+        msg = result[0].get("sMsg") if result else "order cancellation failed"
+        raise HTTPException(status_code=502, detail=msg)
+    return {"success": True}

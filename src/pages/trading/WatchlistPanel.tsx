@@ -3,6 +3,7 @@ import { Star } from "lucide-react";
 import { usePlaceOrder } from "../../services/queries.ts";
 import { formatNumber, cn } from "../../lib/utils.ts";
 import { toast } from "../../services/toast.ts";
+import type { TradingMode } from "../../services/schemas.ts";
 
 export function WatchlistPanel({
   symbols,
@@ -10,7 +11,7 @@ export function WatchlistPanel({
   selectedSymbol,
   onSelect,
   oneClick,
-  accountId,
+  mode,
   isFeedConnected = true,
 }: {
   symbols: Array<{
@@ -25,7 +26,7 @@ export function WatchlistPanel({
   selectedSymbol: string;
   onSelect: (s: string) => void;
   oneClick?: boolean;
-  accountId?: string | null;
+  mode: TradingMode;
   isFeedConnected?: boolean;
 }) {
   const [filter, setFilter] = useState("");
@@ -130,13 +131,9 @@ export function WatchlistPanel({
               toast.warning("No Data Feed", "Cannot trade while disconnected");
               return;
             }
-            if (!accountId) {
-              toast.warning("No Account", "Select an account first");
-              return;
-            }
             placeOrder.mutate(
               {
-                accountId,
+                mode,
                 symbol: s.name,
                 side,
                 type: "MARKET",

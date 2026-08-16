@@ -2,18 +2,14 @@
  * Real-time market-data WebSocket client.
  *
  * Connects to the backend's `/ws` gateway (see backend/app/api/ws_gateway.py)
- * and republishes every frame onto the same local event bus the old demo
- * client used (services/demo/bus.ts), so no consumer (MarketDataBridge,
- * ConnectionIndicator, store, …) had to change. Account/position/order
- * events still flow from the local paper-trading engine on that same bus —
- * this socket only carries market data.
+ * and republishes every frame onto a local event bus (services/eventBus.ts)
+ * that MarketDataBridge/ConnectionIndicator/store subscribe through.
  *
  * The backend always replies with the full 4-symbol universe and has no
  * dynamic resubscribe, so this client subscribes to all symbols once per
  * connection rather than narrowing per selected symbol.
  */
-import { publish, subscribeChannel, type ChannelHandler } from "./demo/bus.ts";
-import { mark } from "./demo/engine.ts";
+import { publish, subscribeChannel, type ChannelHandler } from "./eventBus.ts";
 
 export type ConnectionState = "connected" | "connecting" | "reconnecting" | "disconnected";
 export type WsHandler = ChannelHandler;
@@ -82,9 +78,6 @@ class RealWsClient {
       }
       if (!data.eventType) return; // subscribe ack — nothing to route
       publish("market-data", data);
-      if (data.eventType === "MarketTick" && typeof data.bid === "number" && typeof data.ask === "number") {
-        mark(data.symbol, (data.bid + data.ask) / 2);
-      }
     };
 
     socket.onclose = () => {

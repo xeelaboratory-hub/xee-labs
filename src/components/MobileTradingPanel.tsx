@@ -29,12 +29,9 @@ interface MobileTradingPanelProps {
   onPlaceOrder: (order: {
     side: "BUY" | "SELL";
     quantity: number;
-    type: "MARKET" | "LIMIT" | "STOP";
+    type: "MARKET" | "LIMIT";
     price?: number;
-    stopLoss?: number;
-    takeProfit?: number;
     symbol: string;
-    accountId?: string;
   }) => void;
   positions: MobilePosition[];
   onClosePosition?: (positionId: string) => void;
@@ -66,12 +63,9 @@ export function MobileTradingPanel({
   const { formatQty } = useInstrumentLabels();
   const spread = spreadProp ?? ask - bid;
   const [activeTab, setActiveTab] = useState<Tab>("order");
-  const [orderType, setOrderType] = useState<"MARKET" | "LIMIT" | "STOP">("MARKET");
+  const [orderType, setOrderType] = useState<"MARKET" | "LIMIT">("MARKET");
   const [quantity, setQuantity] = useState(0.1);
   const [limitPrice, setLimitPrice] = useState<string>("");
-  const [stopLoss, setStopLoss] = useState<string>("");
-  const [takeProfit, setTakeProfit] = useState<string>("");
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Swipe tracking
   const touchStartX = useRef(0);
@@ -101,9 +95,7 @@ export function MobileTradingPanel({
       quantity,
       type: orderType,
       symbol,
-      price: orderType !== "MARKET" && limitPrice ? Number(limitPrice) : undefined,
-      stopLoss: stopLoss ? Number(stopLoss) : undefined,
-      takeProfit: takeProfit ? Number(takeProfit) : undefined,
+      price: orderType === "LIMIT" && limitPrice ? Number(limitPrice) : undefined,
     });
   };
 
@@ -151,7 +143,7 @@ export function MobileTradingPanel({
 
           {/* Order type selector */}
           <div className="flex gap-1.5">
-            {(["MARKET", "LIMIT", "STOP"] as const).map((t) => (
+            {(["MARKET", "LIMIT"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setOrderType(t)}
@@ -163,14 +155,19 @@ export function MobileTradingPanel({
                 {t}
               </button>
             ))}
+            <button
+              disabled
+              title="OKX conditional orders aren't wired up yet"
+              className="flex-1 py-2 rounded-lg text-xs font-medium bg-slate-800 text-slate-600 opacity-50"
+            >
+              STOP
+            </button>
           </div>
 
-          {/* Limit/Stop price input */}
-          {orderType !== "MARKET" && (
+          {/* Limit price input */}
+          {orderType === "LIMIT" && (
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">
-                {orderType === "LIMIT" ? "Limit Price" : "Stop Price"}
-              </label>
+              <label className="text-xs text-slate-400 mb-1 block">Limit Price</label>
               <input
                 type="number"
                 step="any"
@@ -214,40 +211,9 @@ export function MobileTradingPanel({
             />
           </div>
 
-          {/* Advanced (SL/TP) toggle */}
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="w-full text-xs text-slate-500 hover:text-slate-300 py-1 transition"
-          >
-            {showAdvanced ? "▾ Hide SL/TP" : "▸ Set Stop Loss / Take Profit"}
-          </button>
-
-          {showAdvanced && (
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs text-red-400 mb-1 block">Stop Loss</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={stopLoss}
-                  onChange={(e) => setStopLoss(e.target.value)}
-                  placeholder="Optional"
-                  className="w-full px-2 py-2 bg-slate-800 border border-red-500/30 rounded-lg text-white text-xs font-mono text-center focus:ring-2 focus:ring-red-500"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-emerald-400 mb-1 block">Take Profit</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={takeProfit}
-                  onChange={(e) => setTakeProfit(e.target.value)}
-                  placeholder="Optional"
-                  className="w-full px-2 py-2 bg-slate-800 border border-emerald-500/30 rounded-lg text-white text-xs font-mono text-center focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-          )}
+          <p className="text-[10px] text-slate-500 text-center">
+            Stop-loss/take-profit aren't supported yet — OKX conditional orders aren't wired up.
+          </p>
 
           {/* BUY / SELL buttons — large touch targets */}
           <div className="grid grid-cols-2 gap-2">

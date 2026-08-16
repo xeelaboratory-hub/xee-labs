@@ -3,7 +3,7 @@
  * The panel is gated off (api.isAiTraderEnabled resolves false), so these stubs
  * exist only to satisfy the import in TradingPage and never render.
  */
-export function AiTraderPanel(_props: { accountId: string | null }) {
+export function AiTraderPanel(_props: { mode: string }) {
   return null;
 }
 

@@ -10,3 +10,27 @@ services:
     build: ./backend
     ports:
       - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://xee_labs:xee_labs@postgres:5432/xee_labs
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?set CREDENTIAL_ENCRYPTION_KEY in .env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: xee_labs
+      POSTGRES_PASSWORD: xee_labs
+      POSTGRES_DB: xee_labs
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xee_labs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

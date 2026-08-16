@@ -1,204 +1,82 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { api } from "./api";
-import type { AllPayoutsResponse } from "./api/accounts";
-import type { JournalEntriesResponse } from "./api/journal";
 import type { MarketDataCandlesPayload } from "./api/market-data";
+
+// Types for dead PropSim-era hooks below (payouts, journal — no real backend,
+// see services/api.ts's "not implemented" Proxy fallback). Kept loose since
+// nothing actually consumes these hooks.
+type AllPayoutsResponse = unknown;
+type JournalEntriesResponse = unknown;
 import type { PnlCalendarResponse } from "@propsim/types";
 import type {
   Account,
-  AccountStats,
-  ClosedPosition,
-  EquityPoint,
-  Fill,
-  LedgerEntry,
   Order,
   Position,
   Symbol,
   Candle,
   PlaceOrderInput,
+  TradeHistoryEntry,
+  TradingMode,
 } from "./schemas";
 
 // ── Query Key Factories ─────────────────────────────────
 export const queryKeys = {
   accounts: {
     all: ["accounts"] as const,
-    mine: () => [...queryKeys.accounts.all, "mine"] as const,
-    detail: (id: string) => [...queryKeys.accounts.all, id] as const,
-    stats: (id: string) => [...queryKeys.accounts.all, id, "stats"] as const,
-    ledger: (id: string, page: number) => [...queryKeys.accounts.all, id, "ledger", page] as const,
-    equity: (id: string) => [...queryKeys.accounts.all, id, "equity"] as const,
+    detail: (mode: string) => [...queryKeys.accounts.all, mode] as const,
   },
   trading: {
-    positions: (accountId: string) => ["positions", accountId] as const,
-    orders: (accountId: string, status?: string) => ["orders", accountId, status] as const,
-    fills: (accountId: string, page: number) => ["fills", accountId, page] as const,
-    closedPositions: (accountId: string, page: number) =>
-      ["closedPositions", accountId, page] as const,
+    positions: (mode: string) => ["positions", mode] as const,
+    orders: (mode: string) => ["orders", mode] as const,
   },
   market: {
     symbols: ["symbols"] as const,
     candles: (symbol: string, tf: string) => ["candles", symbol, tf] as const,
     economicCalendar: (currencies: string[]) => ["economicCalendar", ...currencies] as const,
   },
-  replay: {
-    session: (accountId: string, date: string) => ["replay", "session", accountId, date] as const,
-  },
 } as const;
 
-// ── Account Queries ────────────────────────────────────
-export function useMyAccounts(opts?: Partial<UseQueryOptions<Account[]>>) {
-  return useQuery<Account[]>({
-    queryKey: queryKeys.accounts.mine(),
-    queryFn: () => api.getMyAccounts(),
-    staleTime: 5_000,
-    ...opts,
-  });
-}
-
-export function useAccount(id: string | null, opts?: Partial<UseQueryOptions<Account>>) {
+export function useAccount(mode: TradingMode | null, opts?: Partial<UseQueryOptions<Account>>) {
   return useQuery<Account>({
-    queryKey: queryKeys.accounts.detail(id!),
-    queryFn: () => api.getAccount(id!),
-    enabled: !!id,
+    queryKey: queryKeys.accounts.detail(mode!),
+    queryFn: () => api.getAccount(mode!),
+    enabled: !!mode,
     staleTime: 15_000,
     ...opts,
-  });
-}
-
-export function useAccountStats(id: string | null) {
-  return useQuery<AccountStats>({
-    queryKey: queryKeys.accounts.stats(id!),
-    queryFn: () => api.getAccountStats(id!),
-    enabled: !!id,
-    staleTime: 10_000,
-  });
-}
-
-export function useEquityHistory(id: string | null) {
-  return useQuery<EquityPoint[]>({
-    queryKey: queryKeys.accounts.equity(id!),
-    queryFn: () => api.getEquityHistory(id!),
-    enabled: !!id,
-    staleTime: 5_000,
-  });
-}
-
-export function useLedger(id: string | null, page = 1) {
-  return useQuery<{
-    data: LedgerEntry[];
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-  }>({
-    queryKey: queryKeys.accounts.ledger(id!, page),
-    queryFn: () => api.getLedger(id!, page),
-    enabled: !!id,
-    staleTime: 30_000,
   });
 }
 
 // ── Trading Queries ────────────────────────────────────
-export function usePositions(accountId: string | null) {
+export function usePositions(mode: TradingMode | null) {
   return useQuery<Position[]>({
-    queryKey: queryKeys.trading.positions(accountId!),
-    queryFn: () => api.getPositions(accountId!),
-    enabled: !!accountId,
-    // WS push (MarketDataBridge setQueryData) is the primary update path.
-    // 10s staleTime prevents the cache from being considered stale during burst fills,
-    // so rapid invalidations don't all trigger fresh fetches.
-    // 30s refetchInterval is a safety-net sync in case a WS event is missed; it is
-    // NOT the primary update mechanism and must not be lowered back to 2s.
+    queryKey: queryKeys.trading.positions(mode!),
+    queryFn: () => api.getPositions(mode!),
+    enabled: !!mode,
+    // 10s staleTime avoids refetch storms; 30s refetchInterval is the primary
+    // update path (no WS push for positions/orders — see MarketDataBridge.tsx).
     staleTime: 10_000,
     refetchInterval: 30_000,
     refetchOnWindowFocus: false,
   });
 }
 
-/** Cross-account total open position count */
-export function useOpenPositionCount() {
-  return useQuery<number>({
-    queryKey: ["openPositionCount"],
-    queryFn: () => api.getOpenPositionCount(),
-    refetchInterval: 5_000,
-  });
-}
-
-export function useOrders(accountId: string | null, status?: string) {
+export function useOrders(mode: TradingMode | null) {
   return useQuery<Order[]>({
-    queryKey: queryKeys.trading.orders(accountId!, status),
-    queryFn: () => api.getOrders(accountId!, status),
-    enabled: !!accountId,
+    queryKey: queryKeys.trading.orders(mode!),
+    queryFn: () => api.getOrders(mode!),
+    enabled: !!mode,
     staleTime: 10_000,
     refetchInterval: 30_000,
     refetchOnWindowFocus: false,
   });
 }
 
-export function useFills(accountId: string | null, page = 1) {
-  return useQuery<{
-    data: Fill[];
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-  }>({
-    queryKey: queryKeys.trading.fills(accountId!, page),
-    queryFn: () => api.getFills(accountId!, page),
-    enabled: !!accountId,
+export function useTradeHistory(mode: TradingMode | null) {
+  return useQuery<TradeHistoryEntry[]>({
+    queryKey: ["tradeHistory", mode] as const,
+    queryFn: () => api.getTradeHistory(mode!),
+    enabled: !!mode,
     staleTime: 30_000,
-  });
-}
-
-export function useClosedPositions(accountId: string | null, page = 1) {
-  return useQuery<{
-    data: ClosedPosition[];
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-  }>({
-    queryKey: queryKeys.trading.closedPositions(accountId!, page),
-    queryFn: () => api.getClosedPositions(accountId!, page),
-    enabled: !!accountId,
-    staleTime: 30_000,
-  });
-}
-
-export function useClosedPositionsSummary(
-  accountId: string | null,
-  from: string | null,
-  to: string | null,
-) {
-  return useQuery<{ pnl: number; commission: number; swap: number; tradeCount: number }>({
-    queryKey: ["closedPositionsSummary", accountId, from, to] as const,
-    queryFn: () => api.getClosedPositionsSummary(accountId!, from!, to!),
-    enabled: !!(accountId && from && to),
-    staleTime: 15_000,
-    refetchInterval: 30_000,
-  });
-}
-
-// ── Fill Quality Score ─────────────────────────────────
-export function useFillQuality(accountId: string | null) {
-  return useQuery<{
-    avgScore: number | null;
-    count: number;
-    entries: Array<{
-      id: string;
-      symbol: string;
-      side: string;
-      slippageBps: number;
-      latencyMs: number;
-      integrityCoupled: boolean;
-      qualityScore: number | null;
-      createdAt: string;
-    }>;
-  }>({
-    queryKey: ["fillQuality", accountId] as const,
-    queryFn: () => api.getFillQuality(accountId!),
-    enabled: !!accountId,
-    staleTime: 60_000,
   });
 }
 
@@ -321,16 +199,9 @@ export function usePlaceOrder() {
   return useMutation({
     mutationFn: (input: PlaceOrderInput) => api.placeOrder(input),
     onSuccess: (_data, vars) => {
-      // Optimistically refetch orders and positions
-      qc.invalidateQueries({
-        queryKey: queryKeys.trading.orders(vars.accountId),
-      });
-      qc.invalidateQueries({
-        queryKey: queryKeys.trading.positions(vars.accountId),
-      });
-      qc.invalidateQueries({
-        queryKey: queryKeys.accounts.detail(vars.accountId),
-      });
+      qc.invalidateQueries({ queryKey: queryKeys.trading.orders(vars.mode) });
+      qc.invalidateQueries({ queryKey: queryKeys.trading.positions(vars.mode) });
+      qc.invalidateQueries({ queryKey: queryKeys.accounts.detail(vars.mode) });
     },
   });
 }
@@ -338,24 +209,25 @@ export function usePlaceOrder() {
 export function useCancelOrder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ orderId }: { orderId: string; accountId: string }) => api.cancelOrder(orderId),
-    onMutate: async ({ orderId, accountId }) => {
+    mutationFn: ({ orderId, mode, symbol }: { orderId: string; mode: TradingMode; symbol: string }) =>
+      api.cancelOrder(orderId, mode, symbol),
+    onMutate: async ({ orderId, mode }) => {
       // Optimistic update: remove order from list
-      await qc.cancelQueries({ queryKey: queryKeys.trading.orders(accountId) });
-      const prev = qc.getQueryData<Order[]>(queryKeys.trading.orders(accountId));
+      await qc.cancelQueries({ queryKey: queryKeys.trading.orders(mode) });
+      const prev = qc.getQueryData<Order[]>(queryKeys.trading.orders(mode));
       if (prev) {
         qc.setQueryData(
-          queryKeys.trading.orders(accountId),
+          queryKeys.trading.orders(mode),
           prev.map((o) => (o.id === orderId ? { ...o, status: "CANCELLED" } : o)),
         );
       }
       return { prev };
     },
-    onError: (_err, { accountId }, ctx) => {
-      if (ctx?.prev) qc.setQueryData(queryKeys.trading.orders(accountId), ctx.prev);
+    onError: (_err, { mode }, ctx) => {
+      if (ctx?.prev) qc.setQueryData(queryKeys.trading.orders(mode), ctx.prev);
     },
-    onSettled: (_data, _err, { accountId }) => {
-      qc.invalidateQueries({ queryKey: queryKeys.trading.orders(accountId) });
+    onSettled: (_data, _err, { mode }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.trading.orders(mode) });
     },
   });
 }
@@ -365,50 +237,41 @@ export function useClosePosition() {
   return useMutation({
     mutationFn: ({
       positionId,
+      mode,
       quantity,
     }: {
       positionId: string;
-      accountId: string;
+      mode: TradingMode;
       quantity?: number;
-    }) => api.closePosition(positionId, quantity),
-    onSuccess: (_data, { accountId }) => {
-      qc.invalidateQueries({
-        queryKey: queryKeys.trading.positions(accountId),
-      });
-      qc.invalidateQueries({ queryKey: queryKeys.accounts.detail(accountId) });
-      qc.invalidateQueries({ queryKey: ["fills", accountId] });
+    }) => api.closePosition(positionId, mode, quantity),
+    onSuccess: (_data, { mode }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.trading.positions(mode) });
+      qc.invalidateQueries({ queryKey: queryKeys.accounts.detail(mode) });
+      qc.invalidateQueries({ queryKey: ["tradeHistory", mode] });
     },
   });
 }
 
+/** TP/SL editing on an open position isn't wired to OKX yet (needs conditional/algo
+ * orders) — this mutation always rejects so callers surface a clear error. */
 export function useModifyPosition() {
-  const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      positionId,
-      modifications,
-    }: {
+    mutationFn: (_vars: {
       positionId: string;
-      accountId: string;
+      mode: TradingMode;
       modifications: { takeProfit?: number | null; stopLoss?: number | null };
-    }) => api.modifyPosition(positionId, modifications),
-    onSuccess: (_data, { accountId }) => {
-      qc.invalidateQueries({
-        queryKey: queryKeys.trading.positions(accountId),
-      });
-    },
+    }) => Promise.reject(new Error("Modifying take-profit/stop-loss isn't supported yet")),
   });
 }
 
 export function useCloseAllPositions() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (accountId: string) => api.closeAllPositions(accountId),
-    onSuccess: (_data, accountId) => {
-      qc.invalidateQueries({
-        queryKey: queryKeys.trading.positions(accountId),
-      });
-      qc.invalidateQueries({ queryKey: queryKeys.accounts.detail(accountId) });
+    mutationFn: ({ mode, positionIds }: { mode: TradingMode; positionIds: string[] }) =>
+      Promise.all(positionIds.map((id) => api.closePosition(id, mode))),
+    onSuccess: (_data, { mode }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.trading.positions(mode) });
+      qc.invalidateQueries({ queryKey: queryKeys.accounts.detail(mode) });
     },
   });
 }
@@ -653,28 +516,14 @@ export function usePatternDetection(accountId: string | null, lookbackDays?: num
   });
 }
 
-// ── Order Modification (#30) ──
+/** Amending a pending order isn't wired to OKX yet — cancel and re-place instead. */
 export function useModifyOrder() {
-  const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      orderId,
-      modifications,
-    }: {
+    mutationFn: (_vars: {
       orderId: string;
-      accountId: string;
-      modifications: {
-        price?: number;
-        quantity?: number;
-        takeProfit?: number | null;
-        stopLoss?: number | null;
-      };
-    }) => api.modifyOrder(orderId, modifications),
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({
-        queryKey: queryKeys.trading.orders(vars.accountId),
-      });
-    },
+      mode: TradingMode;
+      modifications: { price?: number; quantity?: number };
+    }) => Promise.reject(new Error("Modifying orders isn't supported yet — cancel and re-place instead")),
   });
 }
 
@@ -1086,19 +935,6 @@ export function useProcessMergeRequest() {
     mutationFn: (data: { id: string; status: "APPROVED" | "REJECTED"; adminNotes?: string }) =>
       api.processMergeRequest(data.id, data.status, data.adminNotes),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["features", "merge-requests"] }),
-  });
-}
-
-// ── Replay Queries ─────────────────────────────────────
-export function useReplaySession(accountId: string | null, sessionDate: string | null) {
-  return useQuery({
-    queryKey: queryKeys.replay.session(accountId!, sessionDate!),
-    queryFn: () => api.replayGetSession(accountId!, sessionDate!),
-    enabled: !!accountId && !!sessionDate,
-    // 30s, not Infinity — replaying *today* a second time must pick up trades
-    // and candles recorded since the previous run.
-    staleTime: 30_000,
-    gcTime: 5 * 60 * 1000,
   });
 }
 

@@ -5,8 +5,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.credentials import router as credentials_router
 from app.api.market_data import router as market_data_router
+from app.api.trading import router as trading_router
 from app.api.ws_gateway import router as ws_router
+from app.auth.router import router as auth_router
 from app.feeds.cryptofeed_runner import run_supervised_feed
 
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +37,9 @@ app.add_middleware(
 )
 app.include_router(market_data_router)
 app.include_router(ws_router)
+app.include_router(auth_router)
+app.include_router(credentials_router)
+app.include_router(trading_router)
 
 
 @app.get("/")

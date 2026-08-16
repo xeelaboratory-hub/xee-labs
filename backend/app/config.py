@@ -1,7 +1,16 @@
 """Plain constants — no env/config framework needed at this scale."""
 
+import os
+
 PORT = 3000
 WS_PATH = "/ws"
+
+JWT_SECRET = os.environ["JWT_SECRET"]
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_TTL_SECONDS = 15 * 60
+REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
+
+CREDENTIAL_ENCRYPTION_KEY = os.environ["CREDENTIAL_ENCRYPTION_KEY"]
 
 EXCHANGES = ["binance", "okx"]
 SYMBOL_BASES = ["BTC", "ETH"]

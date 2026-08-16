@@ -1,20 +1,10 @@
 import { useState } from "react";
-import {
-  Minus,
-  Plus,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  Zap,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
-import { useAuthStore } from "../../services/store.tsx";
+import { Minus, Plus, TrendingUp, TrendingDown, Zap, Volume2, VolumeX } from "lucide-react";
 import { usePlaceOrder } from "../../services/queries.ts";
 import { readTraderPrefs } from "../../hooks/useTraderPreferences.ts";
 import { Button } from "../../components/ui/button.tsx";
 import { DisconnectedTradingBanner } from "../../components/ConnectionIndicator.tsx";
-import type { PlaceOrderInput } from "../../services/schemas.ts";
+import type { PlaceOrderInput, TradingMode } from "../../services/schemas.ts";
 import { toast } from "../../services/toast.ts";
 import { formatCurrency, formatNumber, cn } from "../../lib/utils.ts";
 
@@ -33,7 +23,7 @@ export interface OrderPanelProps {
     [k: string]: unknown;
   };
   tick?: { bid: number; ask: number; timestamp: number };
-  accountId: string | null;
+  mode: TradingMode;
   oneClick?: boolean;
   onToggleOneClick?: () => void;
   onConfirmOrder?: (order: ConfirmableOrder) => void;
@@ -48,19 +38,17 @@ export function OrderPanel({
   symbol,
   symbolInfo,
   tick,
-  accountId,
+  mode,
   oneClick,
   onToggleOneClick,
   onConfirmOrder,
-  accountBalance,
   isFeedConnected = true,
   soundMuted,
   onToggleMute,
   onOrderSuccess,
 }: OrderPanelProps) {
-  const isDemo = useAuthStore((s) => s.isDemo);
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
-  const [orderType, setOrderType] = useState<"MARKET" | "LIMIT" | "STOP">("MARKET");
+  const [orderType, setOrderType] = useState<"MARKET" | "LIMIT">("MARKET");
   const [quantity, setQuantity] = useState(() => {
     const prefs = readTraderPrefs();
     const raw = prefs.defaultQty;
@@ -71,19 +59,12 @@ export function OrderPanel({
     return "0.1";
   });
   const [price, setPrice] = useState("");
-  const [stopPrice, setStopPrice] = useState("");
-  const [takeProfit, setTakeProfit] = useState("");
-  const [stopLoss, setStopLoss] = useState("");
 
   const placeOrder = usePlaceOrder();
 
   const handleSubmit = () => {
     if (!isFeedConnected) {
       toast.warning("No Data Feed", "Cannot place orders while disconnected from the data feed");
-      return;
-    }
-    if (!accountId) {
-      toast.warning("No Account", "Please select a trading account first");
       return;
     }
     const qty = parseFloat(quantity);
@@ -99,47 +80,27 @@ export function OrderPanel({
       toast.warning("Missing Price", "Limit orders require a valid price");
       return;
     }
-    if (
-      orderType === "STOP" &&
-      (!stopPrice || isNaN(parseFloat(stopPrice)) || parseFloat(stopPrice) <= 0)
-    ) {
-      toast.warning("Missing Stop Price", "Stop orders require a valid stop price");
-      return;
-    }
-    const effectiveType = orderType;
 
     const input: PlaceOrderInput = {
-      accountId,
+      mode,
       symbol,
       side,
-      type: effectiveType as PlaceOrderInput["type"],
+      type: orderType,
       quantity: qty,
     };
 
     if (orderType === "LIMIT" && price) input.price = parseFloat(price);
-    if (orderType === "STOP" && stopPrice) input.stopPrice = parseFloat(stopPrice);
-    if (takeProfit) input.takeProfit = parseFloat(takeProfit) || undefined;
-    if (stopLoss) input.stopLoss = parseFloat(stopLoss) || undefined;
 
     const doSubmit = () =>
       placeOrder.mutateAsync(input, {
         onSuccess: () => {
-          toast.success("Order Sent", `${side} ${qty} ${symbol} (${effectiveType})`);
+          toast.success("Order Sent", `${side} ${qty} ${symbol} (${orderType})`);
           onOrderSuccess?.();
         },
         onError: (err: unknown) => {
-          const e = err as {
-            error?: { code?: string; message?: string };
-            message?: string;
-            code?: string;
-          };
-          const code = e?.error?.code ?? e?.code;
-          const msg = e?.error?.message || e?.message || "Failed to place order";
-          if (code === "ACCOUNT_PASSED") {
-            toast.success("Account Passed!", msg);
-          } else if (code === "ACCOUNT_FAILED") {
-            toast.error("Account Failed", msg);
-          } else if (code === "REQUEST_TIMEOUT") {
+          const e = err as { message?: string; code?: string };
+          const msg = e?.message || "Failed to place order";
+          if (e?.code === "REQUEST_TIMEOUT") {
             toast.error(
               "Order Timed Out",
               "The server didn't respond in time. Check your connection and try again.",
@@ -156,18 +117,7 @@ export function OrderPanel({
     }
 
     if (onConfirmOrder) {
-      onConfirmOrder({
-        accountId,
-        symbol,
-        side,
-        type: effectiveType,
-        quantity: qty,
-        price: input.price,
-        stopPrice: input.stopPrice,
-        takeProfit: input.takeProfit,
-        stopLoss: input.stopLoss,
-        _submit: doSubmit,
-      });
+      onConfirmOrder({ ...input, _submit: doSubmit });
       return;
     }
 
@@ -241,7 +191,7 @@ export function OrderPanel({
             Order Type
           </label>
           <div className="grid grid-cols-3 gap-1 mt-1">
-            {(["MARKET", "LIMIT", "STOP"] as const).map((t) => (
+            {(["MARKET", "LIMIT"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setOrderType(t)}
@@ -252,9 +202,16 @@ export function OrderPanel({
                     : "hover:bg-secondary",
                 )}
               >
-                {t.replace("_", " ")}
+                {t}
               </button>
             ))}
+            <button
+              disabled
+              title="OKX conditional orders aren't wired up yet"
+              className="px-1 py-1 text-[10px] rounded border border-border opacity-40 cursor-not-allowed"
+            >
+              STOP
+            </button>
           </div>
         </div>
 
@@ -319,117 +276,9 @@ export function OrderPanel({
           </div>
         )}
 
-        {orderType === "STOP" && (
-          <div>
-            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Stop Price
-            </label>
-            <input
-              type="number"
-              value={stopPrice}
-              onChange={(e) => setStopPrice(e.target.value)}
-              className="w-full mt-1 text-sm font-mono"
-              step="0.00001"
-            />
-          </div>
-        )}
-
-        {/* TP / SL */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Take Profit
-            </label>
-            <input
-              type="number"
-              value={takeProfit}
-              onChange={(e) => setTakeProfit(e.target.value)}
-              className="w-full mt-1 text-sm font-mono"
-              step="0.00001"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Stop Loss
-            </label>
-            <input
-              type="number"
-              value={stopLoss}
-              onChange={(e) => setStopLoss(e.target.value)}
-              className="w-full mt-1 text-sm font-mono"
-              step="0.00001"
-            />
-          </div>
-        </div>
-
-        {/* Risk-per-trade display */}
-        {(() => {
-          const slVal = parseFloat(stopLoss);
-          const tpVal = parseFloat(takeProfit);
-          const qtyVal = parseFloat(quantity) || 0;
-          const contractSize = symbolInfo?.contractSize || 100000;
-          const currentPrice = tick ? (side === "BUY" ? tick.ask : tick.bid) : null;
-
-          if (!currentPrice || !slVal || qtyVal <= 0) return null;
-
-          const slDistance = Math.abs(currentPrice - slVal);
-          const riskDollar = slDistance * qtyVal * contractSize;
-          const balance = accountBalance || 0;
-          const riskPct = balance > 0 ? (riskDollar / balance) * 100 : 0;
-          const tpDollar = tpVal ? Math.abs(tpVal - currentPrice) * qtyVal * contractSize : null;
-          const rrRatio = tpDollar && riskDollar > 0 ? tpDollar / riskDollar : null;
-
-          const riskColor =
-            riskPct > 5 ? "text-destructive" : riskPct > 2 ? "text-warning" : "text-buy";
-
-          return (
-            <div className="bg-secondary/50 rounded p-2 text-[10px] space-y-1 border border-border/50">
-              <div className="flex items-center gap-1 mb-1">
-                <AlertTriangle className={cn("h-3 w-3", riskColor)} />
-                <span className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Risk Analysis
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Risk Amount</span>
-                <span className={cn("font-mono font-semibold", riskColor)}>
-                  {formatCurrency(riskDollar)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Risk % of Balance</span>
-                <span className={cn("font-mono font-semibold", riskColor)}>
-                  {riskPct.toFixed(2)}%
-                </span>
-              </div>
-              {tpDollar != null && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Reward</span>
-                  <span className="font-mono text-buy">{formatCurrency(tpDollar)}</span>
-                </div>
-              )}
-              {rrRatio != null && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">R:R Ratio</span>
-                  <span
-                    className={cn(
-                      "font-mono font-semibold",
-                      rrRatio >= 2 ? "text-buy" : rrRatio >= 1 ? "text-foreground" : "text-sell",
-                    )}
-                  >
-                    1:{rrRatio.toFixed(2)}
-                  </span>
-                </div>
-              )}
-              {riskPct > 5 && (
-                <div className="text-destructive text-[9px] flex items-center gap-1 mt-1">
-                  <AlertTriangle className="h-2.5 w-2.5" />
-                  High risk — exceeds 5% of balance
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        <p className="text-[9px] text-muted-foreground text-center">
+          Take-profit/stop-loss aren't supported yet — OKX conditional orders aren't wired up.
+        </p>
 
         {/* Margin info */}
         {symbolInfo && tick && (
@@ -458,31 +307,19 @@ export function OrderPanel({
           </div>
         )}
 
-        {isDemo && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2 text-center">
-            <p className="text-amber-400 text-[10px] font-semibold uppercase tracking-wider">
-              Demo Mode
-            </p>
-            <p className="text-muted-foreground text-[10px] mt-0.5">
-              Trading is disabled in demo mode
-            </p>
-          </div>
-        )}
-        {!isDemo && !isFeedConnected && <DisconnectedTradingBanner />}
+        {!isFeedConnected && <DisconnectedTradingBanner />}
         <Button
           variant={side === "BUY" ? "buy" : "sell"}
           className="w-full"
           onClick={handleSubmit}
           loading={placeOrder.isPending}
-          disabled={!accountId || placeOrder.isPending || isDemo || !isFeedConnected}
+          disabled={placeOrder.isPending || !isFeedConnected}
         >
-          {isDemo
-            ? "Demo — Trading Disabled"
-            : !isFeedConnected
-              ? "Disconnected — Trading Disabled"
-              : placeOrder.isPending
-                ? "Placing…"
-                : `${side === "BUY" ? "Buy" : "Sell"} ${quantity} ${symbol}`}
+          {!isFeedConnected
+            ? "Disconnected — Trading Disabled"
+            : placeOrder.isPending
+              ? "Placing…"
+              : `${side === "BUY" ? "Buy" : "Sell"} ${quantity} ${symbol} (${mode})`}
         </Button>
 
         {placeOrder.isError && (
