@@ -12,6 +12,7 @@
  */
 import { request } from "./api/request.ts";
 import { marketdataApi } from "./api/market-data.ts";
+import type { UserPreferences } from "./preferences.ts";
 import type {
   Account,
   AuthResponse,
@@ -60,6 +61,15 @@ const realImplementation = {
       body: JSON.stringify({ refreshToken }),
     }),
   getMe: () => request<User>("/auth/me"),
+
+  // ── Per-user UI preferences ──
+  getPreferences: () =>
+    request<{ exists: boolean; preferences: UserPreferences; updatedAt?: string }>("/preferences"),
+  savePreferences: (preferences: UserPreferences) =>
+    request<{ exists: true; preferences: UserPreferences; updatedAt: string }>("/preferences", {
+      method: "PUT",
+      body: JSON.stringify(preferences),
+    }),
 
   // ── Exchange credentials ──
   listCredentials: () => request<ExchangeCredential[]>("/credentials"),

@@ -20,6 +20,7 @@ import type { IndicatorType } from "../lib/indicators.ts";
 import { posthog } from "../lib/posthog";
 import { cn } from "../lib/utils.ts";
 import { api } from "../services/api.ts";
+import { readLocalPreferences, updateLocalPreferences } from "../services/preferences.ts";
 import { useAccount, useCandles, useOrders, usePositions, useSymbols } from "../services/queries.ts";
 import type { Order, PlaceOrderInput, Position, Symbol } from "../services/schemas.ts";
 import { useTradingStore } from "../services/store.tsx";
@@ -62,23 +63,33 @@ export function TradingPage() {
     useTradingStore();
   // Chart timeframe persistence (#8)
   const [timeframe, setTimeframe] = useState<Timeframe>(() => {
-    const saved = localStorage.getItem(`tf_${selectedSymbol}`);
+    const saved = readLocalPreferences().timeframes[selectedSymbol];
     return saved && TIMEFRAMES.includes(saved as Timeframe) ? (saved as Timeframe) : "15m";
   });
   const handleTimeframeChange = useCallback(
     (tf: Timeframe) => {
       setTimeframe(tf);
-      localStorage.setItem(`tf_${selectedSymbol}`, tf);
+      const preferences = readLocalPreferences();
+      updateLocalPreferences({ timeframes: { ...preferences.timeframes, [selectedSymbol]: tf } });
     },
     [selectedSymbol],
   );
   // Restore timeframe when symbol changes
   useEffect(() => {
-    const saved = localStorage.getItem(`tf_${selectedSymbol}`);
+    const saved = readLocalPreferences().timeframes[selectedSymbol];
     if (saved && TIMEFRAMES.includes(saved as Timeframe)) setTimeframe(saved as Timeframe);
   }, [selectedSymbol]);
 
-  const [activeIndicators, setActiveIndicators] = useState<IndicatorType[]>([]);
+  const [activeIndicators, setActiveIndicators] = useState<IndicatorType[]>(
+    () => readLocalPreferences().activeIndicators,
+  );
+  const handleToggleIndicator = useCallback((type: IndicatorType) => {
+    setActiveIndicators((current) => {
+      const next = current.includes(type) ? current.filter((item) => item !== type) : [...current, type];
+      updateLocalPreferences({ activeIndicators: next });
+      return next;
+    });
+  }, []);
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const [drawingTool, setDrawingTool] = useState<DrawingTool>("none");
   const {
@@ -105,22 +116,22 @@ export function TradingPage() {
   }, []);
   const [bottomTab, setBottomTab] = useState<BottomTab>("positions");
   const [bottomCollapsed, setBottomCollapsed] = useState(
-    () => localStorage.getItem("bottomPanelCollapsed") === "true",
+    () => readLocalPreferences().bottomPanelCollapsed ?? false,
   );
   // AI trader is a PropSim-era feature not part of Xee.Labs (see AiTraderPage.tsx).
   const aiTraderEnabled = false;
   const [rightPanel, setRightPanel] = useState<RightPanelId>("order");
   const [showRightPanel, setShowRightPanel] = useState(
-    () => localStorage.getItem("rightPanelCollapsed") !== "true",
+    () => !(readLocalPreferences().rightPanelCollapsed ?? false),
   );
   const [rightPanelWidth, setRightPanelWidth] = useState(() => {
-    const saved = Number(localStorage.getItem("rightPanelWidth"));
-    return Number.isFinite(saved) && saved >= 240 && saved <= 520 ? saved : 320;
+    const saved = readLocalPreferences().rightPanelWidth;
+    return typeof saved === "number" && saved >= 240 && saved <= 520 ? saved : 320;
   });
 
   const toggleBottomPanel = useCallback(() => {
     setBottomCollapsed((current) => {
-      localStorage.setItem("bottomPanelCollapsed", String(!current));
+      updateLocalPreferences({ bottomPanelCollapsed: !current });
       return !current;
     });
   }, []);
@@ -128,12 +139,12 @@ export function TradingPage() {
   const handleBottomTabChange = useCallback((tab: BottomTab) => {
     setBottomTab(tab);
     setBottomCollapsed(false);
-    localStorage.setItem("bottomPanelCollapsed", "false");
+    updateLocalPreferences({ bottomPanelCollapsed: false });
   }, []);
 
   const toggleRightPanel = useCallback(() => {
     setShowRightPanel((current) => {
-      localStorage.setItem("rightPanelCollapsed", String(current));
+      updateLocalPreferences({ rightPanelCollapsed: current });
       return !current;
     });
   }, []);
@@ -146,15 +157,14 @@ export function TradingPage() {
       }
       setRightPanel(panel);
       setShowRightPanel(true);
-      localStorage.setItem("rightPanelCollapsed", "false");
+      updateLocalPreferences({ rightPanelCollapsed: false });
     },
     [rightPanel, showRightPanel, toggleRightPanel],
   );
 
   // ── Vertical resize: chart vs bottom panel ──
   const [bottomPanelHeight, setBottomPanelHeight] = useState(() => {
-    const saved = localStorage.getItem("bottomPanelHeight");
-    return saved ? parseInt(saved, 10) : 220;
+    return readLocalPreferences().bottomPanelHeight ?? 220;
   });
   const resizingRef = useRef(false);
   const resizeStartY = useRef(0);
@@ -180,7 +190,7 @@ export function TradingPage() {
       const onUp = () => {
         resizingRef.current = false;
         setBottomPanelHeight((h) => {
-          localStorage.setItem("bottomPanelHeight", String(h));
+          updateLocalPreferences({ bottomPanelHeight: h });
           return h;
         });
         window.removeEventListener("mousemove", onMove);
@@ -211,7 +221,7 @@ export function TradingPage() {
       };
       const onUp = () => {
         setRightPanelWidth((width) => {
-          localStorage.setItem("rightPanelWidth", String(width));
+          updateLocalPreferences({ rightPanelWidth: width });
           return width;
         });
         window.removeEventListener("mousemove", onMove);
@@ -229,7 +239,7 @@ export function TradingPage() {
 
   // (#4) One-click trading mode
   const [oneClick, setOneClick] = useState(
-    () => localStorage.getItem("oneClickTrading") === "true",
+    () => readLocalPreferences().oneClickTrading ?? false,
   );
 
   // Trade sound effect
@@ -237,7 +247,7 @@ export function TradingPage() {
   const toggleOneClick = useCallback(() => {
     setOneClick((prev) => {
       const v = !prev;
-      localStorage.setItem("oneClickTrading", String(v));
+      updateLocalPreferences({ oneClickTrading: v });
       return v;
     });
   }, []);
@@ -321,6 +331,7 @@ export function TradingPage() {
 
   const handleClearIndicators = useCallback(() => {
     setActiveIndicators([]);
+    updateLocalPreferences({ activeIndicators: [] });
   }, []);
 
   // Deep-history target used after the initial fast render completes.
@@ -423,11 +434,7 @@ export function TradingPage() {
         timeframe={timeframe}
         onTimeframeChange={handleTimeframeChange}
         activeIndicators={activeIndicators}
-        onToggleIndicator={(type) =>
-          setActiveIndicators((prev) =>
-            prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
-          )
-        }
+        onToggleIndicator={handleToggleIndicator}
         showIndicatorMenu={showIndicatorMenu}
         onToggleIndicatorMenu={() => setShowIndicatorMenu((v) => !v)}
         rightPanel={rightPanel}

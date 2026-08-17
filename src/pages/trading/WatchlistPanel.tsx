@@ -4,6 +4,7 @@ import { usePlaceOrder } from "../../services/queries.ts";
 import { formatNumber, cn } from "../../lib/utils.ts";
 import { toast } from "../../services/toast.ts";
 import type { TradingMode } from "../../services/schemas.ts";
+import { readLocalPreferences, updateLocalPreferences } from "../../services/preferences.ts";
 
 export function WatchlistPanel({
   symbols,
@@ -33,12 +34,7 @@ export function WatchlistPanel({
   const placeOrder = usePlaceOrder();
 
   const [favorites, setFavorites] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem("watchlist_favorites");
-      return saved ? new Set(JSON.parse(saved)) : new Set<string>();
-    } catch {
-      return new Set<string>();
-    }
+    return new Set(readLocalPreferences().watchlistFavorites);
   });
 
   const toggleFavorite = useCallback((name: string) => {
@@ -46,7 +42,7 @@ export function WatchlistPanel({
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
-      localStorage.setItem("watchlist_favorites", JSON.stringify([...next]));
+      updateLocalPreferences({ watchlistFavorites: [...next] });
       return next;
     });
   }, []);

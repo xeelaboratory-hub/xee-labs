@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api } from "./api.ts";
+import { readLocalPreferences, updateLocalPreferences } from "./preferences.ts";
 import { wsClient } from "./ws.ts";
 import type { Order, Position, Symbol, TradingMode, User } from "./schemas.ts";
 
@@ -205,17 +206,17 @@ interface TradingState {
 }
 
 export const useTradingStore = create<TradingState>((set, get) => ({
-  mode: (localStorage.getItem("trading_mode") as TradingMode | null) ?? "demo",
+  mode: readLocalPreferences().tradingMode ?? "demo",
   positions: [],
   orders: [],
   symbols: [],
-  selectedSymbol: "BINANCE:BTCUSD",
+  selectedSymbol: readLocalPreferences().selectedSymbol ?? "BINANCE:BTCUSD",
   ticks: {},
   liveTicks: {},
   liveCandleUpdates: {},
 
   setMode: (mode) => {
-    localStorage.setItem("trading_mode", mode);
+    updateLocalPreferences({ tradingMode: mode });
     set({ mode, positions: [], orders: [] });
   },
 
@@ -318,12 +319,14 @@ export const useTradingStore = create<TradingState>((set, get) => ({
     }));
   },
 
-  setSelectedSymbol: (symbol) =>
+  setSelectedSymbol: (symbol) => {
+    updateLocalPreferences({ selectedSymbol: symbol });
     set((state) =>
       state.selectedSymbol === symbol
         ? { selectedSymbol: symbol }
         : { selectedSymbol: symbol, liveCandleUpdates: {} },
-    ),
+    );
+  },
   setPositions: (positions) => set({ positions }),
   setOrders: (orders) => set({ orders }),
 }));

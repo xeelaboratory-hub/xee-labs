@@ -1,8 +1,8 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, LargeBinary, Numeric, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, LargeBinary, Numeric, String, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -24,6 +24,9 @@ class User(Base):
     )
     exchange_credentials: Mapped[list["ExchangeCredential"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
+    )
+    preferences: Mapped["UserPreference | None"] = relationship(
+        back_populates="user", cascade="all, delete-orphan", uselist=False
     )
 
 
@@ -59,6 +62,24 @@ class ExchangeCredential(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="exchange_credentials")
+
+
+class UserPreference(Base):
+    """Per-user UI preferences synced across devices."""
+
+    __tablename__ = "user_preferences"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    preferences: Mapped[dict] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    user: Mapped["User"] = relationship(back_populates="preferences")
 
 
 class EtfFlow(Base):

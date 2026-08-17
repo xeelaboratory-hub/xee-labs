@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-
-const STORAGE_KEY = "tradeSoundMuted";
+import { readLocalPreferences, updateLocalPreferences } from "../services/preferences.ts";
 
 /**
  * Hook that manages a trade execution sound effect with mute/unmute toggle.
@@ -10,7 +9,7 @@ const STORAGE_KEY = "tradeSoundMuted";
  * a short, satisfying "cha-ching" tone (no external audio file needed).
  */
 export function useTradeSound() {
-  const [muted, setMuted] = useState(() => localStorage.getItem(STORAGE_KEY) === "true");
+  const [muted, setMuted] = useState(() => readLocalPreferences().tradeSoundMuted ?? false);
   const ctxRef = useRef<AudioContext | null>(null);
 
   const getCtx = useCallback(() => {
@@ -59,7 +58,7 @@ export function useTradeSound() {
   const toggleMute = useCallback(() => {
     setMuted((prev) => {
       const next = !prev;
-      localStorage.setItem(STORAGE_KEY, String(next));
+      updateLocalPreferences({ tradeSoundMuted: next });
       return next;
     });
   }, []);
