@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LogOut, Plug, Trash2, X } from "lucide-react";
+import { LogIn, LogOut, Plug, Trash2, X } from "lucide-react";
 import { api, type ExchangeCredentialInput } from "../../services/api.ts";
 import { ApiError } from "../../services/api/request.ts";
 import { useAuthStore, useTradingStore } from "../../services/store.tsx";
 import { toast } from "../../services/toast.ts";
 import { cn } from "../../lib/utils.ts";
 import type { TradingMode } from "../../services/schemas.ts";
+import { LoginPage } from "../LoginPage.tsx";
 
 /**
  * Mode switcher (OKX demo-trading vs live-trading) + exchange-credential
@@ -19,13 +20,16 @@ export function AccountPanel() {
   const loadPositions = useTradingStore((s) => s.loadPositions);
   const loadOrders = useTradingStore((s) => s.loadOrders);
   const user = useAuthStore((s) => s.user);
+  const accessToken = useAuthStore((s) => s.accessToken);
   const logout = useAuthStore((s) => s.logout);
   const [open, setOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: account, error: accountError } = useQuery({
-    queryKey: ["account", mode],
+    queryKey: ["account", mode, user?.id ?? "guest"],
     queryFn: () => api.getAccount(mode),
+    enabled: !!accessToken,
     retry: false,
     refetchInterval: 15_000,
   });
@@ -35,8 +39,10 @@ export function AccountPanel() {
     if (next === mode) return;
     setMode(next);
     queryClient.invalidateQueries({ queryKey: ["account"] });
-    loadPositions();
-    loadOrders();
+    if (accessToken) {
+      loadPositions();
+      loadOrders();
+    }
   };
 
   return (
@@ -57,31 +63,46 @@ export function AccountPanel() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 min-w-0">
-          {accountError ? (
-            <span className="text-destructive text-[10px]" title={accountError.message}>
-              {noCredentials ? `No ${mode} credentials` : "Exchange error"}
-            </span>
-          ) : (
-            <span className="font-mono text-[11px] truncate">
-              {account ? `$${account.equity.toFixed(2)}` : "…"}
-            </span>
-          )}
+        {accessToken ? (
+          <div className="flex items-center gap-2 min-w-0">
+            {accountError ? (
+              <span className="text-destructive text-[10px]" title={accountError.message}>
+                {noCredentials ? `No ${mode} credentials` : "Exchange error"}
+              </span>
+            ) : (
+              <span className="font-mono text-[11px] truncate">
+                {account ? `$${account.equity.toFixed(2)}` : "…"}
+              </span>
+            )}
+            <button
+              onClick={() => setOpen(true)}
+              title="Connect exchange"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Plug className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={logout}
+              title="Log out"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
           <button
-            onClick={() => setOpen(true)}
-            title="Connect exchange"
-            className="text-muted-foreground hover:text-foreground"
+            onClick={() => setLoginOpen(true)}
+            className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
           >
-            <Plug className="h-3.5 w-3.5" />
+            <LogIn className="h-3.5 w-3.5" />
+            Log in
           </button>
-          <button onClick={logout} title="Log out" className="text-muted-foreground hover:text-foreground">
-            <LogOut className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        )}
       </div>
       {user && <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{user.email}</div>}
 
       {open && <CredentialsDialog onClose={() => setOpen(false)} />}
+      {loginOpen && <LoginPage onClose={() => setLoginOpen(false)} />}
     </div>
   );
 }

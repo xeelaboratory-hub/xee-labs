@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { api } from "./api";
 import type { EtfFlow, MarketDataCandlesPayload } from "./api/market-data";
+import { useAuthStore } from "./store";
 
 // Types for dead PropSim-era hooks below (payouts, journal — no real backend,
 // see services/api.ts's "not implemented" Proxy fallback). Kept loose since
@@ -38,10 +39,12 @@ export const queryKeys = {
 } as const;
 
 export function useAccount(mode: TradingMode | null, opts?: Partial<UseQueryOptions<Account>>) {
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const authScope = useAuthStore((s) => s.user?.id ?? "guest");
   return useQuery<Account>({
-    queryKey: queryKeys.accounts.detail(mode!),
+    queryKey: [...queryKeys.accounts.detail(mode!), authScope],
     queryFn: () => api.getAccount(mode!),
-    enabled: !!mode,
+    enabled: !!accessToken && !!mode,
     staleTime: 15_000,
     ...opts,
   });
@@ -49,10 +52,12 @@ export function useAccount(mode: TradingMode | null, opts?: Partial<UseQueryOpti
 
 // ── Trading Queries ────────────────────────────────────
 export function usePositions(mode: TradingMode | null) {
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const authScope = useAuthStore((s) => s.user?.id ?? "guest");
   return useQuery<Position[]>({
-    queryKey: queryKeys.trading.positions(mode!),
+    queryKey: [...queryKeys.trading.positions(mode!), authScope],
     queryFn: () => api.getPositions(mode!),
-    enabled: !!mode,
+    enabled: !!accessToken && !!mode,
     // 10s staleTime avoids refetch storms; 30s refetchInterval is the primary
     // update path (no WS push for positions/orders — see MarketDataBridge.tsx).
     staleTime: 10_000,
@@ -62,10 +67,12 @@ export function usePositions(mode: TradingMode | null) {
 }
 
 export function useOrders(mode: TradingMode | null) {
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const authScope = useAuthStore((s) => s.user?.id ?? "guest");
   return useQuery<Order[]>({
-    queryKey: queryKeys.trading.orders(mode!),
+    queryKey: [...queryKeys.trading.orders(mode!), authScope],
     queryFn: () => api.getOrders(mode!),
-    enabled: !!mode,
+    enabled: !!accessToken && !!mode,
     staleTime: 10_000,
     refetchInterval: 30_000,
     refetchOnWindowFocus: false,
@@ -73,10 +80,12 @@ export function useOrders(mode: TradingMode | null) {
 }
 
 export function useTradeHistory(mode: TradingMode | null) {
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const authScope = useAuthStore((s) => s.user?.id ?? "guest");
   return useQuery<TradeHistoryEntry[]>({
-    queryKey: ["tradeHistory", mode] as const,
+    queryKey: ["tradeHistory", mode, authScope] as const,
     queryFn: () => api.getTradeHistory(mode!),
-    enabled: !!mode,
+    enabled: !!accessToken && !!mode,
     staleTime: 30_000,
   });
 }

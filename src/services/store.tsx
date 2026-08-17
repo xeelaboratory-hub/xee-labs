@@ -44,13 +44,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
     set({ accessToken: null, refreshToken: null, user: null });
-    wsClient.disconnect();
+    wsClient.connect();
     stopTokenRefresh();
   },
 
   restoreSession: async () => {
     const token = localStorage.getItem("access_token");
-    if (!token) return;
+    if (!token) {
+      wsClient.connect();
+      return;
+    }
     const rt = localStorage.getItem("refresh_token");
     if (rt && isTokenStale(token)) {
       try {

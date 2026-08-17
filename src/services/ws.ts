@@ -54,6 +54,7 @@ class RealWsClient {
   }
 
   connect(_token?: string): void {
+    if (this.socket || this._state === "connecting" || this._state === "connected") return;
     this.shouldReconnect = true;
     this.open();
   }

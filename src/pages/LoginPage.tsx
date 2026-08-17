@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { X } from "lucide-react";
 import { useAuthStore } from "../services/store.tsx";
 
-export function LoginPage() {
+export function LoginPage({ onClose }: { onClose?: () => void }) {
   const login = useAuthStore((s) => s.login);
   const register = useAuthStore((s) => s.register);
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -22,6 +23,7 @@ export function LoginPage() {
       } else {
         await register(email, password, firstName, lastName);
       }
+      onClose?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -30,11 +32,23 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-[#0a0a0a] text-neutral-200">
+    <div
+      className={`${onClose ? "fixed inset-0 z-50" : "h-screen w-screen"} flex items-center justify-center bg-[#0a0a0a] text-neutral-200`}
+    >
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg border border-neutral-800 bg-neutral-900 p-6"
+        className="relative w-full max-w-sm space-y-4 rounded-lg border border-neutral-800 bg-neutral-900 p-6"
       >
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close login"
+            className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
         <h1 className="text-center text-lg font-semibold">Xee.Labs</h1>
 
         <div className="flex rounded border border-neutral-800 text-sm">

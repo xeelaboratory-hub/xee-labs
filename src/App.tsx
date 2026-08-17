@@ -1,18 +1,15 @@
 import { useEffect, useState } from "react";
-import { LoginPage } from "./pages/LoginPage.tsx";
 import { TradingPage } from "./pages/TradingPage.tsx";
 import { useAuthStore, useTradingStore } from "./services/store.tsx";
 
 /**
  * Xee.Labs entry point.
  *
- * Requires a real login (services/store.tsx's authStore, backed by
- * backend/app/auth) before rendering the terminal. Once authenticated, loads
- * the real symbol universe and starts the market-data WS.
+ * Restores a saved session when available, but market data and charting are
+ * public. Authentication is only required for account and trading actions.
  */
 export function App() {
   const [restoring, setRestoring] = useState(true);
-  const accessToken = useAuthStore((s) => s.accessToken);
   const restoreSession = useAuthStore((s) => s.restoreSession);
   const loadSymbols = useTradingStore((s) => s.loadSymbols);
 
@@ -21,8 +18,8 @@ export function App() {
   }, [restoreSession]);
 
   useEffect(() => {
-    if (accessToken) loadSymbols();
-  }, [accessToken, loadSymbols]);
+    loadSymbols();
+  }, [loadSymbols]);
 
   if (restoring) {
     return (
@@ -31,8 +28,6 @@ export function App() {
       </div>
     );
   }
-
-  if (!accessToken) return <LoginPage />;
 
   return <TradingPage />;
 }
