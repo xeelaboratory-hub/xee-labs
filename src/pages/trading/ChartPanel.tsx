@@ -13,7 +13,7 @@ import {
   type LogicalRange,
   type Time,
 } from "lightweight-charts";
-import { Clock, ListTree } from "lucide-react";
+import { ListTree } from "lucide-react";
 import {
   type Dispatch,
   type MouseEvent as ReactMouseEvent,
@@ -495,7 +495,7 @@ function upsertPriceLine(
   ref.current = series.createPriceLine(opts);
 }
 
-function applyMidPriceLine(tick: TickData | undefined, ctx: RtCtx): void {
+function applyMidPriceLine(tick: TickData | undefined, countdown: string, ctx: RtCtx): void {
   const series = ctx.series;
   if (!tick) {
     removePriceLineSafe(ctx.midLine, series);
@@ -507,7 +507,7 @@ function applyMidPriceLine(tick: TickData | undefined, ctx: RtCtx): void {
     lineWidth: 1,
     lineStyle: LineStyle.Dashed,
     axisLabelVisible: true,
-    title: "",
+    title: countdown,
     axisLabelColor: "#3b5ab5",
     axisLabelTextColor: "#ffffff",
   });
@@ -822,31 +822,21 @@ function OhlcvLegendRow({ legend, pipDigits }: { legend: OhlcvLegend; pipDigits:
   );
 }
 
-// Symbol / timeframe / OHLCV / countdown header in the chart's top-left corner.
+// OHLCV header in the chart's top-left corner.
 // Extracted so the visibility branching doesn't inflate ChartPanel's CC.
 function ChartLegendHeader({
   legend,
-  countdown,
   pipDigits,
   showOhlcLegend,
-  showCountdown,
 }: {
   legend: OhlcvLegend | null;
-  countdown: string;
   pipDigits: number;
   showOhlcLegend: boolean;
-  showCountdown: boolean;
 }) {
   return (
     <div className="absolute top-2 left-3 z-10 pointer-events-none select-none">
       <div className="flex items-center gap-2 text-[11px] font-mono leading-none mb-1">
         {legend && showOhlcLegend && <OhlcvLegendRow legend={legend} pipDigits={pipDigits} />}
-        {countdown && showCountdown && (
-          <span className="text-muted-foreground/60 flex items-center gap-0.5">
-            <Clock className="h-2.5 w-2.5 opacity-50" />
-            {countdown}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -1752,8 +1742,8 @@ export function ChartPanel({
   useEffect(() => {
     const series = candleSeriesRef.current;
     if (!series) return;
-    applyMidPriceLine(tick, makeRtCtx(series));
-  }, [tick, makeRtCtx]);
+    applyMidPriceLine(tick, chartPrefs.showCountdown ? countdown : "", makeRtCtx(series));
+  }, [tick, countdown, chartPrefs.showCountdown, makeRtCtx]);
 
   // ── Position/order overlays ────────────────────────────────
   useEffect(() => {
@@ -1791,10 +1781,8 @@ export function ChartPanel({
       {/* OHLCV Legend Overlay */}
       <ChartLegendHeader
         legend={legend}
-        countdown={countdown}
         pipDigits={pipDigits}
         showOhlcLegend={chartPrefs.showOhlcLegend}
-        showCountdown={chartPrefs.showCountdown}
       />
 
       {/* Drag-to-edit tooltip */}
