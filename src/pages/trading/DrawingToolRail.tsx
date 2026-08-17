@@ -253,7 +253,7 @@ export function DrawingToolRail({
         type="button"
         title="Show drawing tools"
         onClick={() => setHidden(false)}
-        className="absolute left-1 top-1 z-20 rounded-md border border-border bg-card/90 p-1.5 text-muted-foreground backdrop-blur-sm hover:text-primary"
+        className="absolute left-1 top-8 z-20 rounded-md border border-border bg-card/90 p-1.5 text-muted-foreground backdrop-blur-sm hover:text-primary"
       >
         <PenTool className="h-4 w-4" />
       </button>
@@ -263,7 +263,7 @@ export function DrawingToolRail({
   return (
     <div
       ref={ref}
-      className="absolute left-1 top-1 z-20 flex flex-col items-center gap-0.5 rounded-md bg-card/90 border border-border p-0.5 backdrop-blur-sm"
+      className="absolute left-1 top-8 z-20 flex flex-col items-center gap-0.5 rounded-md bg-card/90 border border-border p-0.5 backdrop-blur-sm"
     >
       <RailButton
         icon={MousePointer2}
