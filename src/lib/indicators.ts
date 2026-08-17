@@ -1,6 +1,7 @@
-export type IndicatorType = "ETF_FLOW";
+export type IndicatorType = "ETF_FLOW" | "SESSION_VOLUME_PROFILE";
 export const ETF_FLOW_COLOR = "#f0b90b";
 export const ETF_FLOW_MARKER_SIZE = 1.2;
+export const SESSION_VOLUME_PROFILE_COLOR = "#0ecb81";
 
 export const INDICATOR_REGISTRY = [
   {
@@ -8,5 +9,11 @@ export const INDICATOR_REGISTRY = [
     label: "ETF Flow (BTC)",
     pane: "overlay" as const,
     color: ETF_FLOW_COLOR,
+  },
+  {
+    type: "SESSION_VOLUME_PROFILE" as const,
+    label: "Session Volume Profile",
+    pane: "overlay" as const,
+    color: SESSION_VOLUME_PROFILE_COLOR,
   },
 ];

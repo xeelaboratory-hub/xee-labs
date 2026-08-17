@@ -130,6 +130,7 @@ export function MarketDataBridge() {
         queryClient.invalidateQueries({ queryKey: ["orders"] });
         queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all });
         queryClient.invalidateQueries({ queryKey: queryKeys.market.etfFlows });
+        queryClient.invalidateQueries({ queryKey: queryKeys.market.sessionVolumeProfiles });
       }
       wasConnected = state === "connected";
     });

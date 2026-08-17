@@ -32,7 +32,8 @@ import {
 import { DrawingToolsManager } from "../../lib/chart-plugins/drawing-tools/manager.ts";
 import { SessionBreaks } from "../../lib/chart-plugins/session-breaks/session-breaks.ts";
 import type { IndicatorType } from "../../lib/indicators.ts";
-import { cn } from "../../lib/utils.ts";
+import type { SessionMarket } from "../../lib/session-volume-profile.ts";
+import { cn, formatNumber } from "../../lib/utils.ts";
 import { api } from "../../services/api.ts";
 import type { EtfFlow } from "../../services/api/market-data.ts";
 import { queryKeys, useEtfFlows } from "../../services/queries.ts";
@@ -58,6 +59,7 @@ import { DrawingToolRail } from "./DrawingToolRail.tsx";
 import { DRAWING_STYLES_EVENT, getStyleDefaults } from "./drawingStyles.ts";
 import { ObjectTreePanel } from "./ObjectTreePanel.tsx";
 import { useIndicators } from "./useIndicators.ts";
+import { useSessionVolumeProfile } from "./useSessionVolumeProfile.ts";
 import { useSlTpDrag } from "./useSlTpDrag.ts";
 import {
   formatCountdown,
@@ -192,6 +194,8 @@ export interface ChartPanelProps {
   timeframe: Timeframe;
   isDark: boolean;
   activeIndicators: IndicatorType[];
+  sessionVolumeProfileMarkets: SessionMarket[];
+  sessionVolumeProfileRows: number;
   drawingTool: DrawingTool;
   drawings: DrawingLine[];
   onAddDrawing: (d: DrawingLine) => void;
@@ -928,6 +932,8 @@ export function ChartPanel({
   timeframe,
   isDark,
   activeIndicators,
+  sessionVolumeProfileMarkets,
+  sessionVolumeProfileRows,
   drawingTool,
   drawings,
   onAddDrawing,
@@ -996,6 +1002,11 @@ export function ChartPanel({
     x: number;
     y: number;
     flow: EtfFlow;
+  } | null>(null);
+  const [sessionVolumeProfileTooltip, setSessionVolumeProfileTooltip] = useState<{
+    x: number;
+    y: number;
+    data: import("../../lib/chart-plugins/session-volume-profile/session-volume-profile.ts").SessionVolumeProfileHover;
   } | null>(null);
   // Candle countdown state
   const [countdown, setCountdown] = useState("");
@@ -1210,12 +1221,26 @@ export function ChartPanel({
 
   const { data: etfFlowData } = useEtfFlows();
   useIndicators(candleSeriesRef, chartData, activeIndicators, etfFlowData, timeframe);
+  const sessionVolumeProfileRef = useSessionVolumeProfile({
+    chartRef,
+    candleSeriesRef,
+    chartEpoch,
+    chartData,
+    active: activeIndicators.includes("SESSION_VOLUME_PROFILE"),
+    selectedSymbol,
+    timeframe,
+    markets: sessionVolumeProfileMarkets,
+    rows: sessionVolumeProfileRows,
+  });
   useEffect(() => {
     etfFlowByIdRef.current = activeIndicators.includes("ETF_FLOW")
       ? new Map((etfFlowData ?? []).map((flow) => [flow.flowDate, flow]))
       : new Map();
     setEtfTooltip(null);
   }, [activeIndicators, etfFlowData, timeframe]);
+  useEffect(() => {
+    setSessionVolumeProfileTooltip(null);
+  }, [activeIndicators, sessionVolumeProfileMarkets, sessionVolumeProfileRows, timeframe]);
 
   // ── Candle close countdown timer ───────────────────────────
   useEffect(() => {
@@ -1281,7 +1306,7 @@ export function ChartPanel({
         alignLabels: true,
         borderVisible: true,
         entireTextOnly: false,
-        ticksVisible: true,
+        ticksVisible: false,
         minimumWidth: 80,
       },
       timeScale: {
@@ -1293,6 +1318,7 @@ export function ChartPanel({
         fixLeftEdge: false,
         fixRightEdge: false,
         borderVisible: true,
+        ticksVisible: false,
       },
       watermark: {
         visible: true,
@@ -1358,6 +1384,7 @@ export function ChartPanel({
     chart.subscribeCrosshairMove((param) => {
       const hoveredId = typeof param.hoveredObjectId === "string" ? param.hoveredObjectId : null;
       const hoveredFlow = hoveredId ? etfFlowByIdRef.current.get(hoveredId) : undefined;
+      const hoveredProfileRow = hoveredId ? sessionVolumeProfileRef.current?.hoverData(hoveredId) : undefined;
       if (hoveredFlow && param.point && containerRef.current) {
         setEtfTooltip({
           x: Math.min(param.point.x + 12, Math.max(8, containerRef.current.clientWidth - 150)),
@@ -1366,6 +1393,15 @@ export function ChartPanel({
         });
       } else {
         setEtfTooltip(null);
+      }
+      if (hoveredProfileRow && param.point && containerRef.current) {
+        setSessionVolumeProfileTooltip({
+          x: Math.min(param.point.x + 12, Math.max(8, containerRef.current.clientWidth - 205)),
+          y: Math.max(8, param.point.y - 62),
+          data: hoveredProfileRow,
+        });
+      } else {
+        setSessionVolumeProfileTooltip(null);
       }
       if (!param?.time) {
         restoreLegendOnLeave(legendRestoredRef, lastCandleRef, legendVolRef, setLegend);
@@ -1756,6 +1792,29 @@ export function ChartPanel({
           <div className="text-[10px] text-muted-foreground">ETF Flow · {etfTooltip.flow.flowDate}</div>
           <div className="font-mono text-xs font-semibold text-[#f0b90b]">
             {formatEtfFlowValue(etfTooltip.flow.totalNetFlow)}
+          </div>
+        </div>
+      )}
+
+      {sessionVolumeProfileTooltip && (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute z-30 min-w-48 rounded-md border border-[#0ecb81]/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
+          style={{ left: sessionVolumeProfileTooltip.x, top: sessionVolumeProfileTooltip.y }}
+        >
+          <div className="text-[10px] text-muted-foreground">
+            {sessionVolumeProfileTooltip.data.market} · {sessionVolumeProfileTooltip.data.date}
+          </div>
+          <div className="font-mono text-[11px] text-foreground">
+            {sessionVolumeProfileTooltip.data.low.toFixed(pipDigits)}–
+            {sessionVolumeProfileTooltip.data.high.toFixed(pipDigits)}
+          </div>
+          <div className="mt-0.5 flex gap-2 font-mono text-[10px]">
+            <span className="text-[#0ecb81]">Up {formatNumber(sessionVolumeProfileTooltip.data.up, 2)}</span>
+            <span className="text-[#f6465d]">Down {formatNumber(sessionVolumeProfileTooltip.data.down, 2)}</span>
+          </div>
+          <div className="font-mono text-[10px] text-muted-foreground">
+            Total {formatNumber(sessionVolumeProfileTooltip.data.total, 2)} · {formatNumber(sessionVolumeProfileTooltip.data.percent, 1)}%
           </div>
         </div>
       )}

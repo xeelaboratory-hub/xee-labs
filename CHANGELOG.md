@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-08-17
+
+### Added
+- Session Volume Profile indicator with configurable price rows, per-row volume
+  hover details, multi-select for ASX, Tokyo, London, and New York sessions,
+  support across every chart timeframe, and live current-session updates.
+
+### Changed
+- Session profiles render from the left edge of each session and keep the latest
+  visible label attached to its corresponding profile.
+
+### Fixed
+- Stabilized profile query rendering to prevent chart lag during crosshair moves.
+- Prevented profile value labels from displacing the current-price label, and
+  removed axis tick marks from price and time labels.
+
 ## [1.3.1] - 2026-08-17
 
 ### Added

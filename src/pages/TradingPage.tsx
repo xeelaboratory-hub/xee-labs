@@ -17,10 +17,15 @@ import {
 } from "../hooks/useChartPreferences.ts";
 import { useTradeSound } from "../hooks/useTradeSound";
 import type { IndicatorType } from "../lib/indicators.ts";
+import type { SessionMarket } from "../lib/session-volume-profile.ts";
 import { posthog } from "../lib/posthog";
 import { cn } from "../lib/utils.ts";
 import { api } from "../services/api.ts";
-import { readLocalPreferences, updateLocalPreferences } from "../services/preferences.ts";
+import {
+  normalizeSessionVolumeProfileRows,
+  readLocalPreferences,
+  updateLocalPreferences,
+} from "../services/preferences.ts";
 import { useAccount, useCandles, useOrders, usePositions, useSymbols } from "../services/queries.ts";
 import type { Order, PlaceOrderInput, Position, Symbol } from "../services/schemas.ts";
 import { useTradingStore } from "../services/store.tsx";
@@ -91,6 +96,27 @@ export function TradingPage() {
     });
   }, []);
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
+  const [sessionVolumeProfileMarkets, setSessionVolumeProfileMarkets] = useState<SessionMarket[]>(
+    () => readLocalPreferences().sessionVolumeProfileMarkets ?? ["NEW_YORK"],
+  );
+  const [sessionVolumeProfileRows, setSessionVolumeProfileRows] = useState(
+    () => readLocalPreferences().sessionVolumeProfileRows ?? 30,
+  );
+  const handleSessionVolumeProfileMarket = useCallback((market: SessionMarket) => {
+    setSessionVolumeProfileMarkets((current) => {
+      const next = current.includes(market)
+        ? current.filter((candidate) => candidate !== market)
+        : [...current, market];
+      if (!next.length) return current;
+      updateLocalPreferences({ sessionVolumeProfileMarkets: next });
+      return next;
+    });
+  }, []);
+  const handleSessionVolumeProfileRows = useCallback((rows: number) => {
+    const next = normalizeSessionVolumeProfileRows(rows);
+    setSessionVolumeProfileRows(next);
+    updateLocalPreferences({ sessionVolumeProfileRows: next });
+  }, []);
   const [drawingTool, setDrawingTool] = useState<DrawingTool>("none");
   const {
     drawings,
@@ -435,6 +461,10 @@ export function TradingPage() {
         onTimeframeChange={handleTimeframeChange}
         activeIndicators={activeIndicators}
         onToggleIndicator={handleToggleIndicator}
+        sessionVolumeProfileMarkets={sessionVolumeProfileMarkets}
+        sessionVolumeProfileRows={sessionVolumeProfileRows}
+        onSessionVolumeProfileMarket={handleSessionVolumeProfileMarket}
+        onSessionVolumeProfileRows={handleSessionVolumeProfileRows}
         showIndicatorMenu={showIndicatorMenu}
         onToggleIndicatorMenu={() => setShowIndicatorMenu((v) => !v)}
         rightPanel={rightPanel}
@@ -459,6 +489,8 @@ export function TradingPage() {
               timeframe={timeframe}
               isDark={isDark}
               activeIndicators={activeIndicators}
+              sessionVolumeProfileMarkets={sessionVolumeProfileMarkets}
+              sessionVolumeProfileRows={sessionVolumeProfileRows}
               drawingTool={drawingTool}
               drawings={drawings}
               onAddDrawing={addDrawing}

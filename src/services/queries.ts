@@ -33,6 +33,9 @@ export const queryKeys = {
   market: {
     symbols: ["symbols"] as const,
     candles: (symbol: string, tf: string) => ["candles", symbol, tf] as const,
+    sessionVolumeProfile: (symbol: string, market: string, date: string) =>
+      ["session-volume-profile", symbol, market, date] as const,
+    sessionVolumeProfiles: ["session-volume-profile"] as const,
     economicCalendar: (currencies: string[]) => ["economicCalendar", ...currencies] as const,
     etfFlows: ["etf-flows"] as const,
   },
