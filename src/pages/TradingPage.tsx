@@ -103,12 +103,6 @@ export function TradingPage() {
       return next;
     });
   }, []);
-  // Template load — replace the whole plugin list at once.
-  const handleSetPlugins = useCallback((ids: string[]) => {
-    const supported = ids.includes("session-breaks") ? ["session-breaks"] : [];
-    setActivePlugins(supported);
-    updateChartPreferences({ activePlugins: supported });
-  }, []);
   const [bottomTab, setBottomTab] = useState<BottomTab>("positions");
   const [bottomCollapsed, setBottomCollapsed] = useState(
     () => localStorage.getItem("bottomPanelCollapsed") === "true",
@@ -442,9 +436,6 @@ export function TradingPage() {
         tick={tick}
         symbolInfo={symbolInfo}
         aiTraderEnabled={aiTraderEnabled}
-        activePlugins={activePlugins}
-        onSetIndicators={setActiveIndicators}
-        onSetPlugins={handleSetPlugins}
       />
 
       <MarketClosedBanner symbolInfo={symbolInfo} />

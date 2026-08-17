@@ -12,7 +12,6 @@ import { useState } from "react";
 import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
 import { cn, formatNumber } from "../../lib/utils.ts";
 import { TIMEFRAMES, type Timeframe } from "./constants.ts";
-import { ChartTemplatesMenu } from "./ChartTemplatesMenu.tsx";
 
 export interface ChartToolbarProps {
   selectedSymbol: string;
@@ -49,11 +48,6 @@ export interface ChartToolbarProps {
     marginPercent?: number;
     commission?: number;
   };
-  activePlugins?: string[];
-  /** Replace the full indicator list (template load). Enables the templates menu. */
-  onSetIndicators?: (indicators: IndicatorType[]) => void;
-  /** Replace the full plugin list (template load). Enables the templates menu. */
-  onSetPlugins?: (ids: string[]) => void;
 }
 
 export function ChartToolbar({
@@ -72,9 +66,6 @@ export function ChartToolbar({
   tick,
   symbolInfo,
   aiTraderEnabled,
-  activePlugins = [],
-  onSetIndicators,
-  onSetPlugins,
 }: ChartToolbarProps) {
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [symbolFilter, setSymbolFilter] = useState("");
@@ -224,16 +215,6 @@ export function ChartToolbar({
           </button>
         ))}
       </div>
-
-      {/* Chart layout templates (save/load/autosave) */}
-      {onSetIndicators && onSetPlugins && (
-        <ChartTemplatesMenu
-          activeIndicators={activeIndicators}
-          onSetIndicators={onSetIndicators}
-          activePlugins={activePlugins}
-          onSetPlugins={onSetPlugins}
-        />
-      )}
 
       <div className="h-4 border-l border-border mx-1 hidden md:block" />
 
