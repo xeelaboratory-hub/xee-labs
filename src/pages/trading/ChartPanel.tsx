@@ -25,17 +25,12 @@ import {
   useState,
 } from "react";
 import { useChartPreferences } from "../../hooks/useChartPreferences.ts";
-import { BandsIndicator } from "../../lib/chart-plugins/bands-indicator/bands-indicator.ts";
-import { DeltaTooltipPrimitive } from "../../lib/chart-plugins/delta-tooltip/delta-tooltip.ts";
 import {
   detectCrossings,
   playAlertBeep,
 } from "../../lib/chart-plugins/drawing-tools/line-alerts.ts";
 import { DrawingToolsManager } from "../../lib/chart-plugins/drawing-tools/manager.ts";
-import { CrosshairHighlightPrimitive } from "../../lib/chart-plugins/highlight-bar-crosshair/highlight-bar-crosshair.ts";
 import { SessionBreaks } from "../../lib/chart-plugins/session-breaks/session-breaks.ts";
-import { SessionHighlighting } from "../../lib/chart-plugins/session-highlighting/session-highlighting.ts";
-import { TooltipPrimitive } from "../../lib/chart-plugins/tooltip/tooltip.ts";
 import type { IndicatorType } from "../../lib/indicators.ts";
 import { cn } from "../../lib/utils.ts";
 import { api } from "../../services/api.ts";
@@ -242,16 +237,6 @@ export interface ChartPanelProps {
 
 // ── Chart plugin overlays ─────────────────────────────────────────────────────
 
-function getForexSessionColor(utcHour: number): string {
-  if (utcHour >= 22 || utcHour < 8) return "rgba(255,200,50,0.04)";
-  if (utcHour >= 8 && utcHour < 16) return "rgba(50,200,255,0.04)";
-  if (utcHour >= 13) return "rgba(255,80,80,0.04)";
-  return "transparent";
-}
-
-const forexSessionHighlighter = (date: Time): string =>
-  getForexSessionColor(new Date((date as number) * 1000).getUTCHours());
-
 interface PluginBuildCtx {
   isDark: boolean;
   timeframe: Timeframe;
@@ -273,15 +258,7 @@ function buildSessionBreaks(ctx: PluginBuildCtx): ISeriesPrimitive<Time> | null 
 }
 
 const PLUGIN_FACTORIES: Record<string, (ctx: PluginBuildCtx) => ISeriesPrimitive<Time> | null> = {
-  crosshair: ({ isDark }) =>
-    new CrosshairHighlightPrimitive({
-      color: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
-    }),
-  session: () => new SessionHighlighting(forexSessionHighlighter),
   "session-breaks": buildSessionBreaks,
-  bands: () => new BandsIndicator(),
-  tooltip: () => new TooltipPrimitive({}),
-  "delta-tooltip": () => new DeltaTooltipPrimitive({}),
 };
 
 function buildPlugin(id: string, ctx: PluginBuildCtx): ISeriesPrimitive<Time> | null {

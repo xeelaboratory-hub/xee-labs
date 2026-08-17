@@ -351,13 +351,6 @@ function EventsTab({
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("session-breaks")}
       />
-      <ToggleRow
-        label="Session highlighting"
-        hint="Shade Asia / London / New York forex sessions"
-        checked={activePlugins.includes("session")}
-        disabled={!onTogglePlugin}
-        onChange={() => onTogglePlugin?.("session")}
-      />
     </div>
   );
 }

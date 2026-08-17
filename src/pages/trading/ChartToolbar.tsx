@@ -1,19 +1,13 @@
 import {
-  Activity,
-  AlignCenter,
   ArrowDownRight,
   ArrowRight,
   ArrowUpDown,
   ArrowUpRight,
   BarChart3,
   Bot,
-  CalendarDays,
   ChevronDown,
   Circle,
-  Clock,
-  Crosshair,
   Equal,
-  Info,
   Layers,
   Layers3,
   type LucideIcon,
@@ -26,7 +20,6 @@ import {
   Repeat,
   Ruler,
   Search,
-  SlidersHorizontal,
   Spline,
   Square,
   Trash2,
@@ -88,7 +81,6 @@ export interface ChartToolbarProps {
     commission?: number;
   };
   activePlugins?: string[];
-  onTogglePlugin?: (id: string) => void;
   /** Replace the full indicator list (template load). Enables the templates menu. */
   onSetIndicators?: (indicators: IndicatorType[]) => void;
   /** Replace the full plugin list (template load). Enables the templates menu. */
@@ -121,7 +113,6 @@ export function ChartToolbar({
   symbolInfo,
   aiTraderEnabled,
   activePlugins = [],
-  onTogglePlugin,
   onSetIndicators,
   onSetPlugins,
   magnetMode = "none",
@@ -348,9 +339,6 @@ export function ChartToolbar({
             stayInDrawingMode={stayInDrawingMode}
             onToggleStayInDrawingMode={onToggleStayInDrawingMode}
           />
-          {onTogglePlugin && (
-            <PluginsDropdown activePlugins={activePlugins} onTogglePlugin={onTogglePlugin} />
-          )}
         </div>
       }
 
@@ -418,81 +406,6 @@ export function ToolButton({
     >
       <Icon className="h-3.5 w-3.5" />
     </button>
-  );
-}
-
-const CHART_PLUGIN_ITEMS = [
-  { id: "crosshair", icon: Crosshair, label: "Crosshair Highlight" },
-  { id: "session", icon: Clock, label: "Session Highlighting" },
-  { id: "session-breaks", icon: CalendarDays, label: "Session Breaks" },
-  { id: "bands", icon: AlignCenter, label: "Bands Indicator" },
-  { id: "tooltip", icon: Info, label: "OHLCV Tooltip" },
-  { id: "delta-tooltip", icon: Activity, label: "Delta Tooltip" },
-] satisfies Array<{ id: string; icon: LucideIcon; label: string }>;
-
-function PluginsDropdown({
-  activePlugins,
-  onTogglePlugin,
-}: {
-  activePlugins: string[];
-  onTogglePlugin: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const isActive = activePlugins.length > 0;
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        title="Chart Plugins"
-        className={cn(
-          "flex items-center gap-1 px-1.5 py-1 rounded",
-          isActive ? "bg-primary/20 text-primary" : "hover:bg-secondary text-muted-foreground",
-        )}
-      >
-        <SlidersHorizontal className="h-3.5 w-3.5" />
-        {isActive && (
-          <span className="bg-primary text-primary-foreground rounded-full px-1 text-[9px]">
-            {activePlugins.length}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div className="absolute top-full left-0 z-50 mt-1 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[190px]">
-          {CHART_PLUGIN_ITEMS.map(({ id, icon: Icon, label }) => {
-            const isOn = activePlugins.includes(id);
-            return (
-              <button
-                key={id}
-                onClick={() => onTogglePlugin(id)}
-                className={cn(
-                  "w-full flex items-center gap-2.5 px-3 py-1.5 text-sm hover:bg-secondary text-left",
-                  isOn && "bg-secondary text-primary",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="flex-1">{label}</span>
-                {isOn && <span className="text-[10px] text-primary font-medium">ON</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
   );
 }
 

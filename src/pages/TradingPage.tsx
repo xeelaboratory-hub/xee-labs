@@ -86,7 +86,10 @@ export function TradingPage() {
     redo: redoDrawing,
   } = useChartDrawings(selectedSymbol, timeframe);
   const [activePlugins, setActivePlugins] = useState<string[]>(
-    () => getChartPreferencesFromStorage().activePlugins,
+    () =>
+      getChartPreferencesFromStorage().activePlugins.includes("session-breaks")
+        ? ["session-breaks"]
+        : [],
   );
   const handleTogglePlugin = useCallback((id: string) => {
     setActivePlugins((prev) => {
@@ -97,8 +100,9 @@ export function TradingPage() {
   }, []);
   // Template load — replace the whole plugin list at once.
   const handleSetPlugins = useCallback((ids: string[]) => {
-    setActivePlugins(ids);
-    updateChartPreferences({ activePlugins: ids });
+    const supported = ids.includes("session-breaks") ? ["session-breaks"] : [];
+    setActivePlugins(supported);
+    updateChartPreferences({ activePlugins: supported });
   }, []);
   const [bottomTab, setBottomTab] = useState<
     "positions" | "orders" | "history" | "calendar" | "ai-trader"
@@ -368,7 +372,6 @@ export function TradingPage() {
         symbolInfo={symbolInfo}
         aiTraderEnabled={aiTraderEnabled}
         activePlugins={activePlugins}
-        onTogglePlugin={handleTogglePlugin}
         onSetIndicators={setActiveIndicators}
         onSetPlugins={handleSetPlugins}
         magnetMode={chartPrefs.magnetMode}
