@@ -35,9 +35,10 @@ import type { IndicatorType } from "../../lib/indicators.ts";
 import type { SessionMarket } from "../../lib/session-volume-profile.ts";
 import { cn, formatNumber } from "../../lib/utils.ts";
 import { api } from "../../services/api.ts";
-import type { EtfFlow } from "../../services/api/market-data.ts";
+import type { EtfFlow, LargeOrderLevel } from "../../services/api/market-data.ts";
 import { queryKeys, useEtfFlows } from "../../services/queries.ts";
 import type { Candle, Order, Position, Symbol } from "../../services/schemas.ts";
+import { useTradingStore } from "../../services/store.tsx";
 import { toast } from "../../services/toast.ts";
 import {
   CHART_COLORS,
@@ -59,6 +60,7 @@ import { DrawingToolRail } from "./DrawingToolRail.tsx";
 import { DRAWING_STYLES_EVENT, getStyleDefaults } from "./drawingStyles.ts";
 import { ObjectTreePanel } from "./ObjectTreePanel.tsx";
 import { useIndicators } from "./useIndicators.ts";
+import { useLargeOrderBookPrimitive } from "./useLargeOrderBookPrimitive.ts";
 import { useSessionVolumeProfile } from "./useSessionVolumeProfile.ts";
 import { useSlTpDrag } from "./useSlTpDrag.ts";
 import {
@@ -1008,6 +1010,11 @@ export function ChartPanel({
     y: number;
     data: import("../../lib/chart-plugins/session-volume-profile/session-volume-profile.ts").SessionVolumeProfileHover;
   } | null>(null);
+  const [largeOrderTooltip, setLargeOrderTooltip] = useState<{
+    x: number;
+    y: number;
+    data: LargeOrderLevel;
+  } | null>(null);
   // Candle countdown state
   const [countdown, setCountdown] = useState("");
   // True once the legend has been restored to the latest bar after the crosshair
@@ -1232,6 +1239,15 @@ export function ChartPanel({
     markets: sessionVolumeProfileMarkets,
     rows: sessionVolumeProfileRows,
   });
+  const { primitiveRef: largeOrderBookRef, historyUnavailable: largeOrderHistoryUnavailable } =
+    useLargeOrderBookPrimitive({
+      chartRef,
+      candleSeriesRef,
+      chartEpoch,
+      chartData,
+      selectedSymbol,
+      active: activeIndicators.includes("LARGE_ORDER_BOOK"),
+    });
   useEffect(() => {
     etfFlowByIdRef.current = activeIndicators.includes("ETF_FLOW")
       ? new Map((etfFlowData ?? []).map((flow) => [flow.flowDate, flow]))
@@ -1385,6 +1401,8 @@ export function ChartPanel({
       const hoveredId = typeof param.hoveredObjectId === "string" ? param.hoveredObjectId : null;
       const hoveredFlow = hoveredId ? etfFlowByIdRef.current.get(hoveredId) : undefined;
       const hoveredProfileRow = hoveredId ? sessionVolumeProfileRef.current?.hoverData(hoveredId) : undefined;
+      const hoveredLargeOrder = hoveredId ? largeOrderBookRef.current?.hoverData(hoveredId) : undefined;
+      useTradingStore.getState().setHoveredLargeOrderId(hoveredLargeOrder?.id ?? null);
       if (hoveredFlow && param.point && containerRef.current) {
         setEtfTooltip({
           x: Math.min(param.point.x + 12, Math.max(8, containerRef.current.clientWidth - 150)),
@@ -1402,6 +1420,15 @@ export function ChartPanel({
         });
       } else {
         setSessionVolumeProfileTooltip(null);
+      }
+      if (hoveredLargeOrder && param.point && containerRef.current) {
+        setLargeOrderTooltip({
+          x: Math.min(param.point.x + 12, Math.max(8, containerRef.current.clientWidth - 220)),
+          y: Math.max(8, param.point.y - 82),
+          data: hoveredLargeOrder,
+        });
+      } else {
+        setLargeOrderTooltip(null);
       }
       if (!param?.time) {
         restoreLegendOnLeave(legendRestoredRef, lastCandleRef, legendVolRef, setLegend);
@@ -1816,6 +1843,25 @@ export function ChartPanel({
           <div className="font-mono text-[10px] text-muted-foreground">
             Total {formatNumber(sessionVolumeProfileTooltip.data.total, 2)} · {formatNumber(sessionVolumeProfileTooltip.data.percent, 1)}%
           </div>
+        </div>
+      )}
+
+      {largeOrderHistoryUnavailable && activeIndicators.includes("LARGE_ORDER_BOOK") && (
+        <div className="pointer-events-none absolute right-16 top-2 z-20 rounded border border-amber-500/30 bg-card/90 px-2 py-1 text-[10px] text-amber-400">
+          Large Order Book · live only
+        </div>
+      )}
+
+      {largeOrderTooltip && (
+        <div
+          role="tooltip"
+          className={cn(
+            "pointer-events-none absolute z-30 rounded-md border-2 bg-card/95 px-2.5 py-2 font-mono text-sm font-bold shadow-lg backdrop-blur-sm",
+            largeOrderTooltip.data.side === "bid" ? "border-buy/70 text-buy" : "border-sell/70 text-sell",
+          )}
+          style={{ left: largeOrderTooltip.x, top: largeOrderTooltip.y }}
+        >
+          Current ${(largeOrderTooltip.data.currentNotional / 1_000_000).toFixed(2)}M
         </div>
       )}
 

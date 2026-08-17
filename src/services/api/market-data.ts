@@ -58,6 +58,23 @@ export interface EtfFlow {
   updatedAt: string;
 }
 
+export type LargeOrderSource = "binance" | "okx";
+export type LargeOrderThreshold = 0 | 500_000 | 1_000_000 | 3_000_000 | 5_000_000 | 10_000_000;
+
+export interface LargeOrderLevel {
+  id: string;
+  source: LargeOrderSource;
+  symbol: string;
+  side: "bid" | "ask";
+  price: number;
+  quantity: number;
+  currentNotional: number;
+  peakNotional: number;
+  firstSeen: string;
+  lastSeen: string;
+  endedAt: string | null;
+}
+
 export interface EconomicEvent {
   id: string;
   time: string;
@@ -146,5 +163,21 @@ export const marketdataApi = {
     if (to) params.set("to", to);
     const qs = params.toString();
     return request<EtfFlow[]>(`/market-data/etf-flows${qs ? `?${qs}` : ""}`);
+  },
+
+  getLargeOrderBookHistory: (
+    base: "BTC" | "ETH",
+    sources: LargeOrderSource[],
+    threshold: LargeOrderThreshold,
+    from?: string,
+    to?: string,
+    limit?: number,
+  ) => {
+    const params = new URLSearchParams({ base, threshold: String(threshold) });
+    sources.forEach((source) => params.append("source", source));
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    if (limit) params.set("limit", String(limit));
+    return request<LargeOrderLevel[]>(`/market-data/large-order-book/history?${params}`);
   },
 };

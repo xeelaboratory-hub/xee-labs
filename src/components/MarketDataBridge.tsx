@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTradingStore } from "../services/store.tsx";
 import { wsClient } from "../services/ws.ts";
 import { queryKeys } from "../services/queries.ts";
-import type { EtfFlow } from "../services/api/market-data.ts";
+import type { EtfFlow, LargeOrderLevel } from "../services/api/market-data.ts";
 
 /**
  * Global WebSocket subscriber. Owns the market-data subscription for the app.
@@ -50,6 +50,16 @@ type MarketDataEvent =
       totalNetFlow: number;
       observedAt: string | null;
       updatedAt: string;
+    }
+  | {
+      eventType: "LargeOrderBookUpdated";
+      mode: "snapshot" | "delta";
+      sequence: number;
+      symbol: string;
+      source: "binance" | "okx";
+      levels: LargeOrderLevel[];
+      removedIds: string[];
+      occurredAt: string;
     };
 
 function toTimestamp(value: number | string | undefined): number {
@@ -65,6 +75,7 @@ export function MarketDataBridge() {
   const updateTick = useTradingStore((s) => s.updateTick);
   const updateLiveTick = useTradingStore((s) => s.updateLiveTick);
   const updateCandleFromWs = useTradingStore((s) => s.updateCandleFromWs);
+  const updateLargeOrderBook = useTradingStore((s) => s.updateLargeOrderBook);
   const queryClient = useQueryClient();
 
   // Market-data: ticks, candles.
@@ -112,12 +123,20 @@ export function MarketDataBridge() {
           next[idx] = updated;
           return next;
         });
+      } else if (wsEvent.eventType === "LargeOrderBookUpdated") {
+        if (!updateLargeOrderBook(
+          wsEvent.symbol,
+          wsEvent.mode,
+          wsEvent.sequence,
+          wsEvent.levels,
+          wsEvent.removedIds,
+        )) wsClient.resync();
       }
     });
     return () => {
       unsub();
     };
-  }, [updateTick, updateLiveTick, updateCandleFromWs, queryClient]);
+  }, [updateTick, updateLiveTick, updateCandleFromWs, updateLargeOrderBook, queryClient]);
 
   // Gap-fill on WS reconnect: refetch caches so anything that happened
   // while the socket was down lands instantly.
@@ -131,6 +150,7 @@ export function MarketDataBridge() {
         queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all });
         queryClient.invalidateQueries({ queryKey: queryKeys.market.etfFlows });
         queryClient.invalidateQueries({ queryKey: queryKeys.market.sessionVolumeProfiles });
+        queryClient.invalidateQueries({ queryKey: queryKeys.market.largeOrderBook });
       }
       wasConnected = state === "connected";
     });

@@ -17,6 +17,8 @@ memory:
   and what future work should not casually reverse.
 - **[docs/components/COMPONENTS.md](docs/components/COMPONENTS.md)** — full UI component
   reference with screenshots, including what's unreachable/dead in the current build.
+- **[docs/releases/1.5.0-large-order-book.md](docs/releases/1.5.0-large-order-book.md)** —
+  implementation, operational, and verification handoff for the current Large Order Book release.
 
 Read `AGENTS.md` first for any task in this repo. There is currently nothing Claude-Code-specific
 beyond what's in `AGENTS.md` — this file exists as the pointer Claude Code loads automatically.

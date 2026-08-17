@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-08-18
+
+### Added
+- Large Order Book indicator for BTC and ETH across Binance and OKX, with a
+  live DOM panel, native chart overlays, exchange/threshold filters, optional
+  inactive history, synchronized hover state, and per-user preferences.
+- PostgreSQL-backed wall lifecycle history with 30-day retention and a
+  paginated history API capped at 1,000 rows by default.
+
+### Changed
+- Large-order WebSocket traffic now sends one sequenced snapshot on connect
+  followed by batched upsert/removal deltas. Sequence gaps trigger an automatic
+  reconnect and snapshot resync; empty heartbeat deltas make dropped terminal
+  updates detectable without causing React renders.
+- WebSocket warmup subscribes to the event bus before replaying current state,
+  closing the replay-to-live race. Warmup now sends only the latest candle.
+
+### Fixed
+- Reduced average sampled Large Order Book WebSocket payload size by about 92%
+  while preserving live updates and reconnect correctness.
+
 ## [1.4.0] - 2026-08-17
 
 ### Added

@@ -3,6 +3,7 @@ import { api } from "./api.ts";
 import { readLocalPreferences, updateLocalPreferences } from "./preferences.ts";
 import { wsClient } from "./ws.ts";
 import type { Order, Position, Symbol, TradingMode, User } from "./schemas.ts";
+import type { LargeOrderLevel } from "./api/market-data.ts";
 
 // ── Auth Store ──────────────────────────────────────────────
 interface AuthState {
@@ -168,6 +169,7 @@ const _pendingTicks = new Map<string, TickEntry>();
 let _tickRafId: number | null = null;
 const _pendingLiveTicks = new Map<string, TickEntry>();
 let _liveTickRafId: number | null = null;
+const _largeOrderSequences = new Map<string, number>();
 
 /** Per-symbol decimal precision cache — populated on first tick, avoids O(n) symbol lookup per tick */
 const _symbolDecimals = new Map<string, number>();
@@ -192,6 +194,8 @@ interface TradingState {
   liveTicks: Record<string, TickEntry>;
   /** Latest WS candle update keyed by "symbol:timeframe" */
   liveCandleUpdates: Record<string, CandleBar>;
+  largeOrderBooks: Record<string, LargeOrderLevel[]>;
+  hoveredLargeOrderId: string | null;
 
   setMode: (mode: TradingMode) => void;
   loadPositions: () => Promise<void>;
@@ -200,6 +204,14 @@ interface TradingState {
   updateTick: (symbolName: string, bid: number, ask: number, timestamp: number) => void;
   updateLiveTick: (symbolName: string, bid: number, ask: number, timestamp: number) => void;
   updateCandleFromWs: (symbol: string, timeframe: string, bar: CandleBar) => void;
+  updateLargeOrderBook: (
+    symbol: string,
+    mode: "snapshot" | "delta",
+    sequence: number,
+    levels: LargeOrderLevel[],
+    removedIds: string[],
+  ) => boolean;
+  setHoveredLargeOrderId: (id: string | null) => void;
   setSelectedSymbol: (symbol: string) => void;
   setPositions: (positions: Position[]) => void;
   setOrders: (orders: Order[]) => void;
@@ -214,6 +226,8 @@ export const useTradingStore = create<TradingState>((set, get) => ({
   ticks: {},
   liveTicks: {},
   liveCandleUpdates: {},
+  largeOrderBooks: {},
+  hoveredLargeOrderId: null,
 
   setMode: (mode) => {
     updateLocalPreferences({ tradingMode: mode });
@@ -317,6 +331,29 @@ export const useTradingStore = create<TradingState>((set, get) => ({
     set((state) => ({
       liveCandleUpdates: { ...state.liveCandleUpdates, [key]: bar },
     }));
+  },
+
+  updateLargeOrderBook: (symbol, mode, sequence, levels, removedIds) => {
+    const previousSequence = _largeOrderSequences.get(symbol);
+    if (mode === "delta" && previousSequence !== undefined && sequence <= previousSequence) return true;
+    if (mode === "delta" && sequence !== (previousSequence ?? 0) + 1) return false;
+
+    _largeOrderSequences.set(symbol, sequence);
+    if (mode === "delta" && levels.length === 0 && removedIds.length === 0) return true;
+    set((state) => {
+      if (mode === "snapshot") {
+        return { largeOrderBooks: { ...state.largeOrderBooks, [symbol]: levels } };
+      }
+      const next = new Map((state.largeOrderBooks[symbol] ?? []).map((level) => [level.id, level]));
+      for (const id of removedIds) next.delete(id);
+      for (const level of levels) next.set(level.id, level);
+      return { largeOrderBooks: { ...state.largeOrderBooks, [symbol]: [...next.values()] } };
+    });
+    return true;
+  },
+
+  setHoveredLargeOrderId: (id) => {
+    set((state) => state.hoveredLargeOrderId === id ? state : { hoveredLargeOrderId: id });
   },
 
   setSelectedSymbol: (symbol) => {

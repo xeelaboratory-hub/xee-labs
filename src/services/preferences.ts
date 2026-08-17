@@ -1,14 +1,19 @@
 import type { SessionMarket } from "../lib/session-volume-profile.ts";
+import type { LargeOrderSource, LargeOrderThreshold } from "./api/market-data.ts";
 
 export interface UserPreferences {
   chart: Record<string, string>;
   bottomPanelCollapsed?: boolean;
   rightPanelCollapsed?: boolean;
+  rightPanel?: "order" | "dom" | "watchlist" | "ai-trader";
   rightPanelWidth?: number;
   bottomPanelHeight?: number;
   oneClickTrading?: boolean;
   timeframes: Record<string, string>;
-  activeIndicators: Array<"ETF_FLOW" | "SESSION_VOLUME_PROFILE">;
+  activeIndicators: Array<"ETF_FLOW" | "SESSION_VOLUME_PROFILE" | "LARGE_ORDER_BOOK">;
+  largeOrderBookThreshold?: LargeOrderThreshold;
+  largeOrderBookSources?: LargeOrderSource[];
+  largeOrderBookShowInactive?: boolean;
   sessionVolumeProfileMarkets?: SessionMarket[];
   /** Legacy single-select preference, kept for migration. */
   sessionVolumeProfileMarket?: SessionMarket;
@@ -23,6 +28,7 @@ export const PREFERENCES_UPDATED_EVENT = "user-preferences-updated";
 
 const STORAGE_PREFIX = "xee_user_preferences";
 const SESSION_MARKETS: readonly SessionMarket[] = ["ASX", "TOKYO", "LONDON", "NEW_YORK"];
+const INDICATORS = ["ETF_FLOW", "SESSION_VOLUME_PROFILE", "LARGE_ORDER_BOOK"] as const;
 
 export const DEFAULT_SESSION_VOLUME_PROFILE_MARKET: SessionMarket = "NEW_YORK";
 export const DEFAULT_SESSION_VOLUME_PROFILE_MARKETS: SessionMarket[] = [DEFAULT_SESSION_VOLUME_PROFILE_MARKET];
@@ -80,7 +86,12 @@ function migrateLegacy(userId?: string | null): UserPreferences {
         chart: guest.chart ?? {},
         timeframes: guest.timeframes ?? {},
         activeIndicators:
-          guest.activeIndicators?.filter((id) => id === "ETF_FLOW" || id === "SESSION_VOLUME_PROFILE") ?? [],
+          guest.activeIndicators?.filter((id) => INDICATORS.includes(id)) ?? [],
+        largeOrderBookThreshold: guest.largeOrderBookThreshold ?? 1_000_000,
+        largeOrderBookSources: guest.largeOrderBookSources?.length
+          ? guest.largeOrderBookSources.filter((source) => source === "binance" || source === "okx")
+          : ["binance", "okx"],
+        largeOrderBookShowInactive: guest.largeOrderBookShowInactive ?? false,
         sessionVolumeProfileMarkets: normalizeSessionVolumeProfileMarkets(
           guest.sessionVolumeProfileMarkets ?? guest.sessionVolumeProfileMarket,
         ),
@@ -91,6 +102,13 @@ function migrateLegacy(userId?: string | null): UserPreferences {
     }
   }
   const chartKey = userId ? `trader_prefs:${userId}` : "trader_prefs";
+  const hasLegacyPreferences = [
+    chartKey,
+    "trader_prefs",
+    "rightPanelCollapsed",
+    "rightPanelWidth",
+    "bottomPanelCollapsed",
+  ].some((key) => localStorage.getItem(key) !== null);
   const chart = parseObject<Record<string, string>>(
     localStorage.getItem(chartKey) ?? localStorage.getItem("trader_prefs"),
     {},
@@ -108,7 +126,11 @@ function migrateLegacy(userId?: string | null): UserPreferences {
     bottomPanelHeight: Number(localStorage.getItem("bottomPanelHeight")) || undefined,
     oneClickTrading: localStorage.getItem("oneClickTrading") === "true",
     timeframes,
-    activeIndicators: [],
+    rightPanel: hasLegacyPreferences ? "order" : "dom",
+    activeIndicators: hasLegacyPreferences ? [] : ["LARGE_ORDER_BOOK"],
+    largeOrderBookThreshold: 1_000_000,
+    largeOrderBookSources: ["binance", "okx"],
+    largeOrderBookShowInactive: false,
     sessionVolumeProfileMarkets: [...DEFAULT_SESSION_VOLUME_PROFILE_MARKETS],
     sessionVolumeProfileMarket: DEFAULT_SESSION_VOLUME_PROFILE_MARKET,
     sessionVolumeProfileRows: DEFAULT_SESSION_VOLUME_PROFILE_ROWS,
@@ -128,7 +150,12 @@ export function readLocalPreferences(userId?: string | null): UserPreferences {
       chart: existing.chart ?? {},
       timeframes: existing.timeframes ?? {},
       activeIndicators:
-        existing.activeIndicators?.filter((id) => id === "ETF_FLOW" || id === "SESSION_VOLUME_PROFILE") ?? [],
+        existing.activeIndicators?.filter((id) => INDICATORS.includes(id)) ?? [],
+      largeOrderBookThreshold: existing.largeOrderBookThreshold ?? 1_000_000,
+      largeOrderBookSources: existing.largeOrderBookSources?.length
+        ? existing.largeOrderBookSources.filter((source) => source === "binance" || source === "okx")
+        : ["binance", "okx"],
+      largeOrderBookShowInactive: existing.largeOrderBookShowInactive ?? false,
       sessionVolumeProfileMarkets: normalizeSessionVolumeProfileMarkets(
         existing.sessionVolumeProfileMarkets ?? existing.sessionVolumeProfileMarket,
       ),

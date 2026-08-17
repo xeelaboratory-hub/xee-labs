@@ -1,9 +1,11 @@
 """OKX perpetual-swap channel config — live perpetuals via CryptoFeed."""
+import json
+
 from cryptofeed.connection import WebsocketEndpoint
 from cryptofeed.defines import CANDLES, FUNDING, L2_BOOK, LIQUIDATIONS, OPEN_INTEREST, ORDER_INFO, TICKER, TRADES
 from cryptofeed.exchanges import OKX as _UpstreamOKX
 
-from app.feeds._common import make_candle_callback, make_ticker_callback
+from app.feeds._common import make_book_callback, make_candle_callback, make_ticker_callback
 from app.symbols import symbols_for_exchange
 
 EXCHANGE = "okx"
@@ -43,17 +45,32 @@ class OKX(_UpstreamOKX):
         ),
     ]
 
+    async def subscribe(self, connection) -> None:
+        """Subscribe only to channels assigned to this endpoint connection.
+
+        Upstream 2.5.0 reads ``self.subscription`` here, which sends public
+        channels to /business and candles to /public after endpoint filtering.
+        """
+        channels = [
+            self.build_subscription(channel, symbol)
+            for channel, symbols in connection.subscription.items()
+            for symbol in symbols
+        ]
+        if channels:
+            await connection.write(json.dumps({"op": "subscribe", "args": channels}))
+
 
 def build_feed() -> OKX:
     cryptofeed_symbols = [info.cryptofeed_symbol for info in symbols_for_exchange(EXCHANGE)]
     return OKX(
         symbols=cryptofeed_symbols,
-        channels=[TICKER, CANDLES],
+        channels=[TICKER, CANDLES, L2_BOOK],
         candle_interval="1m",
         candle_closed_only=False,
         retries=0,  # our own supervisor in cryptofeed_runner.py owns all reconnect/backoff policy
         callbacks={
             TICKER: make_ticker_callback(EXCHANGE),
             CANDLES: make_candle_callback(EXCHANGE),
+            L2_BOOK: make_book_callback(EXCHANGE),
         },
     )

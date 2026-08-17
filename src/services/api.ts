@@ -85,6 +85,7 @@ const realImplementation = {
   getMarketDataHealth: marketdataApi.getMarketDataHealth,
   getEconomicCalendar: marketdataApi.getEconomicCalendar,
   getEtfFlows: marketdataApi.getEtfFlows,
+  getLargeOrderBookHistory: marketdataApi.getLargeOrderBookHistory,
 
   // ── Trading (OKX, via backend) ──
   getAccount: (mode: TradingMode) => request<Account>(`/account?mode=${mode}`),

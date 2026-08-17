@@ -89,7 +89,38 @@ class EtfFlowUpdatedEvent(BaseModel):
     updatedAt: datetime
 
 
-MarketDataEvent = Union[MarketTickEvent, CandleUpdateEvent, CandleClosedEvent, EtfFlowUpdatedEvent]
+class LargeOrderLevel(BaseModel):
+    id: str
+    source: Literal["binance", "okx"]
+    symbol: str
+    side: Literal["bid", "ask"]
+    price: float
+    quantity: float
+    currentNotional: float
+    peakNotional: float
+    firstSeen: datetime
+    lastSeen: datetime
+    endedAt: datetime | None = None
+
+
+class LargeOrderBookUpdatedEvent(BaseModel):
+    eventType: Literal["LargeOrderBookUpdated"] = "LargeOrderBookUpdated"
+    mode: Literal["snapshot", "delta"]
+    sequence: int
+    symbol: str
+    source: Literal["binance", "okx"]
+    levels: list[LargeOrderLevel]
+    removedIds: list[str] = Field(default_factory=list)
+    occurredAt: datetime
+
+
+MarketDataEvent = Union[
+    MarketTickEvent,
+    CandleUpdateEvent,
+    CandleClosedEvent,
+    EtfFlowUpdatedEvent,
+    LargeOrderBookUpdatedEvent,
+]
 
 
 class ExchangeHealth(BaseModel):

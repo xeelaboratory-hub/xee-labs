@@ -4,9 +4,11 @@ by the time it reaches a callback, so only the Feed construction (symbols,
 exchange class) differs per exchange, not this mapping.
 """
 import time
+from datetime import datetime, timezone
 
 from app.bus import bus
 from app.schemas import Candle, CandleClosedEvent, CandleUpdateEvent, MarketTickEvent, Tick
+from app.large_order_book import service as large_order_book_service
 from app.store import store
 from app.symbols import resolve_from_feed
 
@@ -63,6 +65,22 @@ def make_candle_callback(exchange: str):
             )
 
     return _on_candle
+
+
+def make_book_callback(exchange: str):
+    async def _on_book(book, receipt_timestamp: float) -> None:
+        info = resolve_from_feed(exchange, book.symbol)
+        if info is None:
+            return
+        timestamp = book.timestamp or receipt_timestamp
+        occurred_at = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        if book.delta is None:
+            large_order_book_service.process_book(exchange, info, book.book, occurred_at)
+        else:
+            large_order_book_service.process_delta(exchange, info, book.delta, occurred_at)
+        store.set_health(exchange, connected=True, last_event_at=int(timestamp * 1000))
+
+    return _on_book
 
 
 def now_ms() -> int:

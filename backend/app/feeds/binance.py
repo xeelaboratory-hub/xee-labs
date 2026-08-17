@@ -1,8 +1,8 @@
 """Binance USDⓈ-M futures channel config — live perpetuals via CryptoFeed."""
-from cryptofeed.defines import CANDLES, TICKER
+from cryptofeed.defines import CANDLES, L2_BOOK, TICKER
 from cryptofeed.exchanges import BinanceFutures
 
-from app.feeds._common import make_candle_callback, make_ticker_callback
+from app.feeds._common import make_book_callback, make_candle_callback, make_ticker_callback
 from app.symbols import symbols_for_exchange
 
 EXCHANGE = "binance"
@@ -12,12 +12,13 @@ def build_feed() -> BinanceFutures:
     cryptofeed_symbols = [info.cryptofeed_symbol for info in symbols_for_exchange(EXCHANGE)]
     return BinanceFutures(
         symbols=cryptofeed_symbols,
-        channels=[TICKER, CANDLES],
+        channels=[TICKER, CANDLES, L2_BOOK],
         candle_interval="1m",
         candle_closed_only=False,  # we want in-progress updates for CandleUpdate, not just closes
         retries=0,  # our own supervisor in cryptofeed_runner.py owns all reconnect/backoff policy
         callbacks={
             TICKER: make_ticker_callback(EXCHANGE),
             CANDLES: make_candle_callback(EXCHANGE),
+            L2_BOOK: make_book_callback(EXCHANGE),
         },
     )

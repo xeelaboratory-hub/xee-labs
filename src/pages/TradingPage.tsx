@@ -146,7 +146,9 @@ export function TradingPage() {
   );
   // AI trader is a PropSim-era feature not part of Xee.Labs (see AiTraderPage.tsx).
   const aiTraderEnabled = false;
-  const [rightPanel, setRightPanel] = useState<RightPanelId>("order");
+  const [rightPanel, setRightPanel] = useState<RightPanelId>(
+    () => readLocalPreferences().rightPanel ?? "order",
+  );
   const [showRightPanel, setShowRightPanel] = useState(
     () => !(readLocalPreferences().rightPanelCollapsed ?? false),
   );
@@ -183,7 +185,7 @@ export function TradingPage() {
       }
       setRightPanel(panel);
       setShowRightPanel(true);
-      updateLocalPreferences({ rightPanelCollapsed: false });
+      updateLocalPreferences({ rightPanel: panel, rightPanelCollapsed: false });
     },
     [rightPanel, showRightPanel, toggleRightPanel],
   );
@@ -438,7 +440,10 @@ export function TradingPage() {
   const isDark = !document.documentElement.classList.contains("light");
 
   // Mobile trading state
-  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(
+    () => readLocalPreferences().rightPanel === "dom",
+  );
+  const [mobilePanelTab, setMobilePanelTab] = useState<"whales" | "trade">("whales");
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -634,10 +639,14 @@ export function TradingPage() {
       <div className="md:hidden">
         {!mobilePanelOpen && (
           <button
-            onClick={() => setMobilePanelOpen(true)}
+            onClick={() => {
+              setMobilePanelTab("whales");
+              setMobilePanelOpen(true);
+            }}
+            aria-label="Open whale orders"
             className="fixed bottom-20 right-4 z-40 bg-primary text-primary-foreground rounded-full w-14 h-14 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
           >
-            <span className="text-2xl font-bold">$</span>
+            <span className="text-xl font-bold">◎</span>
           </button>
         )}
         {mobilePanelOpen && (
@@ -648,22 +657,32 @@ export function TradingPage() {
                 className="w-10 h-1.5 rounded-full bg-muted-foreground/30"
               />
             </div>
-            <MobileTradingPanel
-              symbol={selectedSymbol}
-              bid={tick?.bid}
-              ask={tick?.ask}
-              positions={positions || []}
-              onPlaceOrder={(order) => {
-                const input = { ...order, mode } as PlaceOrderInput;
-                if (oneClick) {
-                  api.placeOrder(input).catch(() => {});
-                  setMobilePanelOpen(false);
-                  return;
-                }
-                setConfirmOrder({ ...order, _submit: () => api.placeOrder(input) });
-                setMobilePanelOpen(false);
-              }}
-            />
+            <div className="grid grid-cols-2 border-b border-border px-3">
+              <button onClick={() => setMobilePanelTab("whales")} className={cn("border-b-2 py-2 text-xs font-semibold", mobilePanelTab === "whales" ? "border-primary text-foreground" : "border-transparent text-muted-foreground")}>Whale Orders</button>
+              <button onClick={() => setMobilePanelTab("trade")} className={cn("border-b-2 py-2 text-xs font-semibold", mobilePanelTab === "trade" ? "border-primary text-foreground" : "border-transparent text-muted-foreground")}>Trade</button>
+            </div>
+            <div className="min-h-[45vh]">
+              {mobilePanelTab === "whales" ? (
+                <DOMPanel symbol={selectedSymbol} tick={tick} />
+              ) : (
+                <MobileTradingPanel
+                  symbol={selectedSymbol}
+                  bid={tick?.bid}
+                  ask={tick?.ask}
+                  positions={positions || []}
+                  onPlaceOrder={(order) => {
+                    const input = { ...order, mode } as PlaceOrderInput;
+                    if (oneClick) {
+                      api.placeOrder(input).catch(() => {});
+                      setMobilePanelOpen(false);
+                      return;
+                    }
+                    setConfirmOrder({ ...order, _submit: () => api.placeOrder(input) });
+                    setMobilePanelOpen(false);
+                  }}
+                />
+              )}
+            </div>
           </div>
         )}
       </div>

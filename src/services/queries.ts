@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { api } from "./api";
-import type { EtfFlow, MarketDataCandlesPayload } from "./api/market-data";
+import type {
+  EtfFlow,
+  LargeOrderLevel,
+  LargeOrderSource,
+  LargeOrderThreshold,
+  MarketDataCandlesPayload,
+} from "./api/market-data";
 import { useAuthStore } from "./store";
 
 // Types for dead PropSim-era hooks below (payouts, journal — no real backend,
@@ -38,6 +44,7 @@ export const queryKeys = {
     sessionVolumeProfiles: ["session-volume-profile"] as const,
     economicCalendar: (currencies: string[]) => ["economicCalendar", ...currencies] as const,
     etfFlows: ["etf-flows"] as const,
+    largeOrderBook: ["large-order-book"] as const,
   },
 } as const;
 
@@ -199,6 +206,24 @@ export function useEtfFlows() {
     queryKey: queryKeys.market.etfFlows,
     queryFn: () => api.getEtfFlows(),
     staleTime: Infinity, // WS pushes updates directly into this cache; no polling
+  });
+}
+
+export function useLargeOrderBookHistory(
+  base: "BTC" | "ETH",
+  sources: LargeOrderSource[],
+  threshold: LargeOrderThreshold,
+  from?: string,
+  to?: string,
+  enabled = true,
+  limit?: number,
+) {
+  return useQuery<LargeOrderLevel[]>({
+    queryKey: [...queryKeys.market.largeOrderBook, base, sources.join(","), threshold, from, to, limit],
+    queryFn: () => api.getLargeOrderBookHistory(base, sources, threshold, from, to, limit),
+    enabled: enabled && sources.length > 0,
+    staleTime: 30_000,
+    retry: 1,
   });
 }
 
