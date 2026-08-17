@@ -1,5 +1,4 @@
 import type { CandlestickData, SeriesMarker, Time } from "lightweight-charts";
-import type { CandleData } from "../../lib/indicators.ts";
 import type { EtfFlow } from "../../services/api/market-data.ts";
 import type { Timeframe } from "./constants.ts";
 
@@ -44,18 +43,6 @@ export function toUnixSeconds(ts: number | string | Date): number {
 /** Normalise a numeric timestamp to unix milliseconds (accepts seconds or ms) */
 export function toUnixMs(ts: number): number {
   return ts > 1e12 ? ts : ts * 1000;
-}
-
-/** Convert candles for indicator lib */
-export function toIndicatorCandles(candles: CandlestickData<Time>[]): CandleData[] {
-  return candles.map((c) => ({
-    time: c.time as number,
-    open: c.open,
-    high: c.high,
-    low: c.low,
-    close: c.close,
-    volume: 0,
-  }));
 }
 
 /** Format seconds remaining as M:SS or H:MM:SS */

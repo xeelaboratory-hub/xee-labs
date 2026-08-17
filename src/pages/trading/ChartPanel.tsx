@@ -1201,7 +1201,7 @@ export function ChartPanel({
   );
 
   const { data: etfFlowData } = useEtfFlows();
-  useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, etfFlowData, timeframe);
+  useIndicators(candleSeriesRef, chartData, activeIndicators, isDark, etfFlowData, timeframe);
 
   // ── Candle close countdown timer ───────────────────────────
   useEffect(() => {

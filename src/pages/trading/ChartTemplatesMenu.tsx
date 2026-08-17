@@ -265,7 +265,11 @@ export function ChartTemplatesMenu(props: ChartTemplatesMenuProps) {
     const c = t.panels[0];
     if (!c) return;
     updateChartPreferences({ ...contentToPrefsPatch(c), activeChartTemplate: t.name });
-    onSetIndicators((c.indicators ?? []) as IndicatorType[]);
+    onSetIndicators(
+      (c.indicators ?? []).filter(
+        (indicator): indicator is IndicatorType => indicator === "ETF_FLOW",
+      ),
+    );
     onSetPlugins(c.plugins ?? []);
     setOpen(false);
     toast.info("Templates", `Loaded "${t.name}"`);
