@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Drawing tools no longer overlap the OHLC legend.
 - Collapse controls no longer obstruct panel resizing or disappear when their
   panel is closed.
+- Updated vulnerable runtime dependency locks; the production dependency audit
+  now reports zero known vulnerabilities.
 
 ## [1.3.0] - 2026-08-16
 
