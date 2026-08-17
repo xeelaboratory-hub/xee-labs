@@ -1,8 +1,14 @@
 """REST router — matches src/services/api/market-data.ts's expected surface."""
-from fastapi import APIRouter, HTTPException
+from datetime import date
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import EtfFlow as EtfFlowModel
+from app.db.session import get_db
 from app.historical import service as historical_service
-from app.schemas import CandlesRequest, CandlesResponse, HealthResponse, Symbol, Tick
+from app.schemas import CandlesRequest, CandlesResponse, EtfFlow, HealthResponse, Symbol, Tick
 from app.store import store
 from app.symbols import get_symbol, list_symbols
 
@@ -49,3 +55,26 @@ async def get_ticks() -> dict[str, Tick]:
 @router.get("/health", response_model=HealthResponse)
 async def get_health() -> HealthResponse:
     return HealthResponse(binance=store.get_health("binance"), okx=store.get_health("okx"))
+
+
+@router.get("/etf-flows", response_model=list[EtfFlow])
+async def get_etf_flows(
+    from_: date | None = Query(default=None, alias="from"),
+    to: date | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> list[EtfFlow]:
+    stmt = select(EtfFlowModel).order_by(EtfFlowModel.flow_date)
+    if from_ is not None:
+        stmt = stmt.where(EtfFlowModel.flow_date >= from_)
+    if to is not None:
+        stmt = stmt.where(EtfFlowModel.flow_date <= to)
+    rows = (await db.execute(stmt)).scalars().all()
+    return [
+        EtfFlow(
+            flowDate=row.flow_date,
+            totalNetFlow=float(row.total_net_flow),
+            observedAt=row.observed_at,
+            updatedAt=row.updated_at,
+        )
+        for row in rows
+    ]

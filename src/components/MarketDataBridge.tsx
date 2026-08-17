@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTradingStore } from "../services/store.tsx";
 import { wsClient } from "../services/ws.ts";
 import { queryKeys } from "../services/queries.ts";
+import type { EtfFlow } from "../services/api/market-data.ts";
 
 /**
  * Global WebSocket subscriber. Owns the market-data subscription for the app.
@@ -41,7 +42,15 @@ type MarketDataEvent =
       volume: number;
       timestamp: number;
     }
-  | { eventType: "CandleClosed"; symbol: string; timeframe: string };
+  | { eventType: "CandleClosed"; symbol: string; timeframe: string }
+  | {
+      eventType: "EtfFlowUpdated";
+      changeType: "new" | "revision";
+      flowDate: string;
+      totalNetFlow: number;
+      observedAt: string | null;
+      updatedAt: string;
+    };
 
 function toTimestamp(value: number | string | undefined): number {
   if (typeof value === "number") return value;
@@ -80,6 +89,29 @@ export function MarketDataBridge() {
         queryClient.invalidateQueries({
           queryKey: queryKeys.market.candles(wsEvent.symbol, wsEvent.timeframe),
         });
+      } else if (wsEvent.eventType === "EtfFlowUpdated") {
+        // Global event, no `symbol` — upsert the flat React Query cache
+        // directly by flowDate rather than pushing into Zustand (whose
+        // tick/candle maps are symbol-keyed, the wrong shape here). A
+        // "revision" that changes the value to 0 needs no special "clear
+        // marker" handling: the marker computation recomputes fresh from
+        // this array every render and already skips 0/missing values.
+        queryClient.setQueryData<EtfFlow[]>(queryKeys.market.etfFlows, (old) => {
+          const list = old ?? [];
+          const idx = list.findIndex((f) => f.flowDate === wsEvent.flowDate);
+          const updated: EtfFlow = {
+            flowDate: wsEvent.flowDate,
+            totalNetFlow: wsEvent.totalNetFlow,
+            observedAt: wsEvent.observedAt,
+            updatedAt: wsEvent.updatedAt,
+          };
+          if (idx === -1) {
+            return [...list, updated].sort((a, b) => a.flowDate.localeCompare(b.flowDate));
+          }
+          const next = [...list];
+          next[idx] = updated;
+          return next;
+        });
       }
     });
     return () => {
@@ -97,6 +129,7 @@ export function MarketDataBridge() {
         queryClient.invalidateQueries({ queryKey: ["positions"] });
         queryClient.invalidateQueries({ queryKey: ["orders"] });
         queryClient.invalidateQueries({ queryKey: queryKeys.accounts.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.market.etfFlows });
       }
       wasConnected = state === "connected";
     });

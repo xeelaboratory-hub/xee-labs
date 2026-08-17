@@ -76,8 +76,16 @@ async def _forward_live_events(websocket: WebSocket, subscribed_symbols: set[str
     try:
         while True:
             event: MarketDataEvent = await queue.get()
-            if subscribed_symbols is not None and event.symbol not in subscribed_symbols:
+            # Events with a `symbol` (MarketTick/CandleUpdate/CandleClosed) keep
+            # today's per-symbol filtering unchanged. Global events with no
+            # `symbol` at all (e.g. EtfFlowUpdated) always broadcast — no fake
+            # symbol is invented to route them through the existing filter.
+            event_symbol = getattr(event, "symbol", None)
+            if subscribed_symbols is not None and event_symbol is not None and event_symbol not in subscribed_symbols:
                 continue
-            await websocket.send_json(event.model_dump())
+            # mode="json" so date/datetime fields (EtfFlowUpdatedEvent's
+            # flowDate/observedAt/updatedAt) serialize to ISO strings instead
+            # of raw Python objects that json.dumps can't encode.
+            await websocket.send_json(event.model_dump(mode="json"))
     finally:
         bus.unsubscribe(queue)

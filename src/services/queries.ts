@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { api } from "./api";
-import type { MarketDataCandlesPayload } from "./api/market-data";
+import type { EtfFlow, MarketDataCandlesPayload } from "./api/market-data";
 
 // Types for dead PropSim-era hooks below (payouts, journal — no real backend,
 // see services/api.ts's "not implemented" Proxy fallback). Kept loose since
@@ -33,6 +33,7 @@ export const queryKeys = {
     symbols: ["symbols"] as const,
     candles: (symbol: string, tf: string) => ["candles", symbol, tf] as const,
     economicCalendar: (currencies: string[]) => ["economicCalendar", ...currencies] as const,
+    etfFlows: ["etf-flows"] as const,
   },
 } as const;
 
@@ -177,6 +178,15 @@ export function useMarketDataHealth() {
     queryFn: () => api.getMarketDataHealth(),
     staleTime: 5_000,
     refetchInterval: 5_000,
+  });
+}
+
+// ── ETF Flow (BTC, context indicator only) ──
+export function useEtfFlows() {
+  return useQuery<EtfFlow[]>({
+    queryKey: queryKeys.market.etfFlows,
+    queryFn: () => api.getEtfFlows(),
+    staleTime: Infinity, // WS pushes updates directly into this cache; no polling
   });
 }
 

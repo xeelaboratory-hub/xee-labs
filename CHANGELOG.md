@@ -5,6 +5,41 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-16
+
+### Added
+- **ETF Flow indicator** — a pure context indicator (no trading signal) that
+  overlays Farside Investors' BTC ETF daily total net flow onto the chart as
+  native `lightweight-charts` markers (green inflow arrow below the candle,
+  red outflow arrow above it; zero/missing values show no marker). The same
+  BTC flow is shown on both BTC and ETH charts — there is no ETH ETF source.
+  Reachable from the existing Indicators menu, no new UI surface.
+- New standalone **scraper service** (`scraper/`, its own Docker
+  image/dependencies, run as a separate `docker-compose.yml` service, not
+  inside the FastAPI process) polls Farside every 30 minutes, parses the
+  BTC ETF total-net-flow table, and idempotently upserts into a new
+  `etf_flows` Postgres table via Alembic migration. Historical backfill rows
+  are inserted with `observed_at = NULL`; genuinely new/live rows get a real
+  first-observation timestamp; revisions preserve the original `observed_at`.
+- New `GET /api/market-data/etf-flows` REST endpoint (`?from=`/`?to=` date
+  range), added to the existing `marketdataApi`/`useEtfFlows` React Query
+  hook.
+- Live updates flow Postgres trigger → `LISTEN`/`NOTIFY` → a new supervised
+  FastAPI background task → the existing `EventBus` → the existing `/ws`
+  gateway → the existing `MarketDataBridge`, which upserts the React Query
+  cache directly by `flowDate` (no extra REST round-trip per event). A
+  NOTIFY only fires for a genuinely new live row or a real value revision —
+  never for historical backfill or an unchanged value.
+
+### Changed
+- `ws_gateway.py`'s per-symbol WS filtering now also supports global events
+  with no `symbol` field (like `EtfFlowUpdated`), which always broadcast to
+  every connected client; existing per-symbol filtering for
+  `MarketTick`/`CandleUpdate`/`CandleClosed` is unchanged.
+- `docker-compose.yml`'s `backend` service gained a healthcheck so the new
+  `etf-scraper` service can depend on migrations having actually completed
+  before its first run, rather than only on Postgres being reachable.
+
 ## [1.2.0] - 2026-08-16
 
 ### Added

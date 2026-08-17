@@ -3,6 +3,7 @@ already defines client-side (CandleSchema, SymbolSchema) and the WS union
 `MarketDataBridge.tsx` parses, so the frontend facade can adopt this backend
 in a later phase without a payload-shape change.
 """
+from datetime import date, datetime
 from typing import Literal, Union
 
 from pydantic import BaseModel, Field
@@ -76,7 +77,19 @@ class CandleClosedEvent(BaseModel):
     timeframe: str
 
 
-MarketDataEvent = Union[MarketTickEvent, CandleUpdateEvent, CandleClosedEvent]
+class EtfFlowUpdatedEvent(BaseModel):
+    """Global event — no `symbol`. Farside BTC ETF daily total net flow, a pure
+    context indicator; the same flow is shown on both BTC and ETH charts."""
+
+    eventType: Literal["EtfFlowUpdated"] = "EtfFlowUpdated"
+    changeType: Literal["new", "revision"]
+    flowDate: date
+    totalNetFlow: float
+    observedAt: datetime | None = None
+    updatedAt: datetime
+
+
+MarketDataEvent = Union[MarketTickEvent, CandleUpdateEvent, CandleClosedEvent, EtfFlowUpdatedEvent]
 
 
 class ExchangeHealth(BaseModel):
@@ -107,3 +120,13 @@ class CandlesMetadata(BaseModel):
 class CandlesResponse(BaseModel):
     candles: list[Candle]
     metadata: CandlesMetadata
+
+
+class EtfFlow(BaseModel):
+    """Farside BTC ETF daily total net flow row. `observedAt` is null for
+    historical backfill rows — never invented, never coerced to a real time."""
+
+    flowDate: date
+    totalNetFlow: float
+    observedAt: datetime | None = None
+    updatedAt: datetime
