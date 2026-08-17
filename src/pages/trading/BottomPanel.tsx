@@ -1,4 +1,4 @@
-import { TrendingUp, Clock, History, Globe, Bot } from "lucide-react";
+import { TrendingUp, Clock, History, Globe, Bot, ChevronDown } from "lucide-react";
 import { useCancelOrder, useClosePosition, useCloseAllPositions, useTradeHistory } from "../../services/queries.ts";
 import type { Order, Position, TradingMode } from "../../services/schemas.ts";
 import { Button } from "../../components/ui/button.tsx";
@@ -24,6 +24,8 @@ function getErrorMessage(error: unknown): string {
 export interface BottomPanelProps {
   tab: "positions" | "orders" | "history" | "calendar" | "ai-trader";
   onTabChange: (t: "positions" | "orders" | "history" | "calendar" | "ai-trader") => void;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   positions: Position[];
   orders: Order[];
   mode: TradingMode;
@@ -39,6 +41,8 @@ export interface BottomPanelProps {
 export function BottomPanel({
   tab,
   onTabChange,
+  collapsed = false,
+  onToggleCollapsed,
   positions,
   orders,
   mode,
@@ -149,14 +153,14 @@ export function BottomPanel({
   return (
     <div
       className="border-t border-border flex flex-col shrink-0 bg-card max-h-[150px] md:max-h-none"
-      style={{ height }}
+      style={{ height: collapsed ? 31 : height }}
     >
       {/* Tab bar */}
       <div className="flex items-center gap-0.5 px-2 py-1 border-b border-border bg-secondary text-xs overflow-x-auto no-scrollbar">
         {tabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => onTabChange(t.key)}
+            onClick={() => (t.key === tab ? onToggleCollapsed?.() : onTabChange(t.key))}
             className={cn(
               "flex items-center gap-1 px-2.5 py-1 rounded shrink-0 whitespace-nowrap",
               tab === t.key
@@ -174,34 +178,46 @@ export function BottomPanel({
           </button>
         ))}
 
-        {tab === "positions" && openPositions.length > 0 && (
-          <div className="ml-auto flex items-center gap-2">
-            <span className={cn("font-mono text-xs font-semibold", pnlClass(totalPnl))}>
-              P&L: {totalPnl >= 0 ? "+" : ""}
-              {formatCurrency(totalPnl)}
-            </span>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleCloseAll}
-              className="text-[10px] h-5"
-              disabled={closeAllPositions.isPending || !isFeedConnected}
-            >
-              Close All
-            </Button>
-          </div>
-        )}
-
-        {(tab === "positions" || tab === "orders" || tab === "history") &&
-          !(tab === "positions" && openPositions.length > 0) && (
-            <span className="ml-auto text-[10px] text-muted-foreground font-mono px-2 uppercase">
-              {mode}
-            </span>
+        <div className="ml-auto flex items-center gap-2">
+          {tab === "positions" && openPositions.length > 0 && (
+            <>
+              <span className={cn("font-mono text-xs font-semibold", pnlClass(totalPnl))}>
+                P&L: {totalPnl >= 0 ? "+" : ""}
+                {formatCurrency(totalPnl)}
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleCloseAll}
+                className="text-[10px] h-5"
+                disabled={closeAllPositions.isPending || !isFeedConnected}
+              >
+                Close All
+              </Button>
+            </>
           )}
+          {(tab === "positions" || tab === "orders" || tab === "history") &&
+            !(tab === "positions" && openPositions.length > 0) && (
+              <span className="text-[10px] text-muted-foreground font-mono px-2 uppercase">
+                {mode}
+              </span>
+            )}
+          {onToggleCollapsed && (
+            <button
+              type="button"
+              title={collapsed ? "Expand bottom panel" : "Collapse bottom panel"}
+              aria-expanded={!collapsed}
+              onClick={onToggleCollapsed}
+              className="rounded p-1 text-muted-foreground hover:bg-card hover:text-foreground"
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", collapsed && "rotate-180")} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto">
+      <div className={cn("flex-1 overflow-auto", collapsed && "hidden")}>
         {tab === "positions" && (
           <PositionsTable
             positions={openPositions}

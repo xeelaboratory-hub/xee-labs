@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsFeedConnected } from "../components/ConnectionIndicator.tsx";
 import { Footer } from "../components/Footer.tsx";
@@ -42,6 +43,9 @@ type ConfirmOrderState = {
   price?: number;
   _submit: () => Promise<unknown>;
 } | null;
+
+type BottomTab = "positions" | "orders" | "history" | "calendar" | "ai-trader";
+type RightPanelId = "order" | "dom" | "watchlist" | "ai-trader";
 
 export function TradingPage() {
   const hasTrackedFirstTrade = useRef(false);
@@ -104,15 +108,53 @@ export function TradingPage() {
     setActivePlugins(supported);
     updateChartPreferences({ activePlugins: supported });
   }, []);
-  const [bottomTab, setBottomTab] = useState<
-    "positions" | "orders" | "history" | "calendar" | "ai-trader"
-  >("positions");
+  const [bottomTab, setBottomTab] = useState<BottomTab>("positions");
+  const [bottomCollapsed, setBottomCollapsed] = useState(
+    () => localStorage.getItem("bottomPanelCollapsed") === "true",
+  );
   // AI trader is a PropSim-era feature not part of Xee.Labs (see AiTraderPage.tsx).
   const aiTraderEnabled = false;
-  const [rightPanel, setRightPanel] = useState<
-    "order" | "dom" | "watchlist" | "ai-trader"
-  >("order");
-  const [showRightPanel, setShowRightPanel] = useState(true);
+  const [rightPanel, setRightPanel] = useState<RightPanelId>("order");
+  const [showRightPanel, setShowRightPanel] = useState(
+    () => localStorage.getItem("rightPanelCollapsed") !== "true",
+  );
+  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
+    const saved = Number(localStorage.getItem("rightPanelWidth"));
+    return Number.isFinite(saved) && saved >= 240 && saved <= 520 ? saved : 320;
+  });
+
+  const toggleBottomPanel = useCallback(() => {
+    setBottomCollapsed((current) => {
+      localStorage.setItem("bottomPanelCollapsed", String(!current));
+      return !current;
+    });
+  }, []);
+
+  const handleBottomTabChange = useCallback((tab: BottomTab) => {
+    setBottomTab(tab);
+    setBottomCollapsed(false);
+    localStorage.setItem("bottomPanelCollapsed", "false");
+  }, []);
+
+  const toggleRightPanel = useCallback(() => {
+    setShowRightPanel((current) => {
+      localStorage.setItem("rightPanelCollapsed", String(current));
+      return !current;
+    });
+  }, []);
+
+  const handleRightPanel = useCallback(
+    (panel: RightPanelId) => {
+      if (panel === rightPanel && showRightPanel) {
+        toggleRightPanel();
+        return;
+      }
+      setRightPanel(panel);
+      setShowRightPanel(true);
+      localStorage.setItem("rightPanelCollapsed", "false");
+    },
+    [rightPanel, showRightPanel, toggleRightPanel],
+  );
 
   // ── Vertical resize: chart vs bottom panel ──
   const [bottomPanelHeight, setBottomPanelHeight] = useState(() => {
@@ -122,6 +164,8 @@ export function TradingPage() {
   const resizingRef = useRef(false);
   const resizeStartY = useRef(0);
   const resizeStartH = useRef(0);
+  const rightResizeStartX = useRef(0);
+  const rightResizeStartW = useRef(0);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
@@ -155,6 +199,37 @@ export function TradingPage() {
       window.addEventListener("touchend", onUp);
     },
     [bottomPanelHeight],
+  );
+
+  const handleRightResizeStart = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      const startX = "touches" in e ? e.touches[0]!.clientX : e.clientX;
+      rightResizeStartX.current = startX;
+      rightResizeStartW.current = rightPanelWidth;
+
+      const onMove = (ev: MouseEvent | TouchEvent) => {
+        const x = "touches" in ev ? ev.touches[0]!.clientX : (ev as MouseEvent).clientX;
+        setRightPanelWidth(
+          Math.max(240, Math.min(520, rightResizeStartW.current + rightResizeStartX.current - x)),
+        );
+      };
+      const onUp = () => {
+        setRightPanelWidth((width) => {
+          localStorage.setItem("rightPanelWidth", String(width));
+          return width;
+        });
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        window.removeEventListener("touchmove", onMove);
+        window.removeEventListener("touchend", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+      window.addEventListener("touchmove", onMove, { passive: false });
+      window.addEventListener("touchend", onUp);
+    },
+    [rightPanelWidth],
   );
 
   // (#4) One-click trading mode
@@ -361,9 +436,8 @@ export function TradingPage() {
         showIndicatorMenu={showIndicatorMenu}
         onToggleIndicatorMenu={() => setShowIndicatorMenu((v) => !v)}
         rightPanel={rightPanel}
-        onRightPanel={setRightPanel}
+        onRightPanel={handleRightPanel}
         showRightPanel={showRightPanel}
-        onToggleRightPanel={() => setShowRightPanel((v) => !v)}
         tick={tick}
         symbolInfo={symbolInfo}
         aiTraderEnabled={aiTraderEnabled}
@@ -418,18 +492,23 @@ export function TradingPage() {
           </div>
 
           {/* ── Resize Handle ── */}
-          <div
-            onMouseDown={handleResizeStart}
-            onTouchStart={handleResizeStart}
-            className="hidden md:flex h-1.5 cursor-row-resize items-center justify-center hover:bg-primary/20 active:bg-primary/30 transition-colors group border-t border-border bg-secondary/40 touch-none"
-          >
-            <div className="w-8 h-0.5 rounded-full bg-border group-hover:bg-primary/50 transition-colors" />
-          </div>
+          {!bottomCollapsed && (
+            <div
+              onMouseDown={handleResizeStart}
+              onTouchStart={handleResizeStart}
+              onDoubleClick={toggleBottomPanel}
+              className="hidden md:flex h-1.5 cursor-row-resize items-center justify-center hover:bg-primary/20 active:bg-primary/30 transition-colors group border-t border-border bg-secondary/40 touch-none"
+            >
+              <div className="w-8 h-0.5 rounded-full bg-border group-hover:bg-primary/50 transition-colors" />
+            </div>
+          )}
 
           {/* Bottom Panel (Positions / Orders / Trade History / Calendar / News) */}
           <BottomPanel
             tab={bottomTab}
-            onTabChange={setBottomTab}
+            onTabChange={handleBottomTabChange}
+            collapsed={bottomCollapsed}
+            onToggleCollapsed={toggleBottomPanel}
             positions={positions}
             orders={orders}
             mode={mode}
@@ -443,9 +522,36 @@ export function TradingPage() {
           />
         </div>
 
-        {/* Right Panel */}
-        {showRightPanel && (
-          <div className="hidden md:flex w-full md:w-[280px] xl:w-[320px] border-t md:border-t-0 md:border-l border-border flex-col bg-card overflow-hidden shrink-0 md:max-h-none">
+        {/* Right Panel + centered collapse/resize handle */}
+        <div
+          className="relative hidden md:flex shrink-0"
+          style={{ width: showRightPanel ? rightPanelWidth : 0 }}
+        >
+          <button
+            type="button"
+            title={showRightPanel ? "Collapse right panel" : "Expand right panel"}
+            aria-expanded={showRightPanel}
+            onClick={toggleRightPanel}
+            className="absolute -left-3 top-1/2 z-30 -translate-y-1/2 rounded-full border border-border bg-card p-1 text-muted-foreground shadow-md hover:text-foreground"
+          >
+            {showRightPanel ? (
+              <ChevronRight className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronLeft className="h-3.5 w-3.5" />
+            )}
+          </button>
+          {showRightPanel && (
+            <div
+              onMouseDown={handleRightResizeStart}
+              onTouchStart={handleRightResizeStart}
+              className="absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize touch-none"
+            />
+          )}
+          {showRightPanel && (
+            <div
+              className="flex h-full flex-col overflow-hidden border-l border-border bg-card"
+              style={{ width: rightPanelWidth }}
+            >
             <AccountPanel />
             {rightPanel === "order" && (
               <OrderPanel
@@ -483,8 +589,9 @@ export function TradingPage() {
                 <AiTraderPanel mode={mode} />
               </div>
             )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Mobile Trading Panel (small screens only) ──── */}

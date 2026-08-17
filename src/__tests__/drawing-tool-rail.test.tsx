@@ -35,5 +35,13 @@ describe("DrawingToolRail", () => {
     expect(screen.getByRole("button", { name: "Lines: Ray" }).parentElement?.className).toContain(
       "text-primary",
     );
+
+    await user.click(screen.getByRole("button", { name: "Collapse drawing tools" }));
+    expect(screen.getByRole("button", { name: "Show drawing tools" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await user.click(screen.getByRole("button", { name: "Show drawing tools" }));
+    expect(screen.getByRole("button", { name: "Cursor" })).toBeInTheDocument();
   });
 });

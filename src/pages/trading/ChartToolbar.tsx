@@ -5,7 +5,6 @@ import {
   ChevronDown,
   Layers,
   type LucideIcon,
-  Maximize2,
   Search,
   X,
 } from "lucide-react";
@@ -38,7 +37,6 @@ export interface ChartToolbarProps {
   onRightPanel: (p: "order" | "dom" | "watchlist" | "ai-trader") => void;
   aiTraderEnabled?: boolean;
   showRightPanel: boolean;
-  onToggleRightPanel: () => void;
   tick?: { bid: number; ask: number; timestamp: number };
   symbolInfo?: {
     tickSize?: number;
@@ -71,7 +69,6 @@ export function ChartToolbar({
   rightPanel,
   onRightPanel,
   showRightPanel,
-  onToggleRightPanel,
   tick,
   symbolInfo,
   aiTraderEnabled,
@@ -315,13 +312,6 @@ export function ChartToolbar({
             onClick={() => onRightPanel("ai-trader")}
           />
         )}
-        <div className="h-4 border-l border-border mx-1" />
-        <button
-          onClick={onToggleRightPanel}
-          className="px-1.5 py-1 rounded hover:bg-secondary text-muted-foreground"
-        >
-          <Maximize2 className="h-3 w-3" />
-        </button>
       </div>
     </div>
   );

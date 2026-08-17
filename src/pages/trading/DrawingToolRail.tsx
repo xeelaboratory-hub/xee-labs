@@ -2,10 +2,10 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
+  ChevronLeft,
   ChevronRight,
   Circle,
   Equal,
-  EyeOff,
   Layers,
   Layers3,
   Magnet,
@@ -14,7 +14,6 @@ import {
   MousePointer2,
   MoveUpRight,
   MoveVertical,
-  PenTool,
   Repeat,
   Ruler,
   Spline,
@@ -92,17 +91,20 @@ function RailButton({
   icon: Icon,
   title,
   active,
+  ariaExpanded,
   onClick,
 }: {
   icon: LucideIcon;
   title: string;
   active?: boolean;
+  ariaExpanded?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       title={title}
+      aria-expanded={ariaExpanded}
       onClick={onClick}
       className={cn(
         "p-1.5 rounded hover:bg-secondary",
@@ -246,16 +248,17 @@ export function DrawingToolRail({
     setHidden(true);
   };
 
-  // Collapsed: a small restorable button where the rail was last positioned.
+  // Collapsed: leave a thin edge tab so the restore affordance stays discoverable.
   if (hidden) {
     return (
       <button
         type="button"
         title="Show drawing tools"
         onClick={() => setHidden(false)}
-        className="absolute left-1 top-8 z-20 rounded-md border border-border bg-card/90 p-1.5 text-muted-foreground backdrop-blur-sm hover:text-primary"
+        aria-expanded={false}
+        className="absolute left-0 top-8 z-20 rounded-r-md border border-l-0 border-border bg-card/90 px-1 py-2 text-muted-foreground backdrop-blur-sm hover:text-primary"
       >
-        <PenTool className="h-4 w-4" />
+        <ChevronRight className="h-3.5 w-3.5" />
       </button>
     );
   }
@@ -304,7 +307,12 @@ export function DrawingToolRail({
         />
       )}
       <div className="my-0.5 w-full border-t border-border/50" />
-      <RailButton icon={EyeOff} title="Hide toolbar" onClick={hide} />
+      <RailButton
+        icon={ChevronLeft}
+        title="Collapse drawing tools"
+        ariaExpanded={true}
+        onClick={hide}
+      />
     </div>
   );
 }
