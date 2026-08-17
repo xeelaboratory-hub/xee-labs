@@ -18,7 +18,7 @@ import { toast } from "../../services/toast.ts";
 
 // ── Chart templates (TradingView/TradeLocker-style layout templates) ─────────
 // Save/load named snapshots of chart appearance (colors, element visibility,
-// challenge overlays), active indicators and plugins. Stored server-side via
+// chart overlays), active indicators and plugins. Stored server-side via
 // the trader-qol ChartLayout endpoints, so templates follow the user across
 // devices. Optional autosave keeps the active template in sync with changes.
 

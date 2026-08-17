@@ -60,11 +60,8 @@ import {
 } from "./DrawingToolsOverlay.tsx";
 import { DrawingToolRail } from "./DrawingToolRail.tsx";
 import { DRAWING_STYLES_EVENT, getStyleDefaults } from "./drawingStyles.ts";
-import { NewsOverlay } from "./NewsOverlay.tsx";
 import { ObjectTreePanel } from "./ObjectTreePanel.tsx";
-import { useChallengeLevels } from "./useChallengeLevels.ts";
 import { useIndicators } from "./useIndicators.ts";
-import { useNewsOverlay } from "./useNewsOverlay.ts";
 import { useSlTpDrag } from "./useSlTpDrag.ts";
 import {
   formatCountdown,
@@ -235,8 +232,6 @@ export interface ChartPanelProps {
   onTogglePlugin?: (id: string) => void;
   /** Account equity — feeds the position tool's $-risk / size readout. */
   accountEquity?: number;
-  /** Which OKX environment (demo|live) is active — enables the challenge-aware level overlay. */
-  mode?: string | null;
   /** Context-menu quick order at the clicked price (opens the confirm dialog). */
   onQuickOrder?: (side: "BUY" | "SELL", type: "LIMIT" | "STOP", price: number) => void;
   /** Context-menu "Remove N drawings". */
@@ -973,7 +968,6 @@ export function ChartPanel({
   activePlugins = [],
   onTogglePlugin,
   accountEquity = 0,
-  mode,
   onQuickOrder,
   onClearDrawings,
   onClearIndicators,
@@ -1165,15 +1159,6 @@ export function ChartPanel({
   );
   const { chartData, volumeData } = useChartData(allCandles, colors);
 
-  const {
-    newsConfig,
-    setNewsConfig,
-    showNewsConfigDialog,
-    setShowNewsConfigDialog,
-    newsPopup,
-    setNewsPopup,
-  } = useNewsOverlay(containerRef, chartRef, selectedSymbol, isDark, chartData);
-
   const dragPrice = useSlTpDrag(
     containerRef,
     chartRef,
@@ -1185,35 +1170,6 @@ export function ChartPanel({
     symbolInfo,
     chartEpoch,
   );
-
-  // ── Challenge-aware rule levels (daily loss / max DD / profit target) ──
-  // No-op — see useChallengeLevels.ts docstring (PropSim-only concept).
-  const challengeFlags = useMemo(
-    () => ({
-      enabled: chartPrefs.challengeOverlay && !!mode,
-      dailyLoss: chartPrefs.challengeDailyLossLine,
-      maxDrawdown: chartPrefs.challengeMaxDrawdownLine,
-      profitTarget: chartPrefs.challengeProfitTargetLine,
-    }),
-    [
-      chartPrefs.challengeOverlay,
-      chartPrefs.challengeDailyLossLine,
-      chartPrefs.challengeMaxDrawdownLine,
-      chartPrefs.challengeProfitTargetLine,
-      mode,
-    ],
-  );
-  useChallengeLevels({
-    accountId: mode,
-    selectedSymbol,
-    positions,
-    tick,
-    contractSize: symbolInfo?.contractSize || 100000,
-    accountEquity,
-    candleSeriesRef,
-    flags: challengeFlags,
-    chartEpoch,
-  });
 
   // ── Chart context-menu actions ──
   const handleChartContextMenu = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
@@ -1854,19 +1810,6 @@ export function ChartPanel({
         onReorder={handleReorderDrawing}
       />
 
-      {/* News overlay (popup, config dialog, button) */}
-      <NewsOverlay
-        newsConfig={newsConfig}
-        setNewsConfig={setNewsConfig}
-        showNewsConfigDialog={showNewsConfigDialog}
-        setShowNewsConfigDialog={setShowNewsConfigDialog}
-        newsPopup={newsPopup}
-        setNewsPopup={setNewsPopup}
-        isDark={isDark}
-        pipDigits={pipDigits}
-        containerRef={containerRef}
-      />
-
       {/* Chart-wide right-click menu (TradingView-style) */}
       {chartMenu && (
         <ChartContextMenu
@@ -1897,8 +1840,6 @@ export function ChartPanel({
         isDark={isDark}
         activePlugins={activePlugins}
         onTogglePlugin={onTogglePlugin}
-        onOpenNewsConfig={() => setShowNewsConfigDialog(true)}
-        hasAccount={!!mode}
       />
 
       {/* Chart container — cursor is managed imperatively by DrawingToolsManager */}

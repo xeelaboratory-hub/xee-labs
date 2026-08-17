@@ -41,12 +41,6 @@ export interface ChartPreferences {
   showWatermark: boolean;
   showCountdown: boolean;
   showOhlcLegend: boolean;
-  // ── Challenge-aware overlays ──
-  /** Master switch for rule-derived price lines (daily loss / max DD / target). */
-  challengeOverlay: boolean;
-  challengeDailyLossLine: boolean;
-  challengeMaxDrawdownLine: boolean;
-  challengeProfitTargetLine: boolean;
 }
 
 type TraderPrefs = Record<string, string>;
@@ -77,10 +71,6 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   showWatermark: false,
   showCountdown: true,
   showOhlcLegend: false,
-  challengeOverlay: false,
-  challengeDailyLossLine: false,
-  challengeMaxDrawdownLine: false,
-  challengeProfitTargetLine: false,
 };
 
 /** Boolean preference keys read straight through `toBool` with their default. */
@@ -94,10 +84,6 @@ const BOOL_PREF_KEYS = [
   "showWatermark",
   "showCountdown",
   "showOhlcLegend",
-  "challengeOverlay",
-  "challengeDailyLossLine",
-  "challengeMaxDrawdownLine",
-  "challengeProfitTargetLine",
   "chartTemplateAutosave",
 ] as const;
 
@@ -129,10 +115,6 @@ export const TEMPLATE_PREF_KEYS = [
   "showWatermark",
   "showCountdown",
   "showOhlcLegend",
-  "challengeOverlay",
-  "challengeDailyLossLine",
-  "challengeMaxDrawdownLine",
-  "challengeProfitTargetLine",
   "candleUpColor",
   "candleDownColor",
   "colorBackground",

@@ -8,7 +8,6 @@ import {
   OrderModifyDialog,
   PositionModifyDialog,
 } from "../components/TradingDialogs.tsx";
-import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
 import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
 import { useChartDrawings } from "../hooks/useChartDrawings.ts";
 import {
@@ -103,12 +102,12 @@ export function TradingPage() {
     updateChartPreferences({ activePlugins: ids });
   }, []);
   const [bottomTab, setBottomTab] = useState<
-    "positions" | "orders" | "history" | "calendar" | "news" | "ai-trader"
+    "positions" | "orders" | "history" | "calendar" | "ai-trader"
   >("positions");
   // AI trader is a PropSim-era feature not part of Xee.Labs (see AiTraderPage.tsx).
   const aiTraderEnabled = false;
   const [rightPanel, setRightPanel] = useState<
-    "order" | "dom" | "watchlist" | "news" | "ai-trader" | "tv-analysis"
+    "order" | "dom" | "watchlist" | "ai-trader" | "tv-analysis"
   >("order");
   const [showRightPanel, setShowRightPanel] = useState(true);
 
@@ -416,7 +415,6 @@ export function TradingPage() {
               activePlugins={activePlugins}
               onTogglePlugin={handleTogglePlugin}
               accountEquity={account?.equity ?? account?.balance ?? 0}
-              mode={mode}
               onQuickOrder={handleQuickOrder}
               onClearDrawings={clearDrawings}
               onClearIndicators={handleClearIndicators}
@@ -483,11 +481,6 @@ export function TradingPage() {
                 mode={mode}
                 isFeedConnected={isFeedConnected}
               />
-            )}
-            {rightPanel === "news" && (
-              <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                <MarketNewsFeed symbol={selectedSymbol} />
-              </div>
             )}
             {rightPanel === "ai-trader" && (
               <div className="flex-1 overflow-hidden">

@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { TrendingUp, Clock, History, Globe, Newspaper, Bot } from "lucide-react";
+import { TrendingUp, Clock, History, Globe, Bot } from "lucide-react";
 import { useCancelOrder, useClosePosition, useCloseAllPositions, useTradeHistory } from "../../services/queries.ts";
 import type { Order, Position, TradingMode } from "../../services/schemas.ts";
 import { Button } from "../../components/ui/button.tsx";
@@ -7,7 +6,6 @@ import { AiTraderPanel } from "../AiTraderPage.tsx";
 import { TradingViewEconomicCalendar } from "../../components/TradingViewWidgets.tsx";
 import { toast } from "../../services/toast.ts";
 import { formatCurrency, formatNumber, formatDate, cn, pnlClass } from "../../lib/utils.ts";
-import { MOCK_EVENTS, MOCK_NEWS } from "./constants.ts";
 import { PositionsTable } from "./PositionsTable.tsx";
 import { OrdersTable } from "./OrdersTable.tsx";
 import { computeLivePnl, computeLivePrice } from "../../lib/livePnl.ts";
@@ -24,8 +22,8 @@ function getErrorMessage(error: unknown): string {
 }
 
 export interface BottomPanelProps {
-  tab: "positions" | "orders" | "history" | "calendar" | "news" | "ai-trader";
-  onTabChange: (t: "positions" | "orders" | "history" | "calendar" | "news" | "ai-trader") => void;
+  tab: "positions" | "orders" | "history" | "calendar" | "ai-trader";
+  onTabChange: (t: "positions" | "orders" | "history" | "calendar" | "ai-trader") => void;
   positions: Position[];
   orders: Order[];
   mode: TradingMode;
@@ -145,7 +143,6 @@ export function BottomPanel({
     { key: "orders", label: "Orders", icon: Clock, count: pendingOrders.length },
     { key: "history", label: "Trade History", icon: History },
     { key: "calendar", label: "Calendar", icon: Globe },
-    { key: "news", label: "News", icon: Newspaper },
     ...(aiTraderEnabled ? [{ key: "ai-trader" as const, label: "AI Trader", icon: Bot }] : []),
   ];
 
@@ -224,7 +221,6 @@ export function BottomPanel({
         )}
         {tab === "history" && <TradeHistoryTable mode={mode} />}
         {tab === "calendar" && <EconomicCalendar />}
-        {tab === "news" && <NewsFeed />}
         {tab === "ai-trader" && <AiTraderPanel mode={mode} />}
       </div>
     </div>
@@ -284,119 +280,13 @@ function TradeHistoryTable({ mode }: { mode: TradingMode }) {
 
 // ── Economic Calendar ────────────────────────────────────────
 function EconomicCalendar() {
-  const [useTvCalendar, setUseTvCalendar] = useState(
-    () => localStorage.getItem("tvEconCalendar") !== "false",
-  );
   const isDark = !document.documentElement.classList.contains("light");
 
-  const impactColor = {
-    low: "bg-muted text-muted-foreground",
-    medium: "bg-warning/20 text-warning",
-    high: "bg-destructive/20 text-destructive",
-  };
-
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center gap-2 px-2 py-1 border-b border-border/40 shrink-0">
-        <button
-          onClick={() => {
-            setUseTvCalendar(false);
-            localStorage.setItem("tvEconCalendar", "false");
-          }}
-          className={cn(
-            "px-2 py-0.5 rounded text-[10px] font-medium",
-            !useTvCalendar
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-secondary",
-          )}
-        >
-          Sim Data
-        </button>
-        <button
-          onClick={() => {
-            setUseTvCalendar(true);
-            localStorage.setItem("tvEconCalendar", "true");
-          }}
-          className={cn(
-            "px-2 py-0.5 rounded text-[10px] font-medium",
-            useTvCalendar ? "bg-[#2962ff] text-white" : "text-muted-foreground hover:bg-secondary",
-          )}
-        >
-          TradingView Live
-        </button>
-      </div>
-      {useTvCalendar ? (
-        <div className="flex-1 min-h-0">
-          <TradingViewEconomicCalendar
-            theme={isDark ? "dark" : "light"}
-            width="100%"
-            height="100%"
-          />
-        </div>
-      ) : (
-        <table className="w-full text-[11px]">
-          <thead className="sticky top-0 bg-card z-10">
-            <tr>
-              <th>Time</th>
-              <th>Currency</th>
-              <th>Impact</th>
-              <th>Event</th>
-              <th>Forecast</th>
-              <th>Previous</th>
-              <th>Actual</th>
-            </tr>
-          </thead>
-          <tbody>
-            {MOCK_EVENTS.map((ev, i) => (
-              <tr key={i} className="hover:bg-secondary/30">
-                <td className="text-muted-foreground">{ev.time}</td>
-                <td className="font-semibold">{ev.currency}</td>
-                <td>
-                  <span
-                    className={cn(
-                      "px-1.5 py-0.5 rounded text-[9px] font-medium",
-                      impactColor[ev.impact],
-                    )}
-                  >
-                    {ev.impact.toUpperCase()}
-                  </span>
-                </td>
-                <td>{ev.event}</td>
-                <td className="font-mono">{ev.forecast || "--"}</td>
-                <td className="font-mono text-muted-foreground">{ev.previous || "--"}</td>
-                <td className="font-mono font-semibold">{ev.actual || "--"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-// ── News Feed ────────────────────────────────────────────────
-function NewsFeed() {
-  const impactStyle = {
-    bullish: "text-buy",
-    bearish: "text-sell",
-    neutral: "text-muted-foreground",
-  };
-
-  return (
-    <div className="divide-y divide-border/30">
-      {MOCK_NEWS.map((item, i) => (
-        <div key={i} className="px-3 py-2 hover:bg-secondary/30 cursor-pointer">
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-0.5">
-            <span>{item.time}</span>
-            <span className="text-muted-foreground">|</span>
-            <span>{item.source}</span>
-            <span className={cn("font-semibold", impactStyle[item.impact])}>
-              {item.impact.toUpperCase()}
-            </span>
-          </div>
-          <p className="text-xs leading-snug">{item.title}</p>
-        </div>
-      ))}
-    </div>
+    <TradingViewEconomicCalendar
+      theme={isDark ? "dark" : "light"}
+      width="100%"
+      height="100%"
+    />
   );
 }

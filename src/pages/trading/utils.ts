@@ -1,7 +1,6 @@
 import type { CandlestickData, SeriesMarker, Time } from "lightweight-charts";
 import type { CandleData } from "../../lib/indicators.ts";
 import type { EtfFlow } from "../../services/api/market-data.ts";
-import { KNOWN_CURRENCIES } from "./constants.ts";
 import type { Timeframe } from "./constants.ts";
 
 /** Derive pip (decimal) precision from symbolInfo.tickSize or symbol name */
@@ -67,19 +66,6 @@ export function formatCountdown(totalSec: number): string {
   const s = Math.floor(totalSec % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-/** Extract currency codes from a symbol name */
-export function extractCurrencies(symbol: string): string[] {
-  const upper = symbol.toUpperCase().replace(/[^A-Z]/g, "");
-  const found: string[] = [];
-  for (const c of KNOWN_CURRENCIES) {
-    if (upper.includes(c)) found.push(c);
-  }
-  if (found.length === 0 && upper.length >= 6) {
-    found.push(upper.slice(0, 3), upper.slice(3, 6));
-  }
-  return [...new Set(found)];
 }
 
 /** Return the candle-bucket start (unix seconds) for a given timestamp */

@@ -22,7 +22,6 @@ import {
   Minus,
   MoveUpRight,
   MoveVertical,
-  Newspaper,
   Pencil,
   Repeat,
   Ruler,
@@ -73,7 +72,7 @@ export interface ChartToolbarProps {
   drawings: DrawingLine[];
   onClearDrawings: () => void;
   rightPanel: string;
-  onRightPanel: (p: "order" | "dom" | "watchlist" | "news" | "ai-trader" | "tv-analysis") => void;
+  onRightPanel: (p: "order" | "dom" | "watchlist" | "ai-trader" | "tv-analysis") => void;
   aiTraderEnabled?: boolean;
   showRightPanel: boolean;
   onToggleRightPanel: () => void;
@@ -377,12 +376,6 @@ export function ChartToolbar({
           tooltip="Watchlist"
           active={showRightPanel && rightPanel === "watchlist"}
           onClick={() => onRightPanel("watchlist")}
-        />
-        <ToolButton
-          icon={Newspaper}
-          tooltip="News"
-          active={showRightPanel && rightPanel === "news"}
-          onClick={() => onRightPanel("news")}
         />
         <ToolButton
           icon={Star}
