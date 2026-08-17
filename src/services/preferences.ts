@@ -9,6 +9,8 @@ export interface UserPreferences {
   oneClickTrading?: boolean;
   timeframes: Record<string, string>;
   activeIndicators: Array<"ETF_FLOW" | "SESSION_VOLUME_PROFILE">;
+  sessionVolumeProfileMarkets?: SessionMarket[];
+  /** Legacy single-select preference, kept for migration. */
   sessionVolumeProfileMarket?: SessionMarket;
   sessionVolumeProfileRows?: number;
   watchlistFavorites: string[];
@@ -23,6 +25,7 @@ const STORAGE_PREFIX = "xee_user_preferences";
 const SESSION_MARKETS: readonly SessionMarket[] = ["ASX", "TOKYO", "LONDON", "NEW_YORK"];
 
 export const DEFAULT_SESSION_VOLUME_PROFILE_MARKET: SessionMarket = "NEW_YORK";
+export const DEFAULT_SESSION_VOLUME_PROFILE_MARKETS: SessionMarket[] = [DEFAULT_SESSION_VOLUME_PROFILE_MARKET];
 export const DEFAULT_SESSION_VOLUME_PROFILE_ROWS = 30;
 
 export function normalizeSessionVolumeProfileRows(value: unknown): number {
@@ -35,6 +38,12 @@ function normalizeSessionVolumeProfileMarket(value: unknown): SessionMarket {
   return SESSION_MARKETS.includes(value as SessionMarket)
     ? (value as SessionMarket)
     : DEFAULT_SESSION_VOLUME_PROFILE_MARKET;
+}
+
+function normalizeSessionVolumeProfileMarkets(value: unknown): SessionMarket[] {
+  const values = Array.isArray(value) ? value : [value];
+  const markets = SESSION_MARKETS.filter((market) => values.includes(market));
+  return markets.length ? markets : [...DEFAULT_SESSION_VOLUME_PROFILE_MARKETS];
 }
 
 function currentUserId(): string | null {
@@ -72,6 +81,9 @@ function migrateLegacy(userId?: string | null): UserPreferences {
         timeframes: guest.timeframes ?? {},
         activeIndicators:
           guest.activeIndicators?.filter((id) => id === "ETF_FLOW" || id === "SESSION_VOLUME_PROFILE") ?? [],
+        sessionVolumeProfileMarkets: normalizeSessionVolumeProfileMarkets(
+          guest.sessionVolumeProfileMarkets ?? guest.sessionVolumeProfileMarket,
+        ),
         sessionVolumeProfileMarket: normalizeSessionVolumeProfileMarket(guest.sessionVolumeProfileMarket),
         sessionVolumeProfileRows: normalizeSessionVolumeProfileRows(guest.sessionVolumeProfileRows),
         watchlistFavorites: guest.watchlistFavorites ?? [],
@@ -97,6 +109,7 @@ function migrateLegacy(userId?: string | null): UserPreferences {
     oneClickTrading: localStorage.getItem("oneClickTrading") === "true",
     timeframes,
     activeIndicators: [],
+    sessionVolumeProfileMarkets: [...DEFAULT_SESSION_VOLUME_PROFILE_MARKETS],
     sessionVolumeProfileMarket: DEFAULT_SESSION_VOLUME_PROFILE_MARKET,
     sessionVolumeProfileRows: DEFAULT_SESSION_VOLUME_PROFILE_ROWS,
     watchlistFavorites: parseObject<string[]>(localStorage.getItem("watchlist_favorites"), []),
@@ -116,6 +129,9 @@ export function readLocalPreferences(userId?: string | null): UserPreferences {
       timeframes: existing.timeframes ?? {},
       activeIndicators:
         existing.activeIndicators?.filter((id) => id === "ETF_FLOW" || id === "SESSION_VOLUME_PROFILE") ?? [],
+      sessionVolumeProfileMarkets: normalizeSessionVolumeProfileMarkets(
+        existing.sessionVolumeProfileMarkets ?? existing.sessionVolumeProfileMarket,
+      ),
       sessionVolumeProfileMarket: normalizeSessionVolumeProfileMarket(existing.sessionVolumeProfileMarket),
       sessionVolumeProfileRows: normalizeSessionVolumeProfileRows(existing.sessionVolumeProfileRows),
       watchlistFavorites: existing.watchlistFavorites ?? [],

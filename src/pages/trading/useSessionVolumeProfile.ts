@@ -15,8 +15,6 @@ import { useTradingStore } from "../../services/store.tsx";
 import { toast } from "../../services/toast.ts";
 import { TF_INTERVAL_MS, type Timeframe } from "./constants.ts";
 
-const SUPPORTED_TIMEFRAMES = new Set<Timeframe>(["1m", "5m", "15m", "30m", "1h"]);
-
 type VisibleTimeRange = { from: number; to: number };
 
 function toOhlcv(bar: OhlcvBar): OhlcvBar {
@@ -53,6 +51,12 @@ function upsertBar(bars: readonly OhlcvBar[] | undefined, next: OhlcvBar): Ohlcv
   return current.sort((a, b) => a.time - b.time);
 }
 
+function combineSessionQueries(
+  results: Array<{ data?: OhlcvBar[]; error: Error | null; isError: boolean }>,
+) {
+  return results.map(({ data, error, isError }) => ({ data, error, isError }));
+}
+
 interface UseSessionVolumeProfileArgs {
   chartRef: React.RefObject<IChartApi | null>;
   candleSeriesRef: React.RefObject<ISeriesApi<"Candlestick"> | null>;
@@ -61,7 +65,7 @@ interface UseSessionVolumeProfileArgs {
   active: boolean;
   selectedSymbol: string;
   timeframe: Timeframe;
-  market: SessionMarket;
+  markets: SessionMarket[];
   rows: number;
 }
 
@@ -73,7 +77,7 @@ export function useSessionVolumeProfile({
   active,
   selectedSymbol,
   timeframe,
-  market,
+  markets,
   rows,
 }: UseSessionVolumeProfileArgs): React.RefObject<SessionVolumeProfilePrimitive | null> {
   const queryClient = useQueryClient();
@@ -81,7 +85,9 @@ export function useSessionVolumeProfile({
   const errorRef = useRef<string | null>(null);
   const liveCandle = useTradingStore((state) => state.liveCandleUpdates[`${selectedSymbol}:1m`]);
   const [visibleRange, setVisibleRange] = useState<VisibleTimeRange | null>(null);
-  const supported = SUPPORTED_TIMEFRAMES.has(timeframe);
+  useEffect(() => {
+    chartRef.current?.priceScale("right").applyOptions({ alignLabels: !active });
+  }, [active, chartEpoch, chartRef]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -106,43 +112,52 @@ export function useSessionVolumeProfile({
   }, [chartRef, chartEpoch, chartData, timeframe]);
 
   const windows = useMemo(
-    () => (visibleRange && active && supported ? sessionWindowsInRange(visibleRange.from, visibleRange.to, market) : []),
-    [active, market, supported, visibleRange],
+    () => {
+      if (!visibleRange || !active) return [];
+      const limit = timeframe === "1d" || timeframe === "1w" ? 1 : timeframe === "4h" ? 5 : 10;
+      const to = Math.min(visibleRange.to, Math.floor(Date.now() / 1_000));
+      return markets.flatMap((market) =>
+        sessionWindowsInRange(visibleRange.from, to, market, limit),
+      );
+    },
+    [active, markets, timeframe, visibleRange],
   );
   const queries = useQueries({
     queries: windows.map((window) => ({
-      queryKey: queryKeys.market.sessionVolumeProfile(selectedSymbol, market, window.date),
+      queryKey: queryKeys.market.sessionVolumeProfile(selectedSymbol, window.market, window.date),
       queryFn: () =>
         api
-          .getCandles(selectedSymbol, "1m", undefined, {
+          .getCandles(selectedSymbol, "1m", 1_500, {
             fromMs: window.start * 1_000,
             toMs: window.end * 1_000 - 1,
           })
           .then((bars) => bars.map(toOhlcv)),
-      enabled: active && supported,
+      enabled: active,
       staleTime: Infinity,
       retry: 1,
     })),
+    combine: combineSessionQueries,
   });
 
   useEffect(() => {
-    if (!active || !supported || !liveCandle) return;
+    if (!active || !liveCandle) return;
     const time = Math.floor(liveCandle.timestamp / 60_000) * 60;
-    const window = windows.find((candidate) => isInSession(time, candidate));
-    if (!window) return;
-    queryClient.setQueryData<OhlcvBar[]>(
-      queryKeys.market.sessionVolumeProfile(selectedSymbol, market, window.date),
-      (old) =>
-        upsertBar(old, {
-          time,
-          open: liveCandle.open,
-          high: liveCandle.high,
-          low: liveCandle.low,
-          close: liveCandle.close,
-          volume: liveCandle.volume,
-        }),
-    );
-  }, [active, liveCandle, market, queryClient, selectedSymbol, supported, windows]);
+    for (const window of windows) {
+      if (!isInSession(time, window)) continue;
+      queryClient.setQueryData<OhlcvBar[]>(
+        queryKeys.market.sessionVolumeProfile(selectedSymbol, window.market, window.date),
+        (old) =>
+          upsertBar(old, {
+            time,
+            open: liveCandle.open,
+            high: liveCandle.high,
+            low: liveCandle.low,
+            close: liveCandle.close,
+            volume: liveCandle.volume,
+          }),
+      );
+    }
+  }, [active, liveCandle, queryClient, selectedSymbol, windows]);
 
   const profiles = useMemo(
     () =>
@@ -163,7 +178,7 @@ export function useSessionVolumeProfile({
   }, [queries]);
 
   useEffect(() => {
-    if (!active || !supported || !candleSeriesRef.current) return;
+    if (!active || !candleSeriesRef.current) return;
     const primitive = new SessionVolumeProfilePrimitive();
     primitiveRef.current = primitive;
     candleSeriesRef.current.attachPrimitive(primitive);
@@ -171,11 +186,11 @@ export function useSessionVolumeProfile({
       candleSeriesRef.current?.detachPrimitive(primitive);
       if (primitiveRef.current === primitive) primitiveRef.current = null;
     };
-  }, [active, candleSeriesRef, chartEpoch, supported]);
+  }, [active, candleSeriesRef, chartEpoch]);
 
   useEffect(() => {
-    primitiveRef.current?.setProfiles(active && supported ? profiles : []);
-  }, [active, profiles, supported]);
+    primitiveRef.current?.setProfiles(active ? profiles : []);
+  }, [active, profiles]);
 
   return primitiveRef;
 }

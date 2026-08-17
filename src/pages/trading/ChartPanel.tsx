@@ -194,7 +194,7 @@ export interface ChartPanelProps {
   timeframe: Timeframe;
   isDark: boolean;
   activeIndicators: IndicatorType[];
-  sessionVolumeProfileMarket: SessionMarket;
+  sessionVolumeProfileMarkets: SessionMarket[];
   sessionVolumeProfileRows: number;
   drawingTool: DrawingTool;
   drawings: DrawingLine[];
@@ -932,7 +932,7 @@ export function ChartPanel({
   timeframe,
   isDark,
   activeIndicators,
-  sessionVolumeProfileMarket,
+  sessionVolumeProfileMarkets,
   sessionVolumeProfileRows,
   drawingTool,
   drawings,
@@ -1229,7 +1229,7 @@ export function ChartPanel({
     active: activeIndicators.includes("SESSION_VOLUME_PROFILE"),
     selectedSymbol,
     timeframe,
-    market: sessionVolumeProfileMarket,
+    markets: sessionVolumeProfileMarkets,
     rows: sessionVolumeProfileRows,
   });
   useEffect(() => {
@@ -1240,7 +1240,7 @@ export function ChartPanel({
   }, [activeIndicators, etfFlowData, timeframe]);
   useEffect(() => {
     setSessionVolumeProfileTooltip(null);
-  }, [activeIndicators, sessionVolumeProfileMarket, sessionVolumeProfileRows, timeframe]);
+  }, [activeIndicators, sessionVolumeProfileMarkets, sessionVolumeProfileRows, timeframe]);
 
   // ── Candle close countdown timer ───────────────────────────
   useEffect(() => {
@@ -1306,7 +1306,7 @@ export function ChartPanel({
         alignLabels: true,
         borderVisible: true,
         entireTextOnly: false,
-        ticksVisible: true,
+        ticksVisible: false,
         minimumWidth: 80,
       },
       timeScale: {
@@ -1318,6 +1318,7 @@ export function ChartPanel({
         fixLeftEdge: false,
         fixRightEdge: false,
         borderVisible: true,
+        ticksVisible: false,
       },
       watermark: {
         visible: true,

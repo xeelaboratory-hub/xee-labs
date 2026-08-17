@@ -31,7 +31,7 @@ export interface ChartToolbarProps {
   onTimeframeChange: (tf: Timeframe) => void;
   activeIndicators: IndicatorType[];
   onToggleIndicator: (type: IndicatorType) => void;
-  sessionVolumeProfileMarket: SessionMarket;
+  sessionVolumeProfileMarkets: SessionMarket[];
   sessionVolumeProfileRows: number;
   onSessionVolumeProfileMarket: (market: SessionMarket) => void;
   onSessionVolumeProfileRows: (rows: number) => void;
@@ -63,7 +63,7 @@ export function ChartToolbar({
   onTimeframeChange,
   activeIndicators,
   onToggleIndicator,
-  sessionVolumeProfileMarket,
+  sessionVolumeProfileMarkets,
   sessionVolumeProfileRows,
   onSessionVolumeProfileMarket,
   onSessionVolumeProfileRows,
@@ -84,8 +84,6 @@ export function ChartToolbar({
       s.name.toLowerCase().includes(symbolFilter.toLowerCase()) ||
       (s.category || "").toLowerCase().includes(symbolFilter.toLowerCase()),
   );
-  const sessionProfileSupported = ["1m", "5m", "15m", "30m", "1h"].includes(timeframe);
-
   return (
     <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-card text-xs shrink-0 overflow-x-auto md:overflow-visible flex-nowrap md:flex-wrap no-scrollbar">
       {/* Symbol Selector — TradingView style */}
@@ -276,7 +274,7 @@ export function ChartToolbar({
                             onClick={() => onSessionVolumeProfileMarket(market)}
                             className={cn(
                               "rounded px-1 py-1 text-[10px] font-medium hover:bg-secondary",
-                              sessionVolumeProfileMarket === market && "bg-primary text-primary-foreground",
+                              sessionVolumeProfileMarkets.includes(market) && "bg-primary text-primary-foreground",
                             )}
                           >
                             {market === "NEW_YORK" ? "NY" : market === "TOKYO" ? "TKY" : market}
@@ -296,9 +294,6 @@ export function ChartToolbar({
                           className="w-16 rounded border border-border bg-background px-1.5 py-0.5 text-right text-foreground outline-none focus:border-primary"
                         />
                       </label>
-                      {!sessionProfileSupported && (
-                        <div className="text-[10px] text-muted-foreground">Available on 1m–1h</div>
-                      )}
                     </div>
                   )}
                 </div>

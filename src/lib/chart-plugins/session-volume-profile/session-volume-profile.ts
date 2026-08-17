@@ -6,7 +6,7 @@ import type {
   SeriesPrimitivePaneViewZOrder,
   Time,
 } from "lightweight-charts";
-import type { SessionVolumeProfile, VolumeProfileRow } from "../../session-volume-profile.ts";
+import type { SessionMarket, SessionVolumeProfile, VolumeProfileRow } from "../../session-volume-profile.ts";
 import { PluginBase } from "../plugin-base.ts";
 
 export interface SessionVolumeProfileHover {
@@ -39,6 +39,8 @@ type RenderProfile = {
   vahY: number | null;
   valY: number | null;
   label: string;
+  labelY: number;
+  showLabel: boolean;
 };
 
 class SessionVolumeProfileRenderer implements ISeriesPrimitivePaneRenderer {
@@ -70,9 +72,11 @@ class SessionVolumeProfileRenderer implements ISeriesPrimitivePaneRenderer {
         this.line(ctx, profile.startX, profile.endX, profile.vahY, hpr, vpr, [4, 3]);
         this.line(ctx, profile.startX, profile.endX, profile.valY, hpr, vpr, [4, 3]);
         ctx.setLineDash([]);
-        ctx.fillStyle = "rgba(146, 158, 181, 0.8)";
-        ctx.font = `${Math.max(9, 10 * hpr)}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
-        ctx.fillText(profile.label, Math.round((profile.startX + 3) * hpr), Math.round(13 * vpr));
+        if (profile.showLabel) {
+          ctx.fillStyle = "rgba(146, 158, 181, 0.8)";
+          ctx.font = `${Math.max(9, 10 * hpr)}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+          ctx.fillText(profile.label, Math.round((profile.startX + 3) * hpr), Math.round(profile.labelY * vpr));
+        }
       }
       ctx.restore();
     });
@@ -191,7 +195,10 @@ export class SessionVolumeProfilePrimitive extends PluginBase {
   }
 
   latestLevel(kind: "POC" | "VAH" | "VAL"): number | null {
-    const latest = this.profiles[this.profiles.length - 1];
+    const latest = this.profiles.reduce<SessionVolumeProfile | undefined>(
+      (current, profile) => (!current || profile.start > current.start ? profile : current),
+      undefined,
+    );
     if (!latest) return null;
     return kind === "POC" ? latest.poc : kind === "VAH" ? latest.vah : latest.val;
   }
@@ -209,11 +216,15 @@ export class SessionVolumeProfilePrimitive extends PluginBase {
     this.hovers.clear();
     this.hoverRects.clear();
     const result: RenderProfile[] = [];
+    const latestByMarket = new Map<SessionMarket, number>();
+    for (const profile of this.profiles) {
+      latestByMarket.set(profile.market, Math.max(latestByMarket.get(profile.market) ?? 0, profile.start));
+    }
     for (const profile of this.profiles) {
       const startX = this.coordinateForTime(profile.start);
       const endX = this.coordinateForTime(profile.end);
       if (startX === null || endX === null || endX <= startX) continue;
-      const maxWidth = (endX - startX) * 0.3;
+      const maxWidth = Math.max(24, (endX - startX) * 0.3);
       const maxVolume = Math.max(...profile.rows.map((row) => row.total), 0);
       if (maxVolume <= 0) continue;
       const rows: RenderRow[] = [];
@@ -228,7 +239,7 @@ export class SessionVolumeProfilePrimitive extends PluginBase {
         const hover = this.hoverFor(profile, row);
         const renderRow: RenderRow = {
           id,
-          x: endX - width,
+          x: startX,
           y: Math.min(top, bottom),
           width,
           height: Math.max(1, Math.abs(bottom - top)),
@@ -247,7 +258,9 @@ export class SessionVolumeProfilePrimitive extends PluginBase {
         pocY: this.series.priceToCoordinate(profile.poc),
         vahY: this.series.priceToCoordinate(profile.vah),
         valY: this.series.priceToCoordinate(profile.val),
-        label: `${profile.market} · ${profile.date}`,
+        label: `${profile.market} · ${profile.date}${profile.isDeveloping ? " · LIVE" : ""}`,
+        labelY: Math.max(13, Math.min(...rows.map((row) => row.y)) - 4),
+        showLabel: latestByMarket.get(profile.market) === profile.start,
       });
     }
     return result;
@@ -266,6 +279,15 @@ export class SessionVolumeProfilePrimitive extends PluginBase {
       if (itemTime >= time) {
         after = item;
         break;
+      }
+    }
+    if (before.time === after.time && data.length > 1) {
+      if (time > (after.time as number)) {
+        before = data[data.length - 2]!;
+        after = data[data.length - 1]!;
+      } else if (time < (before.time as number)) {
+        before = data[0]!;
+        after = data[1]!;
       }
     }
     const beforeTime = before.time as number;

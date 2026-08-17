@@ -96,15 +96,21 @@ export function TradingPage() {
     });
   }, []);
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
-  const [sessionVolumeProfileMarket, setSessionVolumeProfileMarket] = useState<SessionMarket>(
-    () => readLocalPreferences().sessionVolumeProfileMarket ?? "NEW_YORK",
+  const [sessionVolumeProfileMarkets, setSessionVolumeProfileMarkets] = useState<SessionMarket[]>(
+    () => readLocalPreferences().sessionVolumeProfileMarkets ?? ["NEW_YORK"],
   );
   const [sessionVolumeProfileRows, setSessionVolumeProfileRows] = useState(
     () => readLocalPreferences().sessionVolumeProfileRows ?? 30,
   );
   const handleSessionVolumeProfileMarket = useCallback((market: SessionMarket) => {
-    setSessionVolumeProfileMarket(market);
-    updateLocalPreferences({ sessionVolumeProfileMarket: market });
+    setSessionVolumeProfileMarkets((current) => {
+      const next = current.includes(market)
+        ? current.filter((candidate) => candidate !== market)
+        : [...current, market];
+      if (!next.length) return current;
+      updateLocalPreferences({ sessionVolumeProfileMarkets: next });
+      return next;
+    });
   }, []);
   const handleSessionVolumeProfileRows = useCallback((rows: number) => {
     const next = normalizeSessionVolumeProfileRows(rows);
@@ -455,7 +461,7 @@ export function TradingPage() {
         onTimeframeChange={handleTimeframeChange}
         activeIndicators={activeIndicators}
         onToggleIndicator={handleToggleIndicator}
-        sessionVolumeProfileMarket={sessionVolumeProfileMarket}
+        sessionVolumeProfileMarkets={sessionVolumeProfileMarkets}
         sessionVolumeProfileRows={sessionVolumeProfileRows}
         onSessionVolumeProfileMarket={handleSessionVolumeProfileMarket}
         onSessionVolumeProfileRows={handleSessionVolumeProfileRows}
@@ -483,7 +489,7 @@ export function TradingPage() {
               timeframe={timeframe}
               isDark={isDark}
               activeIndicators={activeIndicators}
-              sessionVolumeProfileMarket={sessionVolumeProfileMarket}
+              sessionVolumeProfileMarkets={sessionVolumeProfileMarkets}
               sessionVolumeProfileRows={sessionVolumeProfileRows}
               drawingTool={drawingTool}
               drawings={drawings}
