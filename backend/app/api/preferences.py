@@ -21,11 +21,17 @@ class PreferencesPayload(BaseModel):
     chart: dict[str, str] = Field(default_factory=dict)
     bottomPanelCollapsed: bool | None = None
     rightPanelCollapsed: bool | None = None
+    rightPanel: Literal["order", "dom", "watchlist", "ai-trader"] | None = None
     rightPanelWidth: int | None = Field(default=None, ge=240, le=520)
     bottomPanelHeight: int | None = Field(default=None, ge=100, le=800)
     oneClickTrading: bool | None = None
     timeframes: dict[str, str] = Field(default_factory=dict)
-    activeIndicators: list[Literal["ETF_FLOW"]] = Field(default_factory=list, max_length=1)
+    activeIndicators: list[Literal["ETF_FLOW", "SESSION_VOLUME_PROFILE", "LARGE_ORDER_BOOK"]] = Field(
+        default_factory=list, max_length=3
+    )
+    largeOrderBookThreshold: Literal[0, 500000, 1000000, 3000000, 5000000, 10000000] | None = None
+    largeOrderBookSources: list[Literal["binance", "okx"]] | None = Field(default=None, max_length=2)
+    largeOrderBookShowInactive: bool | None = None
     watchlistFavorites: list[str] = Field(default_factory=list, max_length=500)
     tradeSoundMuted: bool | None = None
     tradingMode: Literal["demo", "live"] | None = None

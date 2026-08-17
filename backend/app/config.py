@@ -32,10 +32,6 @@ TIMEFRAME_MAP: dict[str, dict[str, str]] = {
 RECONNECT_BASE_DELAY_SECONDS = 1
 RECONNECT_MAX_DELAY_SECONDS = 30
 
-# Number of recent 1m candles replayed to a client on fresh WS subscription,
-# since Phase 1/2 has no persistence to fill a reconnect gap otherwise.
-WS_WARMUP_CANDLE_COUNT = 500
-
 # Historical REST response cache TTL — protects exchange rate limits against
 # ChartPanel's fast scroll-back pagination re-requesting the same range.
 HISTORICAL_CACHE_TTL_SECONDS = 5

@@ -31,6 +31,7 @@ class SymbolInfo:
     display_name: str  # "Bitcoin"
     cryptofeed_symbol: str  # "BTC-USDT-PERP" — CryptoFeed's exchange-agnostic normalized form
     native_symbol: str  # exchange's own REST symbol: "BTCUSDT" (Binance) | "BTC-USDT-SWAP" (OKX)
+    book_size_multiplier: float  # CryptoFeed L2 size -> base asset quantity
 
     def to_schema(self) -> Symbol:
         meta = _TRADING_META[self.base]
@@ -75,6 +76,9 @@ def _build_registry() -> dict[str, SymbolInfo]:
                 display_name=_DISPLAY_NAMES[base],
                 cryptofeed_symbol=f"{base}-{QUOTE}-PERP",
                 native_symbol=_native_symbol(exchange, base),
+                # Binance futures publishes base-asset quantity. OKX swap books
+                # publish contracts (ctVal: 0.01 BTC, 0.1 ETH).
+                book_size_multiplier=1 if exchange == "binance" else (0.01 if base == "BTC" else 0.1),
             )
     return registry
 

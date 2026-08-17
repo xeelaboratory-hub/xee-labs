@@ -9,9 +9,9 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.bus import bus
-from app.config import WS_WARMUP_CANDLE_COUNT
 from app.historical import service as historical_service
 from app.schemas import CandleUpdateEvent, MarketDataEvent
+from app.large_order_book import service as large_order_book_service
 from app.symbols import list_symbols
 
 LOG = logging.getLogger("ws_gateway")
@@ -26,8 +26,12 @@ async def market_data_ws(websocket: WebSocket) -> None:
 
     try:
         subscribed_symbols = await _negotiate_subscription(websocket)
-        await _replay_warmup(websocket, subscribed_symbols)
-        await _forward_live_events(websocket, subscribed_symbols)
+        queue = bus.subscribe()
+        try:
+            await _replay_warmup(websocket, subscribed_symbols)
+            await _forward_live_events(websocket, subscribed_symbols, queue)
+        finally:
+            bus.unsubscribe(queue)
     except WebSocketDisconnect:
         LOG.info("client disconnected")
 
@@ -53,9 +57,15 @@ async def _negotiate_subscription(websocket: WebSocket) -> set[str] | None:
 
 
 async def _replay_warmup(websocket: WebSocket, subscribed_symbols: set[str] | None) -> None:
+    # Replay active order-book state before candle warmup so the panel is
+    # populated immediately.
+    for event in large_order_book_service.latest_events(subscribed_symbols):
+        await websocket.send_json(event.model_dump(mode="json"))
     targets = [info for info in list_symbols() if subscribed_symbols is None or info.id in subscribed_symbols]
     for info in targets:
-        candles, _metadata = await historical_service.get_candles(info, timeframe="1m", limit=WS_WARMUP_CANDLE_COUNT)
+        # The client stores only the latest live candle per symbol/timeframe;
+        # replaying hundreds of overwritten candles creates a React update storm.
+        candles, _metadata = await historical_service.get_candles(info, timeframe="1m", limit=1)
         for candle in candles:
             event = CandleUpdateEvent(
                 symbol=info.id,
@@ -71,8 +81,13 @@ async def _replay_warmup(websocket: WebSocket, subscribed_symbols: set[str] | No
             await websocket.send_json(event.model_dump())
 
 
-async def _forward_live_events(websocket: WebSocket, subscribed_symbols: set[str] | None) -> None:
-    queue = bus.subscribe()
+async def _forward_live_events(
+    websocket: WebSocket,
+    subscribed_symbols: set[str] | None,
+    queue: asyncio.Queue | None = None,
+) -> None:
+    owns_queue = queue is None
+    queue = queue or bus.subscribe()
     try:
         while True:
             event: MarketDataEvent = await queue.get()
@@ -88,4 +103,5 @@ async def _forward_live_events(websocket: WebSocket, subscribed_symbols: set[str
             # of raw Python objects that json.dumps can't encode.
             await websocket.send_json(event.model_dump(mode="json"))
     finally:
-        bus.unsubscribe(queue)
+        if owns_queue:
+            bus.unsubscribe(queue)

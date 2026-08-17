@@ -115,6 +115,10 @@ class RealWsClient {
     this.setState("disconnected");
   }
 
+  resync(): void {
+    this.socket?.close();
+  }
+
   reauthenticate(_token: string): void {
     // No auth on the market-data WS — nothing to refresh.
   }

@@ -13,6 +13,7 @@ from app.api.ws_gateway import router as ws_router
 from app.auth.router import router as auth_router
 from app.db.etf_flow_listener import run_etf_flow_listener
 from app.feeds.cryptofeed_runner import run_supervised_feed
+from app.large_order_book import service as large_order_book_service
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI):
     stop_event = asyncio.Event()
     tasks = [asyncio.create_task(run_supervised_feed(exchange, stop_event)) for exchange in _EXCHANGES]
     tasks.append(asyncio.create_task(run_etf_flow_listener(stop_event)))
+    tasks.append(asyncio.create_task(large_order_book_service.run(stop_event)))
     try:
         yield
     finally:

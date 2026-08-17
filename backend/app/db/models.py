@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, LargeBinary, Numeric, String, func
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Index, LargeBinary, Numeric, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -95,3 +95,33 @@ class EtfFlow(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class LargeOrderLevel(Base):
+    """One exchange L2 price-level lifecycle, captured after crossing $500K."""
+
+    __tablename__ = "large_order_levels"
+    __table_args__ = (
+        Index(
+            "uq_large_order_levels_active",
+            "source",
+            "symbol",
+            "side",
+            "price",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL"),
+        ),
+        Index("ix_large_order_levels_history", "symbol", "first_seen", "ended_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source: Mapped[str] = mapped_column(String, nullable=False)
+    symbol: Mapped[str] = mapped_column(String, nullable=False)
+    side: Mapped[str] = mapped_column(String, nullable=False)
+    price: Mapped[float] = mapped_column(Numeric, nullable=False)
+    quantity: Mapped[float] = mapped_column(Numeric, nullable=False)
+    current_notional: Mapped[float] = mapped_column(Numeric, nullable=False)
+    peak_notional: Mapped[float] = mapped_column(Numeric, nullable=False)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
