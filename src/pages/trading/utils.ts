@@ -1,4 +1,5 @@
 import type { CandlestickData, SeriesMarker, Time } from "lightweight-charts";
+import { ETF_FLOW_COLOR } from "../../lib/indicators.ts";
 import type { EtfFlow } from "../../services/api/market-data.ts";
 import type { Timeframe } from "./constants.ts";
 
@@ -122,7 +123,6 @@ export function computeEtfFlowMarkers(
   etfFlowData: EtfFlow[],
   chartData: CandlestickData<Time>[],
   timeframe: Timeframe,
-  colors: { up: string; down: string },
 ): SeriesMarker<Time>[] {
   const loadedTimes = new Set(chartData.map((c) => c.time as number));
   const markers: SeriesMarker<Time>[] = [];
@@ -137,7 +137,7 @@ export function computeEtfFlowMarkers(
       time: bucketTime as Time,
       position: flow.totalNetFlow > 0 ? "belowBar" : "aboveBar",
       shape: flow.totalNetFlow > 0 ? "arrowUp" : "arrowDown",
-      color: flow.totalNetFlow > 0 ? colors.up : colors.down,
+      color: ETF_FLOW_COLOR,
       id: flow.flowDate,
     });
   }
