@@ -360,10 +360,6 @@ export function TradingPage() {
         }
         showIndicatorMenu={showIndicatorMenu}
         onToggleIndicatorMenu={() => setShowIndicatorMenu((v) => !v)}
-        drawingTool={drawingTool}
-        onDrawingTool={setDrawingTool}
-        drawings={drawings}
-        onClearDrawings={clearDrawings}
         rightPanel={rightPanel}
         onRightPanel={setRightPanel}
         showRightPanel={showRightPanel}
@@ -374,12 +370,6 @@ export function TradingPage() {
         activePlugins={activePlugins}
         onSetIndicators={setActiveIndicators}
         onSetPlugins={handleSetPlugins}
-        magnetMode={chartPrefs.magnetMode}
-        onCycleMagnet={cycleMagnetMode}
-        stayInDrawingMode={chartPrefs.stayInDrawingMode}
-        onToggleStayInDrawingMode={() =>
-          updateChartPreferences({ stayInDrawingMode: !chartPrefs.stayInDrawingMode })
-        }
       />
 
       <MarketClosedBanner symbolInfo={symbolInfo} />
@@ -406,7 +396,11 @@ export function TradingPage() {
               onUndoDrawing={undoDrawing}
               onRedoDrawing={redoDrawing}
               magnetMode={chartPrefs.magnetMode}
+              onCycleMagnet={cycleMagnetMode}
               stayInDrawingMode={chartPrefs.stayInDrawingMode}
+              onToggleStayInDrawingMode={() =>
+                updateChartPreferences({ stayInDrawingMode: !chartPrefs.stayInDrawingMode })
+              }
               positions={chartPositions}
               orders={chartOrders}
               tick={tick}

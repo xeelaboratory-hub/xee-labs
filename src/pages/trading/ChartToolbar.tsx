@@ -1,43 +1,18 @@
 import {
-  ArrowDownRight,
-  ArrowRight,
   ArrowUpDown,
-  ArrowUpRight,
   BarChart3,
   Bot,
   ChevronDown,
-  Circle,
-  Equal,
   Layers,
-  Layers3,
   type LucideIcon,
-  Magnet,
   Maximize2,
-  Minus,
-  MoveUpRight,
-  MoveVertical,
-  Pencil,
-  Repeat,
-  Ruler,
   Search,
-  Spline,
-  Square,
-  Trash2,
-  TrendingUp,
-  Triangle,
-  Type,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
 import { cn, formatNumber } from "../../lib/utils.ts";
-import {
-  type DrawingLine,
-  type DrawingTool,
-  type MagnetMode,
-  TIMEFRAMES,
-  type Timeframe,
-} from "./constants.ts";
+import { TIMEFRAMES, type Timeframe } from "./constants.ts";
 import { ChartTemplatesMenu } from "./ChartTemplatesMenu.tsx";
 
 export interface ChartToolbarProps {
@@ -59,10 +34,6 @@ export interface ChartToolbarProps {
   onToggleIndicator: (type: IndicatorType) => void;
   showIndicatorMenu: boolean;
   onToggleIndicatorMenu: () => void;
-  drawingTool: DrawingTool;
-  onDrawingTool: (t: DrawingTool) => void;
-  drawings: DrawingLine[];
-  onClearDrawings: () => void;
   rightPanel: string;
   onRightPanel: (p: "order" | "dom" | "watchlist" | "ai-trader") => void;
   aiTraderEnabled?: boolean;
@@ -85,10 +56,6 @@ export interface ChartToolbarProps {
   onSetIndicators?: (indicators: IndicatorType[]) => void;
   /** Replace the full plugin list (template load). Enables the templates menu. */
   onSetPlugins?: (ids: string[]) => void;
-  magnetMode?: MagnetMode;
-  onCycleMagnet?: () => void;
-  stayInDrawingMode?: boolean;
-  onToggleStayInDrawingMode?: () => void;
 }
 
 export function ChartToolbar({
@@ -101,10 +68,6 @@ export function ChartToolbar({
   onToggleIndicator,
   showIndicatorMenu,
   onToggleIndicatorMenu,
-  drawingTool,
-  onDrawingTool,
-  drawings,
-  onClearDrawings,
   rightPanel,
   onRightPanel,
   showRightPanel,
@@ -115,10 +78,6 @@ export function ChartToolbar({
   activePlugins = [],
   onSetIndicators,
   onSetPlugins,
-  magnetMode = "none",
-  onCycleMagnet,
-  stayInDrawingMode = false,
-  onToggleStayInDrawingMode,
 }: ChartToolbarProps) {
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [symbolFilter, setSymbolFilter] = useState("");
@@ -326,22 +285,6 @@ export function ChartToolbar({
         </div>
       }
 
-      {/* Drawing Tools — pencil icon with dropdown */}
-      {
-        <div className="hidden md:flex items-center gap-0.5">
-          <DrawingToolsDropdown
-            drawingTool={drawingTool}
-            onDrawingTool={onDrawingTool}
-            drawings={drawings}
-            onClearDrawings={onClearDrawings}
-            magnetMode={magnetMode}
-            onCycleMagnet={onCycleMagnet}
-            stayInDrawingMode={stayInDrawingMode}
-            onToggleStayInDrawingMode={onToggleStayInDrawingMode}
-          />
-        </div>
-      }
-
       <div className="flex-1 hidden md:block" />
 
       {/* Right Panel Toggles */}
@@ -406,165 +349,5 @@ export function ToolButton({
     >
       <Icon className="h-3.5 w-3.5" />
     </button>
-  );
-}
-
-const DRAWING_TOOLS = [
-  { tool: "horizontal" as const, icon: Minus, label: "Horizontal Line", shortcut: "Alt+H" },
-  { tool: "trendline" as const, icon: TrendingUp, label: "Trendline", shortcut: "Alt+T" },
-  { tool: "fibonacci" as const, icon: Layers, label: "Fibonacci", shortcut: "Alt+F" },
-  { tool: "rectangle" as const, icon: Square, label: "Rectangle", shortcut: "Alt+R" },
-  { tool: "ray" as const, icon: MoveUpRight, label: "Ray", shortcut: "" },
-  { tool: "extended" as const, icon: Spline, label: "Extended Line", shortcut: "" },
-  { tool: "vertical" as const, icon: MoveVertical, label: "Vertical Line", shortcut: "" },
-  { tool: "channel" as const, icon: Equal, label: "Parallel Channel", shortcut: "" },
-  { tool: "fibextension" as const, icon: Layers3, label: "Fib Extension", shortcut: "" },
-  { tool: "ellipse" as const, icon: Circle, label: "Ellipse", shortcut: "" },
-  { tool: "arrow" as const, icon: ArrowRight, label: "Arrow", shortcut: "" },
-  { tool: "triangle" as const, icon: Triangle, label: "Triangle", shortcut: "" },
-  { tool: "text" as const, icon: Type, label: "Text", shortcut: "" },
-  { tool: "long-position" as const, icon: ArrowUpRight, label: "Long Position", shortcut: "" },
-  { tool: "short-position" as const, icon: ArrowDownRight, label: "Short Position", shortcut: "" },
-  { tool: "measure" as const, icon: Ruler, label: "Measure", shortcut: "Alt+M" },
-] satisfies Array<{ tool: DrawingTool; icon: LucideIcon; label: string; shortcut: string }>;
-
-function DrawingOptionToggle({
-  icon: Icon,
-  label,
-  enabled,
-  onToggle,
-}: {
-  icon: LucideIcon;
-  label: string;
-  enabled: boolean;
-  onToggle?: () => void;
-}) {
-  if (!onToggle) return null;
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={cn(
-        "w-full flex items-center gap-2.5 px-3 py-1.5 text-sm hover:bg-secondary text-left",
-        enabled && "text-primary",
-      )}
-    >
-      <Icon className="h-3.5 w-3.5 shrink-0" />
-      <span className="flex-1">{label}</span>
-      {enabled && <span className="text-[10px] text-primary font-medium">ON</span>}
-    </button>
-  );
-}
-
-function DrawingToolsDropdown({
-  drawingTool,
-  onDrawingTool,
-  drawings,
-  onClearDrawings,
-  magnetMode,
-  onCycleMagnet,
-  stayInDrawingMode,
-  onToggleStayInDrawingMode,
-}: {
-  drawingTool: DrawingTool;
-  onDrawingTool: (t: DrawingTool) => void;
-  drawings: DrawingLine[];
-  onClearDrawings: () => void;
-  magnetMode: MagnetMode;
-  onCycleMagnet?: () => void;
-  stayInDrawingMode: boolean;
-  onToggleStayInDrawingMode?: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const isActive = drawingTool !== "none";
-
-  const handleSelect = (t: DrawingTool) => {
-    onDrawingTool(drawingTool === t ? "none" : t);
-    setOpen(false);
-  };
-
-  const handleClear = () => {
-    onClearDrawings();
-    setOpen(false);
-  };
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        title="Drawing Tools"
-        className={cn(
-          "px-1.5 py-1 rounded",
-          isActive ? "bg-primary/20 text-primary" : "hover:bg-secondary text-muted-foreground",
-        )}
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </button>
-
-      {open && (
-        <div className="absolute top-full left-0 z-50 mt-1 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[190px]">
-          {DRAWING_TOOLS.map(({ tool, icon: Icon, label, shortcut }) => (
-            <button
-              key={tool}
-              onClick={() => handleSelect(tool)}
-              className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-1.5 text-sm hover:bg-secondary text-left",
-                drawingTool === tool && "bg-secondary text-primary",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5 shrink-0" />
-              <span className="flex-1">{label}</span>
-              <span className="text-[10px] text-muted-foreground/60">{shortcut}</span>
-            </button>
-          ))}
-
-          <div className="my-1 border-t border-border" />
-          <DrawingOptionToggle
-            icon={Magnet}
-            label={
-              magnetMode === "strong"
-                ? "Magnet: strong"
-                : magnetMode === "weak"
-                  ? "Magnet: weak"
-                  : "Magnet: off"
-            }
-            enabled={magnetMode !== "none"}
-            onToggle={onCycleMagnet}
-          />
-          <DrawingOptionToggle
-            icon={Repeat}
-            label="Stay in drawing mode"
-            enabled={stayInDrawingMode}
-            onToggle={onToggleStayInDrawingMode}
-          />
-
-          {drawings.length > 0 && (
-            <>
-              <div className="my-1 border-t border-border" />
-              <button
-                onClick={handleClear}
-                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm hover:bg-secondary text-muted-foreground text-left"
-              >
-                <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                Clear All
-              </button>
-            </>
-          )}
-        </div>
-      )}
-    </div>
   );
 }
