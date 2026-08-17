@@ -155,22 +155,8 @@ export function BottomPanel({
       className="relative border-t border-border flex flex-col shrink-0 bg-card max-h-[150px] md:max-h-none"
       style={{ height: collapsed ? 31 : height }}
     >
-      {onToggleCollapsed && (
-        <button
-          type="button"
-          title={collapsed ? "Expand bottom panel" : "Collapse bottom panel"}
-          aria-expanded={!collapsed}
-          onClick={onToggleCollapsed}
-          className="absolute -top-3 left-1/2 z-30 -translate-x-1/2 rounded-full border border-border bg-card p-1 text-muted-foreground shadow-md hover:text-foreground"
-        >
-          <ChevronDown
-            className={cn("h-3.5 w-3.5 transition-transform", collapsed && "rotate-180")}
-          />
-        </button>
-      )}
-
       {/* Tab bar */}
-      <div className="flex items-center gap-0.5 px-2 py-1 border-b border-border bg-secondary text-xs overflow-x-auto no-scrollbar">
+      <div className="relative flex items-center gap-0.5 px-2 py-1 border-b border-border bg-secondary text-xs overflow-x-auto no-scrollbar">
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -191,6 +177,20 @@ export function BottomPanel({
             )}
           </button>
         ))}
+
+        {onToggleCollapsed && (
+          <button
+            type="button"
+            title={collapsed ? "Expand bottom panel" : "Collapse bottom panel"}
+            aria-expanded={!collapsed}
+            onClick={onToggleCollapsed}
+            className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card px-1.5 py-0.5 text-muted-foreground shadow-sm hover:text-foreground"
+          >
+            <ChevronDown
+              className={cn("h-3.5 w-3.5 transition-transform", collapsed && "rotate-180")}
+            />
+          </button>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           {tab === "positions" && openPositions.length > 0 && (

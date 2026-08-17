@@ -18,6 +18,7 @@ import {
 import { useTradeSound } from "../hooks/useTradeSound";
 import type { IndicatorType } from "../lib/indicators.ts";
 import { posthog } from "../lib/posthog";
+import { cn } from "../lib/utils.ts";
 import { api } from "../services/api.ts";
 import { useAccount, useCandles, useOrders, usePositions, useSymbols } from "../services/queries.ts";
 import type { Order, PlaceOrderInput, Position, Symbol } from "../services/schemas.ts";
@@ -525,14 +526,19 @@ export function TradingPage() {
         {/* Right Panel + centered collapse/resize handle */}
         <div
           className="relative hidden md:flex shrink-0"
-          style={{ width: showRightPanel ? rightPanelWidth : 0 }}
+          style={{ width: showRightPanel ? rightPanelWidth : 24 }}
         >
           <button
             type="button"
             title={showRightPanel ? "Collapse right panel" : "Expand right panel"}
             aria-expanded={showRightPanel}
             onClick={toggleRightPanel}
-            className="absolute -left-3 top-1/2 z-30 -translate-y-1/2 rounded-full border border-border bg-card p-1 text-muted-foreground shadow-md hover:text-foreground"
+            className={cn(
+              "absolute top-1/2 z-30 -translate-y-1/2 border border-border bg-card px-1 py-2 text-muted-foreground shadow-md hover:text-foreground",
+              showRightPanel
+                ? "right-full rounded-l-md border-r-0"
+                : "right-0 rounded-l-md border-r-0",
+            )}
           >
             {showRightPanel ? (
               <ChevronRight className="h-3.5 w-3.5" />
