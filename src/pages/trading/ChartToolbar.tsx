@@ -29,7 +29,6 @@ import {
   SlidersHorizontal,
   Spline,
   Square,
-  Star,
   Trash2,
   TrendingUp,
   Triangle,
@@ -72,7 +71,7 @@ export interface ChartToolbarProps {
   drawings: DrawingLine[];
   onClearDrawings: () => void;
   rightPanel: string;
-  onRightPanel: (p: "order" | "dom" | "watchlist" | "ai-trader" | "tv-analysis") => void;
+  onRightPanel: (p: "order" | "dom" | "watchlist" | "ai-trader") => void;
   aiTraderEnabled?: boolean;
   showRightPanel: boolean;
   onToggleRightPanel: () => void;
@@ -376,12 +375,6 @@ export function ChartToolbar({
           tooltip="Watchlist"
           active={showRightPanel && rightPanel === "watchlist"}
           onClick={() => onRightPanel("watchlist")}
-        />
-        <ToolButton
-          icon={Star}
-          tooltip="TradingView Analysis"
-          active={showRightPanel && rightPanel === "tv-analysis"}
-          onClick={() => onRightPanel("tv-analysis")}
         />
         {aiTraderEnabled && (
           <ToolButton

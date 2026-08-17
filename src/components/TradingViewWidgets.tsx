@@ -92,19 +92,6 @@ const TV_SYMBOL_MAP: Record<string, string> = {
   "6E": "CME:6E1!",
 };
 
-// TechnicalAnalysis widget uses TV's text interval identifiers (1h, 4h, 1D…),
-// not the numeric ones used by the Advanced Chart widget (60, 240, D…).
-const TV_TECHNICAL_INTERVAL_MAP: Record<string, string> = {
-  "1m": "1m",
-  "5m": "5m",
-  "15m": "15m",
-  "30m": "30m",
-  "1h": "1h",
-  "4h": "4h",
-  "1d": "1D",
-  "1w": "1W",
-};
-
 function mapSymbol(symbol: string): string {
   if (TV_SYMBOL_MAP[symbol]) return TV_SYMBOL_MAP[symbol];
   if (/^[A-Z]{6}$/.test(symbol)) return `FX:${symbol}`;
@@ -167,73 +154,6 @@ export const TradingViewTickerTape = memo(function TradingViewTickerTape({
   }, [symbols, theme]);
 
   return <div ref={containerRef} className={`tradingview-widget-container ${className}`} />;
-});
-
-// ── Technical Analysis Widget ────────────────────────────────
-interface TradingViewTechnicalAnalysisProps {
-  symbol: string;
-  theme: "dark" | "light";
-  interval?: string;
-  width?: string | number;
-  height?: string | number;
-  className?: string;
-}
-
-export const TradingViewTechnicalAnalysis = memo(function TradingViewTechnicalAnalysis({
-  symbol,
-  theme,
-  interval = "1h",
-  width = "100%",
-  height = 400,
-  className = "",
-}: TradingViewTechnicalAnalysisProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const container = containerRef.current;
-    safeClear(container);
-
-    const widgetDiv = document.createElement("div");
-    widgetDiv.className = "tradingview-widget-container__widget";
-    widgetDiv.style.height = "100%";
-    widgetDiv.style.width = "100%";
-    container.appendChild(widgetDiv);
-
-    const config = {
-      interval: TV_TECHNICAL_INTERVAL_MAP[interval] ?? "1h",
-      width: typeof width === "number" ? width : "100%",
-      height: typeof height === "number" ? height : "100%",
-      isTransparent: true,
-      symbol: mapSymbol(symbol),
-      showIntervalTabs: true,
-      displayMode: "single",
-      locale: "en",
-      colorTheme: theme,
-    };
-
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js";
-    script.type = "text/javascript";
-    script.async = true;
-    script.textContent = JSON.stringify(config);
-    container.appendChild(script);
-
-    return () => {
-      safeClear(container);
-    };
-  }, [symbol, theme, interval, width, height]);
-
-  return (
-    <div
-      ref={containerRef}
-      className={`tradingview-widget-container ${className}`}
-      style={{
-        height: typeof height === "number" ? `${height}px` : height,
-        width: typeof width === "number" ? `${width}px` : width,
-      }}
-    />
-  );
 });
 
 // ── Economic Calendar Widget ─────────────────────────────────

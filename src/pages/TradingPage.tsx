@@ -8,7 +8,6 @@ import {
   OrderModifyDialog,
   PositionModifyDialog,
 } from "../components/TradingDialogs.tsx";
-import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
 import { useChartDrawings } from "../hooks/useChartDrawings.ts";
 import {
   getChartPreferencesFromStorage,
@@ -107,7 +106,7 @@ export function TradingPage() {
   // AI trader is a PropSim-era feature not part of Xee.Labs (see AiTraderPage.tsx).
   const aiTraderEnabled = false;
   const [rightPanel, setRightPanel] = useState<
-    "order" | "dom" | "watchlist" | "ai-trader" | "tv-analysis"
+    "order" | "dom" | "watchlist" | "ai-trader"
   >("order");
   const [showRightPanel, setShowRightPanel] = useState(true);
 
@@ -485,17 +484,6 @@ export function TradingPage() {
             {rightPanel === "ai-trader" && (
               <div className="flex-1 overflow-hidden">
                 <AiTraderPanel mode={mode} />
-              </div>
-            )}
-            {rightPanel === "tv-analysis" && (
-              <div className="flex-1 overflow-hidden">
-                <TradingViewTechnicalAnalysis
-                  symbol={selectedSymbol}
-                  theme={isDark ? "dark" : "light"}
-                  interval={timeframe}
-                  width="100%"
-                  height="100%"
-                />
               </div>
             )}
           </div>
