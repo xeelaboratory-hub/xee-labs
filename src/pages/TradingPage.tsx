@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsFeedConnected } from "../components/ConnectionIndicator.tsx";
 import { Footer } from "../components/Footer.tsx";
@@ -8,8 +9,6 @@ import {
   OrderModifyDialog,
   PositionModifyDialog,
 } from "../components/TradingDialogs.tsx";
-import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
-import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
 import { useChartDrawings } from "../hooks/useChartDrawings.ts";
 import {
   getChartPreferencesFromStorage,
@@ -19,7 +18,9 @@ import {
 import { useTradeSound } from "../hooks/useTradeSound";
 import type { IndicatorType } from "../lib/indicators.ts";
 import { posthog } from "../lib/posthog";
+import { cn } from "../lib/utils.ts";
 import { api } from "../services/api.ts";
+import { readLocalPreferences, updateLocalPreferences } from "../services/preferences.ts";
 import { useAccount, useCandles, useOrders, usePositions, useSymbols } from "../services/queries.ts";
 import type { Order, PlaceOrderInput, Position, Symbol } from "../services/schemas.ts";
 import { useTradingStore } from "../services/store.tsx";
@@ -45,6 +46,9 @@ type ConfirmOrderState = {
   _submit: () => Promise<unknown>;
 } | null;
 
+type BottomTab = "positions" | "orders" | "history" | "calendar" | "ai-trader";
+type RightPanelId = "order" | "dom" | "watchlist" | "ai-trader";
+
 export function TradingPage() {
   const hasTrackedFirstTrade = useRef(false);
 
@@ -59,23 +63,33 @@ export function TradingPage() {
     useTradingStore();
   // Chart timeframe persistence (#8)
   const [timeframe, setTimeframe] = useState<Timeframe>(() => {
-    const saved = localStorage.getItem(`tf_${selectedSymbol}`);
+    const saved = readLocalPreferences().timeframes[selectedSymbol];
     return saved && TIMEFRAMES.includes(saved as Timeframe) ? (saved as Timeframe) : "15m";
   });
   const handleTimeframeChange = useCallback(
     (tf: Timeframe) => {
       setTimeframe(tf);
-      localStorage.setItem(`tf_${selectedSymbol}`, tf);
+      const preferences = readLocalPreferences();
+      updateLocalPreferences({ timeframes: { ...preferences.timeframes, [selectedSymbol]: tf } });
     },
     [selectedSymbol],
   );
   // Restore timeframe when symbol changes
   useEffect(() => {
-    const saved = localStorage.getItem(`tf_${selectedSymbol}`);
+    const saved = readLocalPreferences().timeframes[selectedSymbol];
     if (saved && TIMEFRAMES.includes(saved as Timeframe)) setTimeframe(saved as Timeframe);
   }, [selectedSymbol]);
 
-  const [activeIndicators, setActiveIndicators] = useState<IndicatorType[]>([]);
+  const [activeIndicators, setActiveIndicators] = useState<IndicatorType[]>(
+    () => readLocalPreferences().activeIndicators,
+  );
+  const handleToggleIndicator = useCallback((type: IndicatorType) => {
+    setActiveIndicators((current) => {
+      const next = current.includes(type) ? current.filter((item) => item !== type) : [...current, type];
+      updateLocalPreferences({ activeIndicators: next });
+      return next;
+    });
+  }, []);
   const [showIndicatorMenu, setShowIndicatorMenu] = useState(false);
   const [drawingTool, setDrawingTool] = useState<DrawingTool>("none");
   const {
@@ -88,7 +102,10 @@ export function TradingPage() {
     redo: redoDrawing,
   } = useChartDrawings(selectedSymbol, timeframe);
   const [activePlugins, setActivePlugins] = useState<string[]>(
-    () => getChartPreferencesFromStorage().activePlugins,
+    () =>
+      getChartPreferencesFromStorage().activePlugins.includes("session-breaks")
+        ? ["session-breaks"]
+        : [],
   );
   const handleTogglePlugin = useCallback((id: string) => {
     setActivePlugins((prev) => {
@@ -97,29 +114,63 @@ export function TradingPage() {
       return next;
     });
   }, []);
-  // Template load — replace the whole plugin list at once.
-  const handleSetPlugins = useCallback((ids: string[]) => {
-    setActivePlugins(ids);
-    updateChartPreferences({ activePlugins: ids });
-  }, []);
-  const [bottomTab, setBottomTab] = useState<
-    "positions" | "orders" | "history" | "calendar" | "news" | "ai-trader"
-  >("positions");
+  const [bottomTab, setBottomTab] = useState<BottomTab>("positions");
+  const [bottomCollapsed, setBottomCollapsed] = useState(
+    () => readLocalPreferences().bottomPanelCollapsed ?? false,
+  );
   // AI trader is a PropSim-era feature not part of Xee.Labs (see AiTraderPage.tsx).
   const aiTraderEnabled = false;
-  const [rightPanel, setRightPanel] = useState<
-    "order" | "dom" | "watchlist" | "news" | "ai-trader" | "tv-analysis"
-  >("order");
-  const [showRightPanel, setShowRightPanel] = useState(true);
+  const [rightPanel, setRightPanel] = useState<RightPanelId>("order");
+  const [showRightPanel, setShowRightPanel] = useState(
+    () => !(readLocalPreferences().rightPanelCollapsed ?? false),
+  );
+  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
+    const saved = readLocalPreferences().rightPanelWidth;
+    return typeof saved === "number" && saved >= 240 && saved <= 520 ? saved : 320;
+  });
+
+  const toggleBottomPanel = useCallback(() => {
+    setBottomCollapsed((current) => {
+      updateLocalPreferences({ bottomPanelCollapsed: !current });
+      return !current;
+    });
+  }, []);
+
+  const handleBottomTabChange = useCallback((tab: BottomTab) => {
+    setBottomTab(tab);
+    setBottomCollapsed(false);
+    updateLocalPreferences({ bottomPanelCollapsed: false });
+  }, []);
+
+  const toggleRightPanel = useCallback(() => {
+    setShowRightPanel((current) => {
+      updateLocalPreferences({ rightPanelCollapsed: current });
+      return !current;
+    });
+  }, []);
+
+  const handleRightPanel = useCallback(
+    (panel: RightPanelId) => {
+      if (panel === rightPanel && showRightPanel) {
+        toggleRightPanel();
+        return;
+      }
+      setRightPanel(panel);
+      setShowRightPanel(true);
+      updateLocalPreferences({ rightPanelCollapsed: false });
+    },
+    [rightPanel, showRightPanel, toggleRightPanel],
+  );
 
   // ── Vertical resize: chart vs bottom panel ──
   const [bottomPanelHeight, setBottomPanelHeight] = useState(() => {
-    const saved = localStorage.getItem("bottomPanelHeight");
-    return saved ? parseInt(saved, 10) : 220;
+    return readLocalPreferences().bottomPanelHeight ?? 220;
   });
   const resizingRef = useRef(false);
   const resizeStartY = useRef(0);
   const resizeStartH = useRef(0);
+  const rightResizeStartX = useRef(0);
+  const rightResizeStartW = useRef(0);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
@@ -139,7 +190,7 @@ export function TradingPage() {
       const onUp = () => {
         resizingRef.current = false;
         setBottomPanelHeight((h) => {
-          localStorage.setItem("bottomPanelHeight", String(h));
+          updateLocalPreferences({ bottomPanelHeight: h });
           return h;
         });
         window.removeEventListener("mousemove", onMove);
@@ -155,9 +206,40 @@ export function TradingPage() {
     [bottomPanelHeight],
   );
 
+  const handleRightResizeStart = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      const startX = "touches" in e ? e.touches[0]!.clientX : e.clientX;
+      rightResizeStartX.current = startX;
+      rightResizeStartW.current = rightPanelWidth;
+
+      const onMove = (ev: MouseEvent | TouchEvent) => {
+        const x = "touches" in ev ? ev.touches[0]!.clientX : (ev as MouseEvent).clientX;
+        setRightPanelWidth(
+          Math.max(240, Math.min(520, rightResizeStartW.current + rightResizeStartX.current - x)),
+        );
+      };
+      const onUp = () => {
+        setRightPanelWidth((width) => {
+          updateLocalPreferences({ rightPanelWidth: width });
+          return width;
+        });
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        window.removeEventListener("touchmove", onMove);
+        window.removeEventListener("touchend", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+      window.addEventListener("touchmove", onMove, { passive: false });
+      window.addEventListener("touchend", onUp);
+    },
+    [rightPanelWidth],
+  );
+
   // (#4) One-click trading mode
   const [oneClick, setOneClick] = useState(
-    () => localStorage.getItem("oneClickTrading") === "true",
+    () => readLocalPreferences().oneClickTrading ?? false,
   );
 
   // Trade sound effect
@@ -165,7 +247,7 @@ export function TradingPage() {
   const toggleOneClick = useCallback(() => {
     setOneClick((prev) => {
       const v = !prev;
-      localStorage.setItem("oneClickTrading", String(v));
+      updateLocalPreferences({ oneClickTrading: v });
       return v;
     });
   }, []);
@@ -249,6 +331,7 @@ export function TradingPage() {
 
   const handleClearIndicators = useCallback(() => {
     setActiveIndicators([]);
+    updateLocalPreferences({ activeIndicators: [] });
   }, []);
 
   // Deep-history target used after the initial fast render completes.
@@ -351,34 +434,15 @@ export function TradingPage() {
         timeframe={timeframe}
         onTimeframeChange={handleTimeframeChange}
         activeIndicators={activeIndicators}
-        onToggleIndicator={(type) =>
-          setActiveIndicators((prev) =>
-            prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
-          )
-        }
+        onToggleIndicator={handleToggleIndicator}
         showIndicatorMenu={showIndicatorMenu}
         onToggleIndicatorMenu={() => setShowIndicatorMenu((v) => !v)}
-        drawingTool={drawingTool}
-        onDrawingTool={setDrawingTool}
-        drawings={drawings}
-        onClearDrawings={clearDrawings}
         rightPanel={rightPanel}
-        onRightPanel={setRightPanel}
+        onRightPanel={handleRightPanel}
         showRightPanel={showRightPanel}
-        onToggleRightPanel={() => setShowRightPanel((v) => !v)}
         tick={tick}
         symbolInfo={symbolInfo}
         aiTraderEnabled={aiTraderEnabled}
-        activePlugins={activePlugins}
-        onTogglePlugin={handleTogglePlugin}
-        onSetIndicators={setActiveIndicators}
-        onSetPlugins={handleSetPlugins}
-        magnetMode={chartPrefs.magnetMode}
-        onCycleMagnet={cycleMagnetMode}
-        stayInDrawingMode={chartPrefs.stayInDrawingMode}
-        onToggleStayInDrawingMode={() =>
-          updateChartPreferences({ stayInDrawingMode: !chartPrefs.stayInDrawingMode })
-        }
       />
 
       <MarketClosedBanner symbolInfo={symbolInfo} />
@@ -405,7 +469,11 @@ export function TradingPage() {
               onUndoDrawing={undoDrawing}
               onRedoDrawing={redoDrawing}
               magnetMode={chartPrefs.magnetMode}
+              onCycleMagnet={cycleMagnetMode}
               stayInDrawingMode={chartPrefs.stayInDrawingMode}
+              onToggleStayInDrawingMode={() =>
+                updateChartPreferences({ stayInDrawingMode: !chartPrefs.stayInDrawingMode })
+              }
               positions={chartPositions}
               orders={chartOrders}
               tick={tick}
@@ -416,7 +484,6 @@ export function TradingPage() {
               activePlugins={activePlugins}
               onTogglePlugin={handleTogglePlugin}
               accountEquity={account?.equity ?? account?.balance ?? 0}
-              mode={mode}
               onQuickOrder={handleQuickOrder}
               onClearDrawings={clearDrawings}
               onClearIndicators={handleClearIndicators}
@@ -424,18 +491,23 @@ export function TradingPage() {
           </div>
 
           {/* ── Resize Handle ── */}
-          <div
-            onMouseDown={handleResizeStart}
-            onTouchStart={handleResizeStart}
-            className="hidden md:flex h-1.5 cursor-row-resize items-center justify-center hover:bg-primary/20 active:bg-primary/30 transition-colors group border-t border-border bg-secondary/40 touch-none"
-          >
-            <div className="w-8 h-0.5 rounded-full bg-border group-hover:bg-primary/50 transition-colors" />
-          </div>
+          {!bottomCollapsed && (
+            <div
+              onMouseDown={handleResizeStart}
+              onTouchStart={handleResizeStart}
+              onDoubleClick={toggleBottomPanel}
+              className="hidden md:flex h-1.5 cursor-row-resize items-center justify-center hover:bg-primary/20 active:bg-primary/30 transition-colors group border-t border-border bg-secondary/40 touch-none"
+            >
+              <div className="w-8 h-0.5 rounded-full bg-border group-hover:bg-primary/50 transition-colors" />
+            </div>
+          )}
 
           {/* Bottom Panel (Positions / Orders / Trade History / Calendar / News) */}
           <BottomPanel
             tab={bottomTab}
-            onTabChange={setBottomTab}
+            onTabChange={handleBottomTabChange}
+            collapsed={bottomCollapsed}
+            onToggleCollapsed={toggleBottomPanel}
             positions={positions}
             orders={orders}
             mode={mode}
@@ -449,9 +521,41 @@ export function TradingPage() {
           />
         </div>
 
-        {/* Right Panel */}
-        {showRightPanel && (
-          <div className="hidden md:flex w-full md:w-[280px] xl:w-[320px] border-t md:border-t-0 md:border-l border-border flex-col bg-card overflow-hidden shrink-0 md:max-h-none">
+        {/* Right Panel + centered collapse/resize handle */}
+        <div
+          className="relative hidden md:flex shrink-0"
+          style={{ width: showRightPanel ? rightPanelWidth : 24 }}
+        >
+          <button
+            type="button"
+            title={showRightPanel ? "Collapse right panel" : "Expand right panel"}
+            aria-expanded={showRightPanel}
+            onClick={toggleRightPanel}
+            className={cn(
+              "absolute top-1/2 z-30 -translate-y-1/2 border border-border bg-card px-1 py-2 text-muted-foreground shadow-md hover:text-foreground",
+              showRightPanel
+                ? "right-full rounded-l-md border-r-0"
+                : "right-0 rounded-l-md border-r-0",
+            )}
+          >
+            {showRightPanel ? (
+              <ChevronRight className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronLeft className="h-3.5 w-3.5" />
+            )}
+          </button>
+          {showRightPanel && (
+            <div
+              onMouseDown={handleRightResizeStart}
+              onTouchStart={handleRightResizeStart}
+              className="absolute inset-y-0 -left-1 z-20 w-2 cursor-col-resize touch-none"
+            />
+          )}
+          {showRightPanel && (
+            <div
+              className="flex h-full flex-col overflow-hidden border-l border-border bg-card"
+              style={{ width: rightPanelWidth }}
+            >
             <AccountPanel />
             {rightPanel === "order" && (
               <OrderPanel
@@ -484,29 +588,14 @@ export function TradingPage() {
                 isFeedConnected={isFeedConnected}
               />
             )}
-            {rightPanel === "news" && (
-              <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                <MarketNewsFeed symbol={selectedSymbol} />
-              </div>
-            )}
             {rightPanel === "ai-trader" && (
               <div className="flex-1 overflow-hidden">
                 <AiTraderPanel mode={mode} />
               </div>
             )}
-            {rightPanel === "tv-analysis" && (
-              <div className="flex-1 overflow-hidden">
-                <TradingViewTechnicalAnalysis
-                  symbol={selectedSymbol}
-                  theme={isDark ? "dark" : "light"}
-                  interval={timeframe}
-                  width="100%"
-                  height="100%"
-                />
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Mobile Trading Panel (small screens only) ──── */}

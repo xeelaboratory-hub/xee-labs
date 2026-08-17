@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   flowDateToIsraelMorningUtcMs,
   computeEtfFlowMarkers,
+  formatEtfFlowValue,
   getCandleBucketTime,
 } from "@/pages/trading/utils";
 import type { EtfFlow } from "@/services/api/market-data";
+import { ETF_FLOW_COLOR, ETF_FLOW_MARKER_SIZE } from "@/lib/indicators";
 import type { CandlestickData, Time } from "lightweight-charts";
-
-const COLORS = { up: "#0ecb81", down: "#f6465d" };
 
 function candle(timeSec: number): CandlestickData<Time> {
   return { time: timeSec as Time, open: 1, high: 1, low: 1, close: 1 };
@@ -49,23 +49,23 @@ describe("computeEtfFlowMarkers", () => {
   const dayCandle = getCandleBucketTime(Date.UTC(2026, 7, 14, 4, 0, 0), "1d");
   const chartData = [candle(dayCandle)];
 
-  it("positive value produces a green inflow arrow below the candle", () => {
+  it("positive value produces a yellow inflow arrow below the candle", () => {
     const flows: EtfFlow[] = [
       { flowDate: "2026-08-14", totalNetFlow: 100, observedAt: "2026-08-14T04:00:00Z", updatedAt: "x" },
     ];
-    const markers = computeEtfFlowMarkers(flows, chartData, "1d", COLORS);
+    const markers = computeEtfFlowMarkers(flows, chartData, "1d");
     expect(markers).toEqual([
-      { time: dayCandle, position: "belowBar", shape: "arrowUp", color: COLORS.up, id: "2026-08-14" },
+      { time: dayCandle, position: "belowBar", shape: "arrowUp", color: ETF_FLOW_COLOR, size: ETF_FLOW_MARKER_SIZE, id: "2026-08-14" },
     ]);
   });
 
-  it("negative value produces a red outflow arrow above the candle", () => {
+  it("negative value produces a yellow outflow arrow above the candle", () => {
     const flows: EtfFlow[] = [
       { flowDate: "2026-08-14", totalNetFlow: -50, observedAt: "2026-08-14T04:00:00Z", updatedAt: "x" },
     ];
-    const markers = computeEtfFlowMarkers(flows, chartData, "1d", COLORS);
+    const markers = computeEtfFlowMarkers(flows, chartData, "1d");
     expect(markers).toEqual([
-      { time: dayCandle, position: "aboveBar", shape: "arrowDown", color: COLORS.down, id: "2026-08-14" },
+      { time: dayCandle, position: "aboveBar", shape: "arrowDown", color: ETF_FLOW_COLOR, size: ETF_FLOW_MARKER_SIZE, id: "2026-08-14" },
     ]);
   });
 
@@ -73,21 +73,21 @@ describe("computeEtfFlowMarkers", () => {
     const flows: EtfFlow[] = [
       { flowDate: "2026-08-14", totalNetFlow: 0, observedAt: "2026-08-14T04:00:00Z", updatedAt: "x" },
     ];
-    expect(computeEtfFlowMarkers(flows, chartData, "1d", COLORS)).toEqual([]);
+    expect(computeEtfFlowMarkers(flows, chartData, "1d")).toEqual([]);
   });
 
   it("a date with no candle loaded produces no marker", () => {
     const flows: EtfFlow[] = [
       { flowDate: "2020-01-01", totalNetFlow: 10, observedAt: "2020-01-01T04:00:00Z", updatedAt: "x" },
     ];
-    expect(computeEtfFlowMarkers(flows, chartData, "1d", COLORS)).toEqual([]);
+    expect(computeEtfFlowMarkers(flows, chartData, "1d")).toEqual([]);
   });
 
   it("uses the Israel-morning synthetic anchor for historical rows with no observedAt", () => {
     const flows: EtfFlow[] = [
       { flowDate: "2026-08-14", totalNetFlow: 10, observedAt: null, updatedAt: "x" },
     ];
-    const markers = computeEtfFlowMarkers(flows, chartData, "1d", COLORS);
+    const markers = computeEtfFlowMarkers(flows, chartData, "1d");
     expect(markers).toHaveLength(1);
     expect(markers[0]!.time).toBe(dayCandle);
   });
@@ -96,12 +96,12 @@ describe("computeEtfFlowMarkers", () => {
     const before: EtfFlow[] = [
       { flowDate: "2026-08-14", totalNetFlow: 100, observedAt: "2026-08-14T04:00:00Z", updatedAt: "x" },
     ];
-    expect(computeEtfFlowMarkers(before, chartData, "1d", COLORS)).toHaveLength(1);
+    expect(computeEtfFlowMarkers(before, chartData, "1d")).toHaveLength(1);
 
     const afterRevision: EtfFlow[] = [
       { flowDate: "2026-08-14", totalNetFlow: 0, observedAt: "2026-08-14T04:00:00Z", updatedAt: "y" },
     ];
-    expect(computeEtfFlowMarkers(afterRevision, chartData, "1d", COLORS)).toEqual([]);
+    expect(computeEtfFlowMarkers(afterRevision, chartData, "1d")).toEqual([]);
   });
 
   it("returns markers sorted ascending by time", () => {
@@ -112,7 +112,14 @@ describe("computeEtfFlowMarkers", () => {
       { flowDate: "2026-08-14", totalNetFlow: 10, observedAt: "2026-08-14T04:00:00Z", updatedAt: "x" },
       { flowDate: "2026-08-13", totalNetFlow: 5, observedAt: "2026-08-13T04:00:00Z", updatedAt: "x" },
     ];
-    const markers = computeEtfFlowMarkers(flows, twoDayChart, "1d", COLORS);
+    const markers = computeEtfFlowMarkers(flows, twoDayChart, "1d");
     expect(markers.map((m) => m.time)).toEqual([earlyDay, lateDay]);
+  });
+});
+
+describe("formatEtfFlowValue", () => {
+  it("formats signed ETF flows in millions of dollars", () => {
+    expect(formatEtfFlowValue(655.3)).toBe("+$655.3M");
+    expect(formatEtfFlowValue(-43.1)).toBe("-$43.1M");
   });
 });

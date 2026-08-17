@@ -1,11 +1,10 @@
 import {
   CandlestickChart,
+  CalendarDays,
   Crosshair,
   GripVertical,
-  Newspaper,
   Palette,
   RotateCcw,
-  Target,
   X,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -27,19 +26,15 @@ export interface ChartSettingsDialogProps {
   isDark: boolean;
   activePlugins: string[];
   onTogglePlugin?: (id: string) => void;
-  onOpenNewsConfig: () => void;
-  /** Whether the account has challenge metrics (controls the Challenge tab note). */
-  hasAccount: boolean;
 }
 
-type TabId = "appearance" | "colors" | "trading" | "events" | "challenge";
+type TabId = "appearance" | "colors" | "trading" | "events";
 
 const TABS: Array<{ id: TabId; label: string; icon: ReactNode }> = [
   { id: "appearance", label: "Appearance", icon: <CandlestickChart className="h-3.5 w-3.5" /> },
   { id: "colors", label: "Colors", icon: <Palette className="h-3.5 w-3.5" /> },
   { id: "trading", label: "Trading", icon: <Crosshair className="h-3.5 w-3.5" /> },
-  { id: "events", label: "Events", icon: <Newspaper className="h-3.5 w-3.5" /> },
-  { id: "challenge", label: "Challenge", icon: <Target className="h-3.5 w-3.5" /> },
+  { id: "events", label: "Events", icon: <CalendarDays className="h-3.5 w-3.5" /> },
 ];
 
 /** Per-tab "Reset to defaults" payloads. Events tab has none (plugin-driven). */
@@ -65,12 +60,6 @@ const RESET_BY_TAB: Partial<Record<TabId, Partial<ChartPreferences>>> = {
     colorSlLine: "",
   },
   trading: { overlayPositionsOnChart: true },
-  challenge: {
-    challengeOverlay: true,
-    challengeDailyLossLine: true,
-    challengeMaxDrawdownLine: true,
-    challengeProfitTargetLine: true,
-  },
 };
 
 function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -348,13 +337,9 @@ function TradingTab({ prefs }: { prefs: ChartPreferences }) {
 function EventsTab({
   activePlugins,
   onTogglePlugin,
-  onOpenNewsConfig,
-  onClose,
 }: {
   activePlugins: string[];
   onTogglePlugin?: (id: string) => void;
-  onOpenNewsConfig: () => void;
-  onClose: () => void;
 }) {
   return (
     <div>
@@ -366,66 +351,6 @@ function EventsTab({
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("session-breaks")}
       />
-      <ToggleRow
-        label="Session highlighting"
-        hint="Shade Asia / London / New York forex sessions"
-        checked={activePlugins.includes("session")}
-        disabled={!onTogglePlugin}
-        onChange={() => onTogglePlugin?.("session")}
-      />
-      <SectionTitle>News</SectionTitle>
-      <button
-        onClick={() => {
-          onClose();
-          onOpenNewsConfig();
-        }}
-        className="mt-1 rounded border border-border px-3 py-1.5 text-xs text-foreground hover:bg-secondary"
-      >
-        Configure news overlay…
-      </button>
-      <p className="mt-2 text-[10px] text-muted-foreground">
-        Impact filter, event markers and no-trade window shading are configured in the news overlay
-        dialog.
-      </p>
-    </div>
-  );
-}
-
-function ChallengeTab({ prefs, hasAccount }: { prefs: ChartPreferences; hasAccount: boolean }) {
-  const set = updateChartPreferences;
-  const master = prefs.challengeOverlay;
-  return (
-    <div>
-      <SectionTitle>Challenge levels on chart</SectionTitle>
-      <ToggleRow
-        label="Show challenge levels"
-        hint="Projects your account's rule thresholds onto the chart as price lines"
-        checked={master}
-        onChange={(v) => set({ challengeOverlay: v })}
-      />
-      <ToggleRow
-        label="Daily loss limit"
-        checked={prefs.challengeDailyLossLine}
-        disabled={!master}
-        onChange={(v) => set({ challengeDailyLossLine: v })}
-      />
-      <ToggleRow
-        label="Max drawdown"
-        checked={prefs.challengeMaxDrawdownLine}
-        disabled={!master}
-        onChange={(v) => set({ challengeMaxDrawdownLine: v })}
-      />
-      <ToggleRow
-        label="Profit target"
-        checked={prefs.challengeProfitTargetLine}
-        disabled={!master}
-        onChange={(v) => set({ challengeProfitTargetLine: v })}
-      />
-      <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-        Lines appear while you have an open position in the charted symbol — the price at which your
-        equity would hit each limit is computed from your net exposure and moves with every tick.
-        {!hasAccount && " Select an account to enable."}
-      </p>
     </div>
   );
 }
@@ -437,23 +362,16 @@ function TabBody({
   tab: TabId;
   props: Pick<
     ChartSettingsDialogProps,
-    "prefs" | "isDark" | "activePlugins" | "onTogglePlugin" | "onOpenNewsConfig" | "hasAccount"
+    "prefs" | "isDark" | "activePlugins" | "onTogglePlugin"
   > & { onClose: () => void };
 }) {
   if (tab === "appearance") return <AppearanceTab prefs={props.prefs} />;
   if (tab === "colors") return <ColorsTab prefs={props.prefs} isDark={props.isDark} />;
   if (tab === "trading") return <TradingTab prefs={props.prefs} />;
   if (tab === "events") {
-    return (
-      <EventsTab
-        activePlugins={props.activePlugins}
-        onTogglePlugin={props.onTogglePlugin}
-        onOpenNewsConfig={props.onOpenNewsConfig}
-        onClose={props.onClose}
-      />
-    );
+    return <EventsTab activePlugins={props.activePlugins} onTogglePlugin={props.onTogglePlugin} />;
   }
-  return <ChallengeTab prefs={props.prefs} hasAccount={props.hasAccount} />;
+  return null;
 }
 
 export function ChartSettingsDialog(props: ChartSettingsDialogProps) {

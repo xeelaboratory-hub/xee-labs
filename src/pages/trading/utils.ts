@@ -1,7 +1,6 @@
 import type { CandlestickData, SeriesMarker, Time } from "lightweight-charts";
-import type { CandleData } from "../../lib/indicators.ts";
+import { ETF_FLOW_COLOR, ETF_FLOW_MARKER_SIZE } from "../../lib/indicators.ts";
 import type { EtfFlow } from "../../services/api/market-data.ts";
-import { KNOWN_CURRENCIES } from "./constants.ts";
 import type { Timeframe } from "./constants.ts";
 
 /** Derive pip (decimal) precision from symbolInfo.tickSize or symbol name */
@@ -47,18 +46,6 @@ export function toUnixMs(ts: number): number {
   return ts > 1e12 ? ts : ts * 1000;
 }
 
-/** Convert candles for indicator lib */
-export function toIndicatorCandles(candles: CandlestickData<Time>[]): CandleData[] {
-  return candles.map((c) => ({
-    time: c.time as number,
-    open: c.open,
-    high: c.high,
-    low: c.low,
-    close: c.close,
-    volume: 0,
-  }));
-}
-
 /** Format seconds remaining as M:SS or H:MM:SS */
 export function formatCountdown(totalSec: number): string {
   if (totalSec <= 0) return "0:00";
@@ -67,19 +54,6 @@ export function formatCountdown(totalSec: number): string {
   const s = Math.floor(totalSec % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-/** Extract currency codes from a symbol name */
-export function extractCurrencies(symbol: string): string[] {
-  const upper = symbol.toUpperCase().replace(/[^A-Z]/g, "");
-  const found: string[] = [];
-  for (const c of KNOWN_CURRENCIES) {
-    if (upper.includes(c)) found.push(c);
-  }
-  if (found.length === 0 && upper.length >= 6) {
-    found.push(upper.slice(0, 3), upper.slice(3, 6));
-  }
-  return [...new Set(found)];
 }
 
 /** Return the candle-bucket start (unix seconds) for a given timestamp */
@@ -149,7 +123,6 @@ export function computeEtfFlowMarkers(
   etfFlowData: EtfFlow[],
   chartData: CandlestickData<Time>[],
   timeframe: Timeframe,
-  colors: { up: string; down: string },
 ): SeriesMarker<Time>[] {
   const loadedTimes = new Set(chartData.map((c) => c.time as number));
   const markers: SeriesMarker<Time>[] = [];
@@ -164,11 +137,17 @@ export function computeEtfFlowMarkers(
       time: bucketTime as Time,
       position: flow.totalNetFlow > 0 ? "belowBar" : "aboveBar",
       shape: flow.totalNetFlow > 0 ? "arrowUp" : "arrowDown",
-      color: flow.totalNetFlow > 0 ? colors.up : colors.down,
+      color: ETF_FLOW_COLOR,
+      size: ETF_FLOW_MARKER_SIZE,
       id: flow.flowDate,
     });
   }
 
   markers.sort((a, b) => (a.time as number) - (b.time as number));
   return markers;
+}
+
+export function formatEtfFlowValue(value: number): string {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}$${Math.abs(value).toLocaleString("en-US", { maximumFractionDigits: 1 })}M`;
 }

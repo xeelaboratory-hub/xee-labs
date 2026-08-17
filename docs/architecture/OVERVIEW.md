@@ -193,10 +193,9 @@ the poll interval.
   target, RAF-batched tick cache, live candle updates).
 - **TanStack Query** (`services/queries.ts`) for everything server-shaped:
   account, positions, orders, trade history, symbols, candles.
-- Chart drawings, chart templates, and chart preferences persist directly to
-  `localStorage` (`useChartDrawings`/`services/localDrawings.ts`,
-  `chartTemplatesApi`, `useChartPreferences`) — no backend involved even in
-  concept.
+- Chart drawings and chart preferences persist directly to `localStorage`
+  (`useChartDrawings`/`services/localDrawings.ts`, `useChartPreferences`) — no
+  backend involved.
 
 ## Known issues / gotchas
 

@@ -44,7 +44,6 @@ of a screenshot.
 | **ChartContextMenu** | `src/pages/trading/ChartContextMenu.tsx` | ![context menu](screenshots/10-chart-context-menu.png) | Right-click menu on the chart: reset view, copy price, add alert, quick buy/sell limit/stop, Object tree, Chart Settings. |
 | **ChartSettingsDialog** — Appearance | `src/pages/trading/ChartSettingsDialog.tsx` | ![settings](screenshots/11-chart-settings-dialog.png) | Candle/grid/watermark/countdown/legend toggles. Opened via the context menu's "Chart Settings…". |
 | **ChartSettingsDialog** — Colors | same file | ![colors tab](screenshots/11b-chart-settings-colors-tab.png) | Color-override tab of the same dialog. |
-| **ChartTemplatesMenu** | `src/pages/trading/ChartTemplatesMenu.tsx` | ![templates](screenshots/15-chart-templates-menu.png) | Save/load/apply named indicator+plugin+drawing presets ("Templates" in the toolbar). |
 | **DrawingToolRail** | `src/pages/trading/DrawingToolRail.tsx` | ![rail flyout](screenshots/12-drawing-tool-rail-flyout.png) | Vertical icon rail (left edge of chart) — grouped flyouts for trendline/fib/shape/position tool families. |
 | **DrawingFloatingToolbar** | `src/pages/trading/DrawingToolsOverlay.tsx` | ![drawing placed](screenshots/13-drawing-placed-with-floating-toolbar.png) | Style toolbar that appears while a drawing is selected (color/width/line-style). A trendline was drawn on the chart to trigger this. |
 | **DrawingSettingsDialog** | same file | ⛔ not captured | Full style editor for a drawing (opened via its context menu) — not reached in this pass. |

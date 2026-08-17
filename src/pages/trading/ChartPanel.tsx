@@ -13,7 +13,7 @@ import {
   type LogicalRange,
   type Time,
 } from "lightweight-charts";
-import { Clock, ListTree } from "lucide-react";
+import { ListTree } from "lucide-react";
 import {
   type Dispatch,
   type MouseEvent as ReactMouseEvent,
@@ -25,20 +25,16 @@ import {
   useState,
 } from "react";
 import { useChartPreferences } from "../../hooks/useChartPreferences.ts";
-import { BandsIndicator } from "../../lib/chart-plugins/bands-indicator/bands-indicator.ts";
-import { DeltaTooltipPrimitive } from "../../lib/chart-plugins/delta-tooltip/delta-tooltip.ts";
 import {
   detectCrossings,
   playAlertBeep,
 } from "../../lib/chart-plugins/drawing-tools/line-alerts.ts";
 import { DrawingToolsManager } from "../../lib/chart-plugins/drawing-tools/manager.ts";
-import { CrosshairHighlightPrimitive } from "../../lib/chart-plugins/highlight-bar-crosshair/highlight-bar-crosshair.ts";
 import { SessionBreaks } from "../../lib/chart-plugins/session-breaks/session-breaks.ts";
-import { SessionHighlighting } from "../../lib/chart-plugins/session-highlighting/session-highlighting.ts";
-import { TooltipPrimitive } from "../../lib/chart-plugins/tooltip/tooltip.ts";
 import type { IndicatorType } from "../../lib/indicators.ts";
 import { cn } from "../../lib/utils.ts";
 import { api } from "../../services/api.ts";
+import type { EtfFlow } from "../../services/api/market-data.ts";
 import { queryKeys, useEtfFlows } from "../../services/queries.ts";
 import type { Candle, Order, Position, Symbol } from "../../services/schemas.ts";
 import { toast } from "../../services/toast.ts";
@@ -60,14 +56,12 @@ import {
 } from "./DrawingToolsOverlay.tsx";
 import { DrawingToolRail } from "./DrawingToolRail.tsx";
 import { DRAWING_STYLES_EVENT, getStyleDefaults } from "./drawingStyles.ts";
-import { NewsOverlay } from "./NewsOverlay.tsx";
 import { ObjectTreePanel } from "./ObjectTreePanel.tsx";
-import { useChallengeLevels } from "./useChallengeLevels.ts";
 import { useIndicators } from "./useIndicators.ts";
-import { useNewsOverlay } from "./useNewsOverlay.ts";
 import { useSlTpDrag } from "./useSlTpDrag.ts";
 import {
   formatCountdown,
+  formatEtfFlowValue,
   getCandleBucketTime,
   getMinMove,
   toUnixMs,
@@ -211,8 +205,10 @@ export interface ChartPanelProps {
   onRedoDrawing?: () => void;
   /** Snap drawing anchors to candle O/H/L/C — off / weak (near) / strong (always). */
   magnetMode?: MagnetMode;
+  onCycleMagnet?: () => void;
   /** Keep the drawing tool armed after each placement. */
   stayInDrawingMode?: boolean;
+  onToggleStayInDrawingMode?: () => void;
   positions: Position[];
   orders: Order[];
   tick?: { bid: number; ask: number; timestamp: number };
@@ -235,8 +231,6 @@ export interface ChartPanelProps {
   onTogglePlugin?: (id: string) => void;
   /** Account equity — feeds the position tool's $-risk / size readout. */
   accountEquity?: number;
-  /** Which OKX environment (demo|live) is active — enables the challenge-aware level overlay. */
-  mode?: string | null;
   /** Context-menu quick order at the clicked price (opens the confirm dialog). */
   onQuickOrder?: (side: "BUY" | "SELL", type: "LIMIT" | "STOP", price: number) => void;
   /** Context-menu "Remove N drawings". */
@@ -246,16 +240,6 @@ export interface ChartPanelProps {
 }
 
 // ── Chart plugin overlays ─────────────────────────────────────────────────────
-
-function getForexSessionColor(utcHour: number): string {
-  if (utcHour >= 22 || utcHour < 8) return "rgba(255,200,50,0.04)";
-  if (utcHour >= 8 && utcHour < 16) return "rgba(50,200,255,0.04)";
-  if (utcHour >= 13) return "rgba(255,80,80,0.04)";
-  return "transparent";
-}
-
-const forexSessionHighlighter = (date: Time): string =>
-  getForexSessionColor(new Date((date as number) * 1000).getUTCHours());
 
 interface PluginBuildCtx {
   isDark: boolean;
@@ -278,15 +262,7 @@ function buildSessionBreaks(ctx: PluginBuildCtx): ISeriesPrimitive<Time> | null 
 }
 
 const PLUGIN_FACTORIES: Record<string, (ctx: PluginBuildCtx) => ISeriesPrimitive<Time> | null> = {
-  crosshair: ({ isDark }) =>
-    new CrosshairHighlightPrimitive({
-      color: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
-    }),
-  session: () => new SessionHighlighting(forexSessionHighlighter),
   "session-breaks": buildSessionBreaks,
-  bands: () => new BandsIndicator(),
-  tooltip: () => new TooltipPrimitive({}),
-  "delta-tooltip": () => new DeltaTooltipPrimitive({}),
 };
 
 function buildPlugin(id: string, ctx: PluginBuildCtx): ISeriesPrimitive<Time> | null {
@@ -495,7 +471,7 @@ function upsertPriceLine(
   ref.current = series.createPriceLine(opts);
 }
 
-function applyMidPriceLine(tick: TickData | undefined, ctx: RtCtx): void {
+function applyMidPriceLine(tick: TickData | undefined, countdown: string, ctx: RtCtx): void {
   const series = ctx.series;
   if (!tick) {
     removePriceLineSafe(ctx.midLine, series);
@@ -507,7 +483,7 @@ function applyMidPriceLine(tick: TickData | undefined, ctx: RtCtx): void {
     lineWidth: 1,
     lineStyle: LineStyle.Dashed,
     axisLabelVisible: true,
-    title: "",
+    title: countdown,
     axisLabelColor: "#3b5ab5",
     axisLabelTextColor: "#ffffff",
   });
@@ -822,31 +798,21 @@ function OhlcvLegendRow({ legend, pipDigits }: { legend: OhlcvLegend; pipDigits:
   );
 }
 
-// Symbol / timeframe / OHLCV / countdown header in the chart's top-left corner.
+// OHLCV header in the chart's top-left corner.
 // Extracted so the visibility branching doesn't inflate ChartPanel's CC.
 function ChartLegendHeader({
   legend,
-  countdown,
   pipDigits,
   showOhlcLegend,
-  showCountdown,
 }: {
   legend: OhlcvLegend | null;
-  countdown: string;
   pipDigits: number;
   showOhlcLegend: boolean;
-  showCountdown: boolean;
 }) {
   return (
     <div className="absolute top-2 left-3 z-10 pointer-events-none select-none">
       <div className="flex items-center gap-2 text-[11px] font-mono leading-none mb-1">
         {legend && showOhlcLegend && <OhlcvLegendRow legend={legend} pipDigits={pipDigits} />}
-        {countdown && showCountdown && (
-          <span className="text-muted-foreground/60 flex items-center gap-0.5">
-            <Clock className="h-2.5 w-2.5 opacity-50" />
-            {countdown}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -972,7 +938,9 @@ export function ChartPanel({
   onUndoDrawing,
   onRedoDrawing,
   magnetMode = "none",
+  onCycleMagnet,
   stayInDrawingMode = false,
+  onToggleStayInDrawingMode,
   positions,
   orders,
   tick,
@@ -983,7 +951,6 @@ export function ChartPanel({
   activePlugins = [],
   onTogglePlugin,
   accountEquity = 0,
-  mode,
   onQuickOrder,
   onClearDrawings,
   onClearIndicators,
@@ -993,6 +960,7 @@ export function ChartPanel({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const etfFlowByIdRef = useRef<Map<string, EtfFlow>>(new Map());
 
   // Scroll-triggered historical extension — older bars prepended as the user
   // scrolls left past what the initial deep-fetch already loaded.
@@ -1024,6 +992,11 @@ export function ChartPanel({
 
   // OHLCV legend state
   const [legend, setLegend] = useState<OhlcvLegend | null>(null);
+  const [etfTooltip, setEtfTooltip] = useState<{
+    x: number;
+    y: number;
+    flow: EtfFlow;
+  } | null>(null);
   // Candle countdown state
   const [countdown, setCountdown] = useState("");
   // True once the legend has been restored to the latest bar after the crosshair
@@ -1175,15 +1148,6 @@ export function ChartPanel({
   );
   const { chartData, volumeData } = useChartData(allCandles, colors);
 
-  const {
-    newsConfig,
-    setNewsConfig,
-    showNewsConfigDialog,
-    setShowNewsConfigDialog,
-    newsPopup,
-    setNewsPopup,
-  } = useNewsOverlay(containerRef, chartRef, selectedSymbol, isDark, chartData);
-
   const dragPrice = useSlTpDrag(
     containerRef,
     chartRef,
@@ -1195,35 +1159,6 @@ export function ChartPanel({
     symbolInfo,
     chartEpoch,
   );
-
-  // ── Challenge-aware rule levels (daily loss / max DD / profit target) ──
-  // No-op — see useChallengeLevels.ts docstring (PropSim-only concept).
-  const challengeFlags = useMemo(
-    () => ({
-      enabled: chartPrefs.challengeOverlay && !!mode,
-      dailyLoss: chartPrefs.challengeDailyLossLine,
-      maxDrawdown: chartPrefs.challengeMaxDrawdownLine,
-      profitTarget: chartPrefs.challengeProfitTargetLine,
-    }),
-    [
-      chartPrefs.challengeOverlay,
-      chartPrefs.challengeDailyLossLine,
-      chartPrefs.challengeMaxDrawdownLine,
-      chartPrefs.challengeProfitTargetLine,
-      mode,
-    ],
-  );
-  useChallengeLevels({
-    accountId: mode,
-    selectedSymbol,
-    positions,
-    tick,
-    contractSize: symbolInfo?.contractSize || 100000,
-    accountEquity,
-    candleSeriesRef,
-    flags: challengeFlags,
-    chartEpoch,
-  });
 
   // ── Chart context-menu actions ──
   const handleChartContextMenu = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
@@ -1274,7 +1209,13 @@ export function ChartPanel({
   );
 
   const { data: etfFlowData } = useEtfFlows();
-  useIndicators(chartRef, candleSeriesRef, chartData, activeIndicators, isDark, etfFlowData, timeframe);
+  useIndicators(candleSeriesRef, chartData, activeIndicators, etfFlowData, timeframe);
+  useEffect(() => {
+    etfFlowByIdRef.current = activeIndicators.includes("ETF_FLOW")
+      ? new Map((etfFlowData ?? []).map((flow) => [flow.flowDate, flow]))
+      : new Map();
+    setEtfTooltip(null);
+  }, [activeIndicators, etfFlowData, timeframe]);
 
   // ── Candle close countdown timer ───────────────────────────
   useEffect(() => {
@@ -1415,6 +1356,17 @@ export function ChartPanel({
 
     // Subscribe to crosshair move for OHLCV legend
     chart.subscribeCrosshairMove((param) => {
+      const hoveredId = typeof param.hoveredObjectId === "string" ? param.hoveredObjectId : null;
+      const hoveredFlow = hoveredId ? etfFlowByIdRef.current.get(hoveredId) : undefined;
+      if (hoveredFlow && param.point && containerRef.current) {
+        setEtfTooltip({
+          x: Math.min(param.point.x + 12, Math.max(8, containerRef.current.clientWidth - 150)),
+          y: Math.max(8, param.point.y - 44),
+          flow: hoveredFlow,
+        });
+      } else {
+        setEtfTooltip(null);
+      }
       if (!param?.time) {
         restoreLegendOnLeave(legendRestoredRef, lastCandleRef, legendVolRef, setLegend);
         return;
@@ -1752,8 +1704,8 @@ export function ChartPanel({
   useEffect(() => {
     const series = candleSeriesRef.current;
     if (!series) return;
-    applyMidPriceLine(tick, makeRtCtx(series));
-  }, [tick, makeRtCtx]);
+    applyMidPriceLine(tick, chartPrefs.showCountdown ? countdown : "", makeRtCtx(series));
+  }, [tick, countdown, chartPrefs.showCountdown, makeRtCtx]);
 
   // ── Position/order overlays ────────────────────────────────
   useEffect(() => {
@@ -1791,11 +1743,22 @@ export function ChartPanel({
       {/* OHLCV Legend Overlay */}
       <ChartLegendHeader
         legend={legend}
-        countdown={countdown}
         pipDigits={pipDigits}
         showOhlcLegend={chartPrefs.showOhlcLegend}
-        showCountdown={chartPrefs.showCountdown}
       />
+
+      {etfTooltip && (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute z-30 rounded-md border border-[#f0b90b]/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
+          style={{ left: etfTooltip.x, top: etfTooltip.y }}
+        >
+          <div className="text-[10px] text-muted-foreground">ETF Flow · {etfTooltip.flow.flowDate}</div>
+          <div className="font-mono text-xs font-semibold text-[#f0b90b]">
+            {formatEtfFlowValue(etfTooltip.flow.totalNetFlow)}
+          </div>
+        </div>
+      )}
 
       {/* Drag-to-edit tooltip */}
       {dragPrice && (
@@ -1866,19 +1829,6 @@ export function ChartPanel({
         onReorder={handleReorderDrawing}
       />
 
-      {/* News overlay (popup, config dialog, button) */}
-      <NewsOverlay
-        newsConfig={newsConfig}
-        setNewsConfig={setNewsConfig}
-        showNewsConfigDialog={showNewsConfigDialog}
-        setShowNewsConfigDialog={setShowNewsConfigDialog}
-        newsPopup={newsPopup}
-        setNewsPopup={setNewsPopup}
-        isDark={isDark}
-        pipDigits={pipDigits}
-        containerRef={containerRef}
-      />
-
       {/* Chart-wide right-click menu (TradingView-style) */}
       {chartMenu && (
         <ChartContextMenu
@@ -1909,15 +1859,20 @@ export function ChartPanel({
         isDark={isDark}
         activePlugins={activePlugins}
         onTogglePlugin={onTogglePlugin}
-        onOpenNewsConfig={() => setShowNewsConfigDialog(true)}
-        hasAccount={!!mode}
       />
 
       {/* Chart container — cursor is managed imperatively by DrawingToolsManager */}
       <div ref={containerRef} className="w-full h-full" onContextMenu={handleChartContextMenu} />
 
       {/* Left vertical tool rail (TradingView-style grouped flyouts) */}
-      <DrawingToolRail drawingTool={drawingTool} onDrawingTool={(t) => onDrawingToolSelect?.(t)} />
+      <DrawingToolRail
+        drawingTool={drawingTool}
+        onDrawingTool={(t) => onDrawingToolSelect?.(t)}
+        magnetMode={magnetMode}
+        onCycleMagnet={onCycleMagnet}
+        stayInDrawingMode={stayInDrawingMode}
+        onToggleStayInDrawingMode={onToggleStayInDrawingMode}
+      />
     </div>
   );
 }

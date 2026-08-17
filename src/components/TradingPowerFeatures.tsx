@@ -6,7 +6,6 @@
  * - TradeSignals (#56)
  * - RiskOverlay (#58)
  * - PnlHeatmap (#59)
- * - NewsFeed (#60)
  */
 import { useState, useMemo } from "react";
 import {
@@ -16,8 +15,6 @@ import {
   BarChart3,
   Shield,
   Flame,
-  Clock,
-  Globe,
   AlertTriangle,
   Plus,
   X,
@@ -576,92 +573,6 @@ export function PnlHeatmap({ data = [] }: { data?: { hour: number; day: number; 
             Profit
           </div>
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ── News Feed (#60) ──────────────────────────────────────────
-export function NewsFeed({ symbol }: { symbol: string }) {
-  const news = useMemo(
-    () => [
-      {
-        id: 1,
-        title: `${symbol.slice(0, 3)} Central Bank Rate Decision Ahead`,
-        source: "Reuters",
-        time: "2h ago",
-        impact: "HIGH" as const,
-      },
-      {
-        id: 2,
-        title: `${symbol.slice(3, 6) || "USD"} Employment Data Exceeds Expectations`,
-        source: "Bloomberg",
-        time: "4h ago",
-        impact: "MEDIUM" as const,
-      },
-      {
-        id: 3,
-        title: `Technical Analysis: ${symbol} Approaching Key Resistance`,
-        source: "TradingView",
-        time: "6h ago",
-        impact: "LOW" as const,
-      },
-      {
-        id: 4,
-        title: "Global Risk Appetite Improves on Trade Deal Progress",
-        source: "FT",
-        time: "8h ago",
-        impact: "MEDIUM" as const,
-      },
-      {
-        id: 5,
-        title: `${symbol} Volatility Expected to Increase Ahead of NFP`,
-        source: "ForexLive",
-        time: "12h ago",
-        impact: "HIGH" as const,
-      },
-    ],
-    [symbol],
-  );
-
-  const impactColors = {
-    HIGH: "bg-red-500/10 text-red-500",
-    MEDIUM: "bg-yellow-500/10 text-yellow-500",
-    LOW: "bg-green-500/10 text-green-500",
-  };
-
-  return (
-    <Card>
-      <CardHeader className="p-3 pb-0">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Globe className="h-4 w-4 text-accent" /> Market News
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-3 pt-2 space-y-2">
-        {news.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-start gap-2 py-1.5 border-b border-border/30 last:border-0"
-          >
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium leading-tight line-clamp-2">{item.title}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-[10px] text-muted-foreground">{item.source}</span>
-                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                  <Clock className="h-2.5 w-2.5" /> {item.time}
-                </span>
-              </div>
-            </div>
-            <span
-              className={cn(
-                "text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0",
-                impactColors[item.impact],
-              )}
-            >
-              {item.impact}
-            </span>
-          </div>
-        ))}
       </CardContent>
     </Card>
   );

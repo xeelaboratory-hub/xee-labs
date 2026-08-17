@@ -30,23 +30,12 @@ export interface ChartPreferences {
   colorOrderLine: string;
   colorTpLine: string;
   colorSlLine: string;
-  // ── Chart templates ──
-  /** Name of the template the chart currently tracks ("" = none). */
-  activeChartTemplate: string;
-  /** Auto-save settings changes back to the active template. */
-  chartTemplateAutosave: boolean;
   showWicks: boolean;
   showCandleBorders: boolean;
   showVolume: boolean;
   showWatermark: boolean;
   showCountdown: boolean;
   showOhlcLegend: boolean;
-  // ── Challenge-aware overlays ──
-  /** Master switch for rule-derived price lines (daily loss / max DD / target). */
-  challengeOverlay: boolean;
-  challengeDailyLossLine: boolean;
-  challengeMaxDrawdownLine: boolean;
-  challengeProfitTargetLine: boolean;
 }
 
 type TraderPrefs = Record<string, string>;
@@ -69,18 +58,12 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   colorOrderLine: "",
   colorTpLine: "",
   colorSlLine: "",
-  activeChartTemplate: "",
-  chartTemplateAutosave: false,
   showWicks: true,
   showCandleBorders: true,
   showVolume: false,
   showWatermark: false,
   showCountdown: true,
   showOhlcLegend: false,
-  challengeOverlay: false,
-  challengeDailyLossLine: false,
-  challengeMaxDrawdownLine: false,
-  challengeProfitTargetLine: false,
 };
 
 /** Boolean preference keys read straight through `toBool` with their default. */
@@ -94,11 +77,6 @@ const BOOL_PREF_KEYS = [
   "showWatermark",
   "showCountdown",
   "showOhlcLegend",
-  "challengeOverlay",
-  "challengeDailyLossLine",
-  "challengeMaxDrawdownLine",
-  "challengeProfitTargetLine",
-  "chartTemplateAutosave",
 ] as const;
 
 /** String preference keys stored raw (empty string allowed). */
@@ -113,39 +91,7 @@ const STRING_PREF_KEYS = [
   "colorOrderLine",
   "colorTpLine",
   "colorSlLine",
-  "activeChartTemplate",
 ] as const;
-
-/**
- * Preference keys captured in a chart template snapshot — appearance, colors
- * and overlay choices. Deliberately excludes input behavior (magnet, stay-in-
- * drawing-mode) and the template bookkeeping keys themselves.
- */
-export const TEMPLATE_PREF_KEYS = [
-  "overlayPositionsOnChart",
-  "showWicks",
-  "showCandleBorders",
-  "showVolume",
-  "showWatermark",
-  "showCountdown",
-  "showOhlcLegend",
-  "challengeOverlay",
-  "challengeDailyLossLine",
-  "challengeMaxDrawdownLine",
-  "challengeProfitTargetLine",
-  "candleUpColor",
-  "candleDownColor",
-  "colorBackground",
-  "colorScaleText",
-  "colorCrosshair",
-  "colorPositionLong",
-  "colorPositionShort",
-  "colorOrderLine",
-  "colorTpLine",
-  "colorSlLine",
-] as const;
-
-export type TemplatePrefKey = (typeof TEMPLATE_PREF_KEYS)[number];
 
 function toMagnetMode(input: string | undefined): MagnetMode | undefined {
   return input === "weak" || input === "strong" || input === "none" ? input : undefined;

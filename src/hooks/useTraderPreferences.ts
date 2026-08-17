@@ -1,34 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../services/api.ts";
+import { readLocalPreferences, updateLocalPreferences } from "../services/preferences.ts";
 import { useAuthStore } from "../services/store.tsx";
 
 export type TraderPrefs = Record<string, string>;
 
-const LEGACY_TRADER_PREFS_KEY = "trader_prefs";
 const CHART_PREFS_UPDATED_EVENT = "chart-preferences-updated";
 
-export function getTraderPrefsStorageKey(userId?: string | null): string {
-  return userId ? `${LEGACY_TRADER_PREFS_KEY}:${userId}` : LEGACY_TRADER_PREFS_KEY;
-}
-
-function parsePrefs(raw: string | null): TraderPrefs {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as TraderPrefs;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
 export function readTraderPrefs(userId?: string | null): TraderPrefs {
-  const scoped = parsePrefs(localStorage.getItem(getTraderPrefsStorageKey(userId)));
-  if (Object.keys(scoped).length > 0) return scoped;
-  return parsePrefs(localStorage.getItem(LEGACY_TRADER_PREFS_KEY));
+  return readLocalPreferences(userId).chart;
 }
 
 export function writeTraderPrefs(prefs: TraderPrefs, userId?: string | null): void {
-  localStorage.setItem(getTraderPrefsStorageKey(userId), JSON.stringify(prefs));
+  updateLocalPreferences({ chart: prefs }, userId);
 }
 
 export function applyAccentColorFromPrefs(prefs: TraderPrefs): void {
@@ -51,19 +34,7 @@ export function useTraderPreferences() {
     const local = readTraderPrefs(userId);
     setPrefs(local);
     applyAccentColorFromPrefs(local);
-
-    api
-      .getPreferences()
-      .then((serverPrefs) => {
-        if (serverPrefs && typeof serverPrefs === "object") {
-          const merged = { ...serverPrefs, ...local };
-          setPrefs(merged);
-          writeTraderPrefs(merged, userId);
-          applyAccentColorFromPrefs(merged);
-        }
-        setLoaded(true);
-      })
-      .catch(() => setLoaded(true));
+    setLoaded(true);
   }, [userId]);
 
   const savePreferences = useMemo(
@@ -72,7 +43,6 @@ export function useTraderPreferences() {
       writeTraderPrefs(next, userId);
       applyAccentColorFromPrefs(next);
       dispatchChartPrefsUpdated();
-      api.savePreferences(next).catch(() => {});
     },
     [userId],
   );
