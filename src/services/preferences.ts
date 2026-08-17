@@ -1,3 +1,5 @@
+import type { SessionMarket } from "../lib/session-volume-profile.ts";
+
 export interface UserPreferences {
   chart: Record<string, string>;
   bottomPanelCollapsed?: boolean;
@@ -6,7 +8,9 @@ export interface UserPreferences {
   bottomPanelHeight?: number;
   oneClickTrading?: boolean;
   timeframes: Record<string, string>;
-  activeIndicators: Array<"ETF_FLOW">;
+  activeIndicators: Array<"ETF_FLOW" | "SESSION_VOLUME_PROFILE">;
+  sessionVolumeProfileMarket?: SessionMarket;
+  sessionVolumeProfileRows?: number;
   watchlistFavorites: string[];
   tradeSoundMuted?: boolean;
   tradingMode?: "demo" | "live";
@@ -16,6 +20,22 @@ export interface UserPreferences {
 export const PREFERENCES_UPDATED_EVENT = "user-preferences-updated";
 
 const STORAGE_PREFIX = "xee_user_preferences";
+const SESSION_MARKETS: readonly SessionMarket[] = ["ASX", "TOKYO", "LONDON", "NEW_YORK"];
+
+export const DEFAULT_SESSION_VOLUME_PROFILE_MARKET: SessionMarket = "NEW_YORK";
+export const DEFAULT_SESSION_VOLUME_PROFILE_ROWS = 30;
+
+export function normalizeSessionVolumeProfileRows(value: unknown): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return DEFAULT_SESSION_VOLUME_PROFILE_ROWS;
+  return Math.min(100, Math.max(10, Math.round(numeric)));
+}
+
+function normalizeSessionVolumeProfileMarket(value: unknown): SessionMarket {
+  return SESSION_MARKETS.includes(value as SessionMarket)
+    ? (value as SessionMarket)
+    : DEFAULT_SESSION_VOLUME_PROFILE_MARKET;
+}
 
 function currentUserId(): string | null {
   try {
@@ -45,7 +65,18 @@ function migrateLegacy(userId?: string | null): UserPreferences {
       localStorage.getItem(`${STORAGE_PREFIX}:guest`),
       null,
     );
-    if (guest) return guest;
+    if (guest) {
+      return {
+        ...guest,
+        chart: guest.chart ?? {},
+        timeframes: guest.timeframes ?? {},
+        activeIndicators:
+          guest.activeIndicators?.filter((id) => id === "ETF_FLOW" || id === "SESSION_VOLUME_PROFILE") ?? [],
+        sessionVolumeProfileMarket: normalizeSessionVolumeProfileMarket(guest.sessionVolumeProfileMarket),
+        sessionVolumeProfileRows: normalizeSessionVolumeProfileRows(guest.sessionVolumeProfileRows),
+        watchlistFavorites: guest.watchlistFavorites ?? [],
+      };
+    }
   }
   const chartKey = userId ? `trader_prefs:${userId}` : "trader_prefs";
   const chart = parseObject<Record<string, string>>(
@@ -66,6 +97,8 @@ function migrateLegacy(userId?: string | null): UserPreferences {
     oneClickTrading: localStorage.getItem("oneClickTrading") === "true",
     timeframes,
     activeIndicators: [],
+    sessionVolumeProfileMarket: DEFAULT_SESSION_VOLUME_PROFILE_MARKET,
+    sessionVolumeProfileRows: DEFAULT_SESSION_VOLUME_PROFILE_ROWS,
     watchlistFavorites: parseObject<string[]>(localStorage.getItem("watchlist_favorites"), []),
     tradeSoundMuted: localStorage.getItem("tradeSoundMuted") === "true",
     tradingMode:
@@ -81,7 +114,10 @@ export function readLocalPreferences(userId?: string | null): UserPreferences {
       ...existing,
       chart: existing.chart ?? {},
       timeframes: existing.timeframes ?? {},
-      activeIndicators: existing.activeIndicators?.filter((id) => id === "ETF_FLOW") ?? [],
+      activeIndicators:
+        existing.activeIndicators?.filter((id) => id === "ETF_FLOW" || id === "SESSION_VOLUME_PROFILE") ?? [],
+      sessionVolumeProfileMarket: normalizeSessionVolumeProfileMarket(existing.sessionVolumeProfileMarket),
+      sessionVolumeProfileRows: normalizeSessionVolumeProfileRows(existing.sessionVolumeProfileRows),
       watchlistFavorites: existing.watchlistFavorites ?? [],
     };
   }

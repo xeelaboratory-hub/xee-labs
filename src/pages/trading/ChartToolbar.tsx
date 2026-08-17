@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
+import type { SessionMarket } from "../../lib/session-volume-profile.ts";
 import { cn, formatNumber } from "../../lib/utils.ts";
 import { TIMEFRAMES, type Timeframe } from "./constants.ts";
 
@@ -30,6 +31,10 @@ export interface ChartToolbarProps {
   onTimeframeChange: (tf: Timeframe) => void;
   activeIndicators: IndicatorType[];
   onToggleIndicator: (type: IndicatorType) => void;
+  sessionVolumeProfileMarket: SessionMarket;
+  sessionVolumeProfileRows: number;
+  onSessionVolumeProfileMarket: (market: SessionMarket) => void;
+  onSessionVolumeProfileRows: (rows: number) => void;
   showIndicatorMenu: boolean;
   onToggleIndicatorMenu: () => void;
   rightPanel: string;
@@ -58,6 +63,10 @@ export function ChartToolbar({
   onTimeframeChange,
   activeIndicators,
   onToggleIndicator,
+  sessionVolumeProfileMarket,
+  sessionVolumeProfileRows,
+  onSessionVolumeProfileMarket,
+  onSessionVolumeProfileRows,
   showIndicatorMenu,
   onToggleIndicatorMenu,
   rightPanel,
@@ -75,6 +84,7 @@ export function ChartToolbar({
       s.name.toLowerCase().includes(symbolFilter.toLowerCase()) ||
       (s.category || "").toLowerCase().includes(symbolFilter.toLowerCase()),
   );
+  const sessionProfileSupported = ["1m", "5m", "15m", "30m", "1h"].includes(timeframe);
 
   return (
     <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-card text-xs shrink-0 overflow-x-auto md:overflow-visible flex-nowrap md:flex-wrap no-scrollbar">
@@ -242,21 +252,56 @@ export function ChartToolbar({
           {showIndicatorMenu && (
             <div className="absolute top-full left-0 z-50 mt-1 w-64 bg-card border border-border rounded-lg shadow-xl p-2 space-y-0.5">
               {INDICATOR_REGISTRY.map((ind) => (
-                <button
-                  key={ind.type}
-                  onClick={() => onToggleIndicator(ind.type)}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-secondary text-left",
-                    activeIndicators.includes(ind.type) && "bg-secondary",
+                <div key={ind.type}>
+                  <button
+                    onClick={() => onToggleIndicator(ind.type)}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-secondary text-left",
+                      activeIndicators.includes(ind.type) && "bg-secondary",
+                    )}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: ind.color }}
+                    />
+                    <span className="flex-1">{ind.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{ind.pane}</span>
+                  </button>
+                  {ind.type === "SESSION_VOLUME_PROFILE" && activeIndicators.includes(ind.type) && (
+                    <div className="ml-4 mr-1 mt-1 space-y-2 rounded border border-border/70 bg-background/40 p-2">
+                      <div className="grid grid-cols-4 gap-1">
+                        {(["ASX", "TOKYO", "LONDON", "NEW_YORK"] as const).map((market) => (
+                          <button
+                            key={market}
+                            onClick={() => onSessionVolumeProfileMarket(market)}
+                            className={cn(
+                              "rounded px-1 py-1 text-[10px] font-medium hover:bg-secondary",
+                              sessionVolumeProfileMarket === market && "bg-primary text-primary-foreground",
+                            )}
+                          >
+                            {market === "NEW_YORK" ? "NY" : market === "TOKYO" ? "TKY" : market}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                        Rows
+                        <input
+                          aria-label="Session Volume Profile rows"
+                          type="number"
+                          min={10}
+                          max={100}
+                          step={1}
+                          value={sessionVolumeProfileRows}
+                          onChange={(event) => onSessionVolumeProfileRows(Number(event.target.value))}
+                          className="w-16 rounded border border-border bg-background px-1.5 py-0.5 text-right text-foreground outline-none focus:border-primary"
+                        />
+                      </label>
+                      {!sessionProfileSupported && (
+                        <div className="text-[10px] text-muted-foreground">Available on 1m–1h</div>
+                      )}
+                    </div>
                   )}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: ind.color }}
-                  />
-                  <span className="flex-1">{ind.label}</span>
-                  <span className="text-[10px] text-muted-foreground">{ind.pane}</span>
-                </button>
+                </div>
               ))}
             </div>
           )}
