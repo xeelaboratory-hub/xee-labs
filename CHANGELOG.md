@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-08-17
+
+### Added
+- Collapsible bottom, right, and drawing-tool panels with persistent,
+  discoverable controls that remain available while each panel is collapsed.
+- ETF Flow values on marker hover, with clearer yellow chart markers.
+- Per-user server-side UI preferences backed by PostgreSQL, including chart,
+  panel, symbol, timeframe, watchlist, sound, trading-mode, and ETF settings.
+  Guests retain local browser persistence, and their settings become the
+  initial account snapshot on first login.
+
+### Changed
+- Market data and charting now open directly without requiring login;
+  authentication remains available for account and trading actions.
+- The candle countdown now appears inside the current-price label, matching
+  the familiar TradingView placement.
+- The indicator and chart-plugin surfaces were simplified to the currently
+  useful ETF Flow indicator and Session Breaks plugin.
+- The drawing toolbar was consolidated into one grouped left rail.
+
+### Removed
+- Unused News and challenge UI, TradingView analytics panel, chart templates,
+  legacy indicator choices, and inactive chart-plugin implementations.
+
+### Fixed
+- Drawing tools no longer overlap the OHLC legend.
+- Collapse controls no longer obstruct panel resizing or disappear when their
+  panel is closed.
+
 ## [1.3.0] - 2026-08-16
 
 ### Added
