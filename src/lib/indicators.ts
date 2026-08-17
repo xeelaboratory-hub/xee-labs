@@ -1,5 +1,6 @@
 export type IndicatorType = "ETF_FLOW";
 export const ETF_FLOW_COLOR = "#f0b90b";
+export const ETF_FLOW_MARKER_SIZE = 1.2;
 
 export const INDICATOR_REGISTRY = [
   {

@@ -2,10 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   flowDateToIsraelMorningUtcMs,
   computeEtfFlowMarkers,
+  formatEtfFlowValue,
   getCandleBucketTime,
 } from "@/pages/trading/utils";
 import type { EtfFlow } from "@/services/api/market-data";
-import { ETF_FLOW_COLOR } from "@/lib/indicators";
+import { ETF_FLOW_COLOR, ETF_FLOW_MARKER_SIZE } from "@/lib/indicators";
 import type { CandlestickData, Time } from "lightweight-charts";
 
 function candle(timeSec: number): CandlestickData<Time> {
@@ -54,7 +55,7 @@ describe("computeEtfFlowMarkers", () => {
     ];
     const markers = computeEtfFlowMarkers(flows, chartData, "1d");
     expect(markers).toEqual([
-      { time: dayCandle, position: "belowBar", shape: "arrowUp", color: ETF_FLOW_COLOR, id: "2026-08-14" },
+      { time: dayCandle, position: "belowBar", shape: "arrowUp", color: ETF_FLOW_COLOR, size: ETF_FLOW_MARKER_SIZE, id: "2026-08-14" },
     ]);
   });
 
@@ -64,7 +65,7 @@ describe("computeEtfFlowMarkers", () => {
     ];
     const markers = computeEtfFlowMarkers(flows, chartData, "1d");
     expect(markers).toEqual([
-      { time: dayCandle, position: "aboveBar", shape: "arrowDown", color: ETF_FLOW_COLOR, id: "2026-08-14" },
+      { time: dayCandle, position: "aboveBar", shape: "arrowDown", color: ETF_FLOW_COLOR, size: ETF_FLOW_MARKER_SIZE, id: "2026-08-14" },
     ]);
   });
 
@@ -113,5 +114,12 @@ describe("computeEtfFlowMarkers", () => {
     ];
     const markers = computeEtfFlowMarkers(flows, twoDayChart, "1d");
     expect(markers.map((m) => m.time)).toEqual([earlyDay, lateDay]);
+  });
+});
+
+describe("formatEtfFlowValue", () => {
+  it("formats signed ETF flows in millions of dollars", () => {
+    expect(formatEtfFlowValue(655.3)).toBe("+$655.3M");
+    expect(formatEtfFlowValue(-43.1)).toBe("-$43.1M");
   });
 });

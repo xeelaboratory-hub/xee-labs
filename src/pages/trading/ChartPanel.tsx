@@ -34,6 +34,7 @@ import { SessionBreaks } from "../../lib/chart-plugins/session-breaks/session-br
 import type { IndicatorType } from "../../lib/indicators.ts";
 import { cn } from "../../lib/utils.ts";
 import { api } from "../../services/api.ts";
+import type { EtfFlow } from "../../services/api/market-data.ts";
 import { queryKeys, useEtfFlows } from "../../services/queries.ts";
 import type { Candle, Order, Position, Symbol } from "../../services/schemas.ts";
 import { toast } from "../../services/toast.ts";
@@ -60,6 +61,7 @@ import { useIndicators } from "./useIndicators.ts";
 import { useSlTpDrag } from "./useSlTpDrag.ts";
 import {
   formatCountdown,
+  formatEtfFlowValue,
   getCandleBucketTime,
   getMinMove,
   toUnixMs,
@@ -958,6 +960,7 @@ export function ChartPanel({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const etfFlowByIdRef = useRef<Map<string, EtfFlow>>(new Map());
 
   // Scroll-triggered historical extension — older bars prepended as the user
   // scrolls left past what the initial deep-fetch already loaded.
@@ -989,6 +992,11 @@ export function ChartPanel({
 
   // OHLCV legend state
   const [legend, setLegend] = useState<OhlcvLegend | null>(null);
+  const [etfTooltip, setEtfTooltip] = useState<{
+    x: number;
+    y: number;
+    flow: EtfFlow;
+  } | null>(null);
   // Candle countdown state
   const [countdown, setCountdown] = useState("");
   // True once the legend has been restored to the latest bar after the crosshair
@@ -1202,6 +1210,12 @@ export function ChartPanel({
 
   const { data: etfFlowData } = useEtfFlows();
   useIndicators(candleSeriesRef, chartData, activeIndicators, etfFlowData, timeframe);
+  useEffect(() => {
+    etfFlowByIdRef.current = activeIndicators.includes("ETF_FLOW")
+      ? new Map((etfFlowData ?? []).map((flow) => [flow.flowDate, flow]))
+      : new Map();
+    setEtfTooltip(null);
+  }, [activeIndicators, etfFlowData, timeframe]);
 
   // ── Candle close countdown timer ───────────────────────────
   useEffect(() => {
@@ -1342,6 +1356,17 @@ export function ChartPanel({
 
     // Subscribe to crosshair move for OHLCV legend
     chart.subscribeCrosshairMove((param) => {
+      const hoveredId = typeof param.hoveredObjectId === "string" ? param.hoveredObjectId : null;
+      const hoveredFlow = hoveredId ? etfFlowByIdRef.current.get(hoveredId) : undefined;
+      if (hoveredFlow && param.point && containerRef.current) {
+        setEtfTooltip({
+          x: Math.min(param.point.x + 12, Math.max(8, containerRef.current.clientWidth - 150)),
+          y: Math.max(8, param.point.y - 44),
+          flow: hoveredFlow,
+        });
+      } else {
+        setEtfTooltip(null);
+      }
       if (!param?.time) {
         restoreLegendOnLeave(legendRestoredRef, lastCandleRef, legendVolRef, setLegend);
         return;
@@ -1721,6 +1746,19 @@ export function ChartPanel({
         pipDigits={pipDigits}
         showOhlcLegend={chartPrefs.showOhlcLegend}
       />
+
+      {etfTooltip && (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute z-30 rounded-md border border-[#f0b90b]/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
+          style={{ left: etfTooltip.x, top: etfTooltip.y }}
+        >
+          <div className="text-[10px] text-muted-foreground">ETF Flow · {etfTooltip.flow.flowDate}</div>
+          <div className="font-mono text-xs font-semibold text-[#f0b90b]">
+            {formatEtfFlowValue(etfTooltip.flow.totalNetFlow)}
+          </div>
+        </div>
+      )}
 
       {/* Drag-to-edit tooltip */}
       {dragPrice && (
