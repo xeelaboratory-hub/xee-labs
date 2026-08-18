@@ -215,6 +215,9 @@ Adjacent deployment gaps found:
 
 ## 3. Roadmap item 2 — the desktop question
 
+*Answered in section 4: notifications only, no install. The service-worker
+constraint below still applies in full — it is what scopes that answer.*
+
 The manifest is real and complete: `public/manifest.json` has `standalone`
 display, theme colours, eight icon sizes with maskable variants, and a
 shortcut. `index.html` links it and carries the Apple meta tags.
@@ -236,36 +239,55 @@ the answer to the desktop question more than it first appears.
 
 ---
 
-## 4. Decisions required before implementation
+## 4. Decisions — owner's answers, 2026-08-18
 
-These are the owner's calls. Each materially changes what gets built, and the
-work behind them cannot start on an assumption.
+### Decided
 
-1. **Desktop form factor.** Installed PWA (service worker + Web Push, one
-   codebase, covers desktop and Android; iOS requires Home Screen install), or
-   a full Electron/Tauri desktop app (native notifications, auto-update,
-   background process, real tray presence — and a second build, signing, and
-   release pipeline), or notifications only with no install story.
-   *A PWA is the cheapest path that satisfies "alerts when the app is closed"
-   on desktop, Android, and iOS, and it is a prerequisite for Web Push in every
-   case — so it is worth building even if a native app follows later.*
-2. **One-time $10 or $10/month.** This decides whether the schema needs a
-   subscription lifecycle (renewals, dunning, cancellation, proration, grace
-   periods, expiry) or a single `paid_at` row. It is roughly a 5× difference in
-   payment scope, and it also decides whether the refund/cancellation policy
-   the QA list requires is a paragraph or a real flow.
-3. **Processor.** Stripe (best API and docs, but the seller of record is you —
-   you handle VAT/sales tax registration) versus a merchant of record like
-   Paddle or Lemon Squeezy (they handle tax and invoicing, higher fee, less
-   flexible API). For a $10 product sold internationally by a single operator,
-   the tax handling usually dominates the fee difference.
+**Desktop form factor: notifications only. No install story, no PWA promotion.**
 
-A fourth, smaller decision: **what the $10 actually buys.** Nothing in the app
-is currently gated, so "permissions after payment" has no subject. Alerts are
-the natural gate — but if alerts are free, the product needs a different paid
-surface before payment can be built at all.
+This is workable, with one hard constraint that follows from the platform and
+not from the design:
 
----
+- **A service worker is still required.** Web Push does not exist without one
+  on any browser. The decision therefore scopes it down rather than away — a
+  push receiver only: no install prompt, no `beforeinstallprompt` handling, no
+  offline caching, no app-shell strategy. Just `push` and `notificationclick`
+  handlers plus a VAPID subscription. That is a much smaller service worker
+  than a PWA needs, and it is the whole of it.
+- **iOS will not deliver closed-app alerts under this decision.** Safari only
+  delivers Web Push to a web app the user has explicitly added to the Home
+  Screen (iOS 16.4+). No Home Screen install means no iPhone notifications when
+  the app is closed — not a bug to fix later, a platform rule. Desktop
+  (Chrome/Edge/Firefox) and Android Chrome are fully covered.
+- Because iPhone is uncovered by push, **the Discord integration carries more
+  weight than it first appeared.** For an iOS user, Discord is the only
+  closed-app delivery channel on the table. Worth building it as a first-class
+  path, not a nice-to-have.
+
+**Billing: $10/month subscription.**
+
+This is the larger of the two payment shapes. It needs a real lifecycle:
+renewals, failed-payment dunning, cancellation, expiry, and entitlement that
+changes over time rather than a single `paid_at` boolean. It also means the
+refund/cancellation policy the QA list calls for is a genuine flow, and that
+the mismatch case (subscription active, entitlement missing — or the reverse
+after a cancellation) needs the reconciliation query described in section 2.
+
+### Still open
+
+**Processor: undecided.** Not blocking today — payments sit at step 6 of the
+sequence. For a $10/month subscription sold internationally by a single
+operator, a merchant of record (Paddle, Lemon Squeezy) is the recommendation:
+they register and remit VAT/sales tax in every jurisdiction, which for
+recurring cross-border billing is a materially larger burden than the fee
+difference. Stripe's API is better and more flexible, but it makes you the
+seller of record. Revisit when payment work starts.
+
+**What the $10 gates: undecided.** Nothing in the app is currently locked, so
+entitlement has no subject yet. Alerts are the natural candidate — they are the
+only item on the roadmap with ongoing value to the user *and* an ongoing
+server-side cost to run (a 24/7 evaluator). This does not block the alerts
+work; it blocks the payment work, which comes after it either way.
 
 ## 5. QA suite, made concrete for this codebase
 
@@ -306,8 +328,8 @@ docker-compose with a seeded OKX **demo** credential:
 
 Server-side evaluator: trigger accuracy at the boundary, exactly-once delivery
 across an evaluator restart, no re-fire on WS reconnect, correct timezone in the
-rendered notification, delivery with the browser closed, delivery on mobile
-(installed PWA), Discord webhook success and failure/retry, browser permission
+rendered notification, delivery with the browser closed on desktop and
+Android, and the iOS case explicitly asserted as Discord-only (see section 4), Discord webhook success and failure/retry — the only iOS closed-app path, browser permission
 denied → in-app fallback and an honest explanation, offline at trigger time →
 queued or explicitly dropped (decide which, then test it), muted alert does not
 fire, deleted alert does not fire.
@@ -382,7 +404,7 @@ not seen the app does this.
 
 ## 6. Suggested sequencing
 
-Derived from the dependencies above, not from the roadmap's order:
+Updated for the decisions above.
 
 1. **Idempotency on order placement** (`clOrdId` end to end) and fix the
    timeout copy. Small, self-contained, closes blocker 1, and it is the only
@@ -390,14 +412,16 @@ Derived from the dependencies above, not from the roadmap's order:
 2. **CI + the Playwright harness**, with 5.1 and 5.2 as the first specs. Every
    later item is verified by this, so it pays for itself immediately. Fix the
    non-hermetic OKX test as part of this.
-3. **Service worker**, once the desktop decision lands. Unblocks installability
-   and Web Push.
-4. **Alert subsystem**: table → server-side evaluator → delivery fan-out (Web
-   Push, Discord) → CRUD UI → the right-click additions (measure tool, alert
-   management). Largest item on the list.
+3. **Push-receiver service worker** — no install prompt, no offline caching.
+   Unblocks Web Push on desktop and Android.
+4. **Alert subsystem**: `alerts` table → server-side evaluator → delivery
+   fan-out (Web Push + Discord, with Discord as the only iOS path) → CRUD UI →
+   the right-click additions (measure tool, alert management). Largest item on
+   the list.
 5. **Legal pages** — can run in parallel with anything; blocks processor
-   onboarding.
-6. **Payments**, once decisions 2 and 3 land and there is something to gate.
+   onboarding, and a subscription needs a cancellation policy before a
+   processor will approve the account.
+6. **Payments**, once the processor and the paid gate are decided.
 7. **Deployment hardening**: `index.html` cache headers, a real readiness
    endpoint, restart policies, Postgres credentials out of compose, error
    monitoring, backup/restore, and a rehearsed rollback.
