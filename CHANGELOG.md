@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-08-21
+
+### Added
+- Client-side validation of OKX API credentials in the Exchange Connections
+  form (`src/lib/okx-credentials.ts`), catching mis-pastes before a broken
+  credential is encrypted and stored. Blocking checks cover an empty or
+  whitespace-only field, a secret identical to the key, and a UUID-shaped
+  secret; the format checks that assert OKX's current shapes (UUID key,
+  32-character hex secret) are warnings only, so a format change on OKX's
+  side cannot lock a user out of saving a valid credential.
+
+### Changed
+- Credential fields are trimmed before submission — a pasted trailing
+  newline was previously stored and counted by OKX as part of the value.
+
+### Fixed
+- A credential rejected by OKX previously surfaced only as a generic
+  "Exchange error" in the status strip, naming no field and not
+  distinguishing a mis-paste from a revoked key or an IP-whitelist block.
+  The form now reports the specific problem as it is typed and disables
+  the save button while a blocking problem remains.
+
 ## [1.6.1] - 2026-08-20
 
 ### Added
