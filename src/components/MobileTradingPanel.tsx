@@ -167,8 +167,11 @@ export function MobileTradingPanel({
           {/* Limit price input */}
           {orderType === "LIMIT" && (
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Limit Price</label>
+              <label htmlFor="mobile-limit-price" className="text-xs text-slate-400 mb-1 block">
+                Limit Price
+              </label>
               <input
+                id="mobile-limit-price"
                 type="number"
                 step="any"
                 value={limitPrice}

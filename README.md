@@ -251,21 +251,22 @@ backend/                    # FastAPI service — auth, OKX trading, market data
 ├─ tests/
 └─ Dockerfile
 nginx.conf                  # frontend container's /api, /ws reverse proxy
-docker-compose.yml          # frontend + backend + postgres
+docker-compose.yml          # frontend + backend + postgres + etf-scraper
 ```
 
 ## Running with Docker
 
 ```bash
-cp .env.example .env   # fill in CREDENTIAL_ENCRYPTION_KEY and JWT_SECRET
+cp .env.example .env   # fill in CREDENTIAL_ENCRYPTION_KEY, JWT_SECRET, and POSTGRES_PASSWORD
 docker compose up --build
 ```
 
-This builds and runs three services:
+This builds and runs four services:
 
 - **`postgres`** — internal to the compose network only, not published to
   the host.
-- **`backend`** — the FastAPI service, published on `:3000`. Its entrypoint
+- **`backend`** — the FastAPI service, bound to `127.0.0.1:3000` on the
+  host (local-only, not reachable from outside the machine). Its entrypoint
   (`backend/docker-entrypoint.sh`) runs `alembic upgrade head` before
   starting uvicorn, so a fresh `docker compose up --build` against an empty
   Postgres works with no manual migration step.
@@ -275,6 +276,8 @@ This builds and runs three services:
   `:8080` — REST and WebSocket both go through the same origin, mirroring
   `vite.config.ts`'s dev proxy so no frontend code needs to know about the
   container topology.
+- **`etf-scraper`** — no published port; keeps the `etf_flows` table current
+  against the same Postgres (see `scraper/`).
 
 Rebuild (`docker compose build`) whenever `Dockerfile`, `backend/Dockerfile`,
 `backend/pyproject.toml`, `backend/alembic/versions/` (new migration),

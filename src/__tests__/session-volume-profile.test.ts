@@ -82,4 +82,37 @@ describe("calculateSessionVolumeProfile", () => {
     expect(calculateSessionVolumeProfile(window, bars, 100)!.rows).toHaveLength(100);
     expect(calculateSessionVolumeProfile(window, bars, 999)!.rows).toHaveLength(100);
   });
+
+  it("returns null when no bars fall inside the session window", () => {
+    const outsideSession = bar(window.start - 3600, 100, 101, 5);
+    expect(calculateSessionVolumeProfile(window, [outsideSession], 10)).toBeNull();
+  });
+
+  it("ignores bars with zero or non-finite volume/price fields", () => {
+    const zeroVolume = bar(window.start + 60, 100, 101, 0);
+    const nanHigh = { ...bar(window.start + 120, 100, 101, 5), high: NaN };
+    expect(calculateSessionVolumeProfile(window, [zeroVolume, nanHigh], 10)).toBeNull();
+  });
+
+  it("expands the value area outward from the POC without exceeding the 70% target", () => {
+    // Five equal-volume rows spread across the session; the algorithm grows the
+    // value area from the POC (middle row) outward, but stops before any addition
+    // would push it past 70% of total volume — so it can land under 70%, never over.
+    const bars = [
+      bar(window.start + 60, 100, 100.2, 10),
+      bar(window.start + 120, 100.2, 100.4, 10),
+      bar(window.start + 180, 100.4, 100.6, 10),
+      bar(window.start + 240, 100.6, 100.8, 10),
+      bar(window.start + 300, 100.8, 101.0, 10),
+    ];
+    const profile = calculateSessionVolumeProfile(window, bars, 5)!;
+    const valueAreaCount = profile.rows.filter((row) => row.isValueArea).length;
+    const valueAreaVolume = profile.rows
+      .filter((row) => row.isValueArea)
+      .reduce((sum, row) => sum + row.total, 0);
+    expect(valueAreaVolume / profile.totalVolume).toBeLessThanOrEqual(0.7);
+    expect(valueAreaCount).toBeGreaterThan(1);
+    expect(profile.vah).toBeGreaterThan(profile.poc);
+    expect(profile.val).toBeLessThan(profile.poc);
+  });
 });

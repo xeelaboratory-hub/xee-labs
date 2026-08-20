@@ -120,15 +120,22 @@ that owns three things: market data (CryptoFeed + per-exchange REST), auth
   STOP orders and take-profit/stop-loss are intentionally not implemented
   here — see [PROJECT-CONTEXT.md](../PROJECT-CONTEXT.md)'s known limitations.
 
-**Docker topology**: `docker-compose.yml` runs three services: `postgres`
+**Docker topology**: `docker-compose.yml` runs four services: `postgres`
 (internal to the compose network only, not published to the host), `backend`
-(published on `:3000` — its entrypoint runs `alembic upgrade head` before
+(bound to `127.0.0.1:3000` on the host — local-only, not reachable from
+outside the machine; its entrypoint runs `alembic upgrade head` before
 starting uvicorn, so a fresh `docker compose up --build` against an empty
-Postgres works with no manual migration step), and `frontend` (nginx on
-`:8080`). `nginx.conf` reverse-proxies `/api` and `/ws` from the frontend
-container to `backend:3000` over the compose network, so the browser only
-ever talks to one origin — the same same-origin shape `vite.config.ts`'s dev
-proxy gives local dev. See [../../README.md](../../README.md#running-with-docker).
+Postgres works with no manual migration step), `frontend` (nginx on
+`:8080`), and `etf-scraper` (no published port — keeps `etf_flows` current
+against the same Postgres). `nginx.conf` reverse-proxies `/api` and `/ws`
+from the frontend container to `backend:3000` over the compose network, so
+the browser only ever talks to one origin — the same same-origin shape
+`vite.config.ts`'s dev proxy gives local dev. `backend` is still reachable a
+second, un-proxied way — from the host itself via `127.0.0.1:3000`, or from
+another container on the same Docker network — see
+`backend/app/auth/rate_limit.py`'s proxy-trust handling for why that still
+matters even though it's no longer internet-reachable. See
+[../../README.md](../../README.md#running-with-docker).
 
 ## Chart plugin architecture
 
@@ -193,9 +200,13 @@ the poll interval.
   target, RAF-batched tick cache, live candle updates).
 - **TanStack Query** (`services/queries.ts`) for everything server-shaped:
   account, positions, orders, trade history, symbols, candles.
-- Chart drawings and chart preferences persist directly to `localStorage`
-  (`useChartDrawings`/`services/localDrawings.ts`, `useChartPreferences`) — no
-  backend involved.
+- Chart drawings persist directly to `localStorage`
+  (`useChartDrawings`/`services/localDrawings.ts`) — no backend involved.
+  Chart **preferences** (`useChartPreferences`) go through
+  `services/preferences.ts`'s local cache too, but for logged-in users
+  `App.tsx` syncs that cache with the backend (`GET`/`PUT /api/preferences`,
+  a real `user_preferences` Postgres table, debounced 500ms on change) — it's
+  not `localStorage`-only.
 
 ## Known issues / gotchas
 

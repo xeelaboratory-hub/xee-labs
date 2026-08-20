@@ -56,6 +56,11 @@ export function useAccount(mode: TradingMode | null, opts?: Partial<UseQueryOpti
     queryFn: () => api.getAccount(mode!),
     enabled: !!accessToken && !!mode,
     staleTime: 15_000,
+    // No WS push for balance/equity — poll so it can't go silently out of
+    // date while a user is watching it (matches positions/orders below,
+    // which hit the same gap for the same reason).
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: false,
     ...opts,
   });
 }

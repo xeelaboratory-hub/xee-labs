@@ -2,21 +2,45 @@
 import { useState, useEffect, useSyncExternalStore } from "react";
 import { wsClient, type ConnectionState } from "@/services/ws";
 import { useMarketDataHealth } from "@/services/queries";
+import type { MarketDataExchangeHealth, MarketDataHealth } from "@/services/api/market-data";
 import { cn } from "@/lib/utils";
 import { Wifi, WifiOff, Loader2 } from "lucide-react";
 
-interface MarketDataHealthSnapshot {
-  adapter?: {
-    status?: string;
-    reason?: string;
-  } | null;
-  staleCount?: number;
-  totalSymbols?: number;
-  lastTickAgeMs?: number;
+function isMarketDataHealth(health: unknown): health is MarketDataHealth {
+  if (typeof health !== "object" || health === null) return false;
+  return Object.values(health as Record<string, unknown>).every(
+    (v) => typeof v === "object" && v !== null && typeof (v as MarketDataExchangeHealth).connected === "boolean",
+  );
 }
 
-function isMarketDataInterrupted(health: unknown): health is MarketDataHealthSnapshot {
-  return typeof health === "object" && health !== null;
+const EXCHANGE_LABELS: Record<string, string> = { binance: "Binance", okx: "OKX" };
+
+// An exchange feed counts as stale once it's gone this long without a live
+// event — well past normal per-tick cadence, short enough to surface a real
+// outage quickly.
+const STALE_EVENT_AGE_MS = 30_000;
+
+interface HealthSummary {
+  disconnected: string[];
+  stale: string[];
+  total: number;
+}
+
+function summarizeHealth(health: MarketDataHealth): HealthSummary {
+  const now = Date.now();
+  const entries = Object.entries(health);
+  const disconnected: string[] = [];
+  const stale: string[] = [];
+  for (const [exchange, status] of entries) {
+    if (!status.connected) {
+      disconnected.push(exchange);
+      continue;
+    }
+    if (status.lastEventAt === null || now - status.lastEventAt > STALE_EVENT_AGE_MS) {
+      stale.push(exchange);
+    }
+  }
+  return { disconnected, stale, total: entries.length };
 }
 
 // ── React Hook ──────────────────────────────────────────
@@ -45,24 +69,9 @@ export function useStaleData(): boolean {
   const [stale, setStale] = useState(false);
 
   const marketDataInterrupted = (() => {
-    if (!isMarketDataInterrupted(health)) return false;
-
-    // Explicit provider interruption from backend should always surface.
-    if (health.adapter?.status === "unavailable") return true;
-
-    // No ticks observed since process start.
-    if (typeof health.lastTickAgeMs === "number" && health.lastTickAgeMs < 0) return true;
-
-    // Avoid false positives from partial staleness (some symbols stale while others are fine).
-    // Treat as interrupted only when all tracked symbols are stale and stale age is significant.
-    const staleCount = typeof health.staleCount === "number" ? health.staleCount : 0;
-    const totalSymbols = typeof health.totalSymbols === "number" ? health.totalSymbols : 0;
-    const lastTickAgeMs = typeof health.lastTickAgeMs === "number" ? health.lastTickAgeMs : 0;
-    if (totalSymbols > 0 && staleCount >= totalSymbols && lastTickAgeMs > 30_000) {
-      return true;
-    }
-
-    return false;
+    if (!isMarketDataHealth(health)) return false;
+    const { disconnected, stale: staleExchanges } = summarizeHealth(health);
+    return disconnected.length > 0 || staleExchanges.length > 0;
   })();
 
   useEffect(() => {
@@ -129,25 +138,21 @@ export function StaleDataBanner() {
   if (!stale) return null;
 
   const message = (() => {
-    if (isMarketDataInterrupted(health)) {
-      const interruptionReason = health.adapter?.reason;
-      if (health.adapter?.status === "unavailable") {
-        return interruptionReason
-          ? `Live Feed Outage — ${interruptionReason}. Historical charts may still render from stored candles.`
-          : "Live Feed Outage — live market data is unavailable. Historical charts may still render from stored candles.";
-      }
+    if (isMarketDataHealth(health)) {
+      const { disconnected, stale: staleExchanges, total } = summarizeHealth(health);
+      const label = (names: string[]) => names.map((n) => EXCHANGE_LABELS[n] ?? n).join(", ");
 
-      if (typeof health.lastTickAgeMs === "number" && health.lastTickAgeMs < 0) {
-        return "Historical-Only Mode — no live ticks yet. Charts are rendering from historical data.";
+      if (disconnected.length >= total && total > 0) {
+        return "Live Feed Outage — exchange connections are down. Historical charts may still render from stored candles.";
       }
-
-      const staleCount = typeof health.staleCount === "number" ? health.staleCount : 0;
-      const totalSymbols = typeof health.totalSymbols === "number" ? health.totalSymbols : 0;
-      if (totalSymbols > 0 && staleCount >= totalSymbols) {
-        return "Live Feed Degraded — symbols are stale and live updates are delayed. Historical charts remain available.";
+      if (disconnected.length > 0) {
+        return `Feed Degraded — ${label(disconnected)} disconnected. Trading may be impacted for affected symbols.`;
       }
-      if (staleCount > 0) {
-        return "Feed Degraded — some symbols are delayed. Trading may be impacted for affected symbols.";
+      if (staleExchanges.length >= total && total > 0) {
+        return "Live Feed Degraded — no recent updates from any exchange. Historical charts remain available.";
+      }
+      if (staleExchanges.length > 0) {
+        return `Feed Degraded — ${label(staleExchanges)} hasn't reported a recent update. Trading may be impacted for affected symbols.`;
       }
     }
 

@@ -1,9 +1,13 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str
+    # Matches LoginPage.tsx's `minLength={8}` for the register form — the
+    # frontend constraint is just UX, this is the actual enforcement. Upper
+    # bound is a sanity cap (not a policy choice) against oversized payloads
+    # before they reach bcrypt.
+    password: str = Field(min_length=8, max_length=128)
     firstName: str
     lastName: str
 

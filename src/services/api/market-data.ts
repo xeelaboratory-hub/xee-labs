@@ -39,6 +39,15 @@ export interface MarketDataCandleMetadata {
   backfillQueued: boolean;
 }
 
+// Mirrors backend/app/schemas.py ExchangeHealth / HealthResponse — one entry
+// per exchange, keyed by exchange name.
+export interface MarketDataExchangeHealth {
+  connected: boolean;
+  lastEventAt: number | null; // unix ms
+}
+
+export type MarketDataHealth = Record<string, MarketDataExchangeHealth>;
+
 export interface MarketDataCandlesPayload {
   candles: MarketDataCandle[];
   metadata: MarketDataCandleMetadata;
@@ -145,7 +154,7 @@ export const marketdataApi = {
     );
   },
 
-  getMarketDataHealth: () => request<Record<string, unknown>>("/market-data/health"),
+  getMarketDataHealth: () => request<MarketDataHealth>("/market-data/health"),
 
   getEconomicCalendar: (currencies?: string[], from?: string, to?: string) => {
     const params = new URLSearchParams();

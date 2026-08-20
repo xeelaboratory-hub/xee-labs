@@ -169,14 +169,8 @@ function priceForRow(row: VolumeProfileRow): number {
   return (row.low + row.high) / 2;
 }
 
-export function calculateSessionVolumeProfile(
-  window: SessionWindow,
-  bars: readonly OhlcvBar[],
-  requestedRows: number,
-  now = Math.floor(Date.now() / 1_000),
-): SessionVolumeProfile | null {
-  const count = Math.min(100, Math.max(10, Math.round(requestedRows)));
-  const sessionBars = bars.filter(
+function filterSessionBars(bars: readonly OhlcvBar[], window: SessionWindow): OhlcvBar[] {
+  return bars.filter(
     (bar) =>
       Number.isFinite(bar.low) &&
       Number.isFinite(bar.high) &&
@@ -184,13 +178,10 @@ export function calculateSessionVolumeProfile(
       bar.volume > 0 &&
       isInSession(bar.time, window),
   );
-  if (!sessionBars.length) return null;
+}
 
-  const low = Math.min(...sessionBars.map((bar) => bar.low));
-  const high = Math.max(...sessionBars.map((bar) => bar.high));
-  const span = high - low;
-  const rowHeight = span || Math.max(Math.abs(low) * 1e-8, 1e-8);
-  const rows: VolumeProfileRow[] = Array.from({ length: count }, (_, index) => ({
+function buildEmptyRows(low: number, rowHeight: number, count: number): VolumeProfileRow[] {
+  return Array.from({ length: count }, (_, index) => ({
     low: low + (rowHeight * index) / count,
     high: low + (rowHeight * (index + 1)) / count,
     up: 0,
@@ -198,44 +189,94 @@ export function calculateSessionVolumeProfile(
     total: 0,
     isValueArea: false,
   }));
+}
 
-  for (const bar of sessionBars) {
-    const start =
-      span === 0 ? 0 : Math.min(count - 1, Math.max(0, Math.floor(((bar.low - low) / span) * count)));
-    const end = span === 0 ? 0 : Math.min(count - 1, Math.floor(((bar.high - low) / span) * count));
-    const volume = bar.volume / (end - start + 1);
-    for (let index = start; index <= end; index++) {
-      const row = rows[index]!;
-      if (bar.close >= bar.open) row.up += volume;
-      else row.down += volume;
-      row.total += volume;
-    }
+/** Spreads one bar's volume evenly across the price rows it overlaps. */
+function distributeBarVolume(
+  rows: VolumeProfileRow[],
+  bar: OhlcvBar,
+  low: number,
+  span: number,
+  count: number,
+): void {
+  const start = span === 0 ? 0 : Math.min(count - 1, Math.max(0, Math.floor(((bar.low - low) / span) * count)));
+  const end = span === 0 ? 0 : Math.min(count - 1, Math.floor(((bar.high - low) / span) * count));
+  const volume = bar.volume / (end - start + 1);
+  for (let index = start; index <= end; index++) {
+    const row = rows[index]!;
+    if (bar.close >= bar.open) row.up += volume;
+    else row.down += volume;
+    row.total += volume;
   }
+}
 
-  const totalVolume = rows.reduce((total, row) => total + row.total, 0);
+function findPointOfControlIndex(rows: readonly VolumeProfileRow[]): number {
   let pocIndex = 0;
   for (let index = 1; index < rows.length; index++) {
     if (rows[index]!.total > rows[pocIndex]!.total) pocIndex = index;
   }
+  return pocIndex;
+}
 
+/** The next row to add to the value area: the pricier neighbor on a tie. */
+function pickNextRowToExpand(
+  rows: readonly VolumeProfileRow[],
+  valueLow: number,
+  valueHigh: number,
+): number | null {
+  const above = valueHigh + 1 < rows.length ? valueHigh + 1 : null;
+  const below = valueLow - 1 >= 0 ? valueLow - 1 : null;
+  if (above === null && below === null) return null;
+  const aboveVolume = above === null ? -1 : rows[above]!.total;
+  const belowVolume = below === null ? -1 : rows[below]!.total;
+  // Equal volumes intentionally choose the higher price row.
+  return aboveVolume >= belowVolume ? above : below;
+}
+
+/** Grows the value area outward from the POC until ~70% of volume is captured. */
+function expandValueArea(
+  rows: VolumeProfileRow[],
+  pocIndex: number,
+  totalVolume: number,
+): { valueLow: number; valueHigh: number } {
   let valueLow = pocIndex;
   let valueHigh = pocIndex;
   let valueVolume = rows[pocIndex]!.total;
   const target = totalVolume * VALUE_AREA_PERCENT;
   while (valueVolume < target) {
-    const above = valueHigh + 1 < rows.length ? valueHigh + 1 : null;
-    const below = valueLow - 1 >= 0 ? valueLow - 1 : null;
-    if (above === null && below === null) break;
-    const aboveVolume = above === null ? -1 : rows[above]!.total;
-    const belowVolume = below === null ? -1 : rows[below]!.total;
-    // Equal volumes intentionally choose the higher price row.
-    const next = aboveVolume >= belowVolume ? above : below;
+    const next = pickNextRowToExpand(rows, valueLow, valueHigh);
     if (next === null || valueVolume + rows[next]!.total > target) break;
     rows[next]!.isValueArea = true;
     valueVolume += rows[next]!.total;
     if (next > valueHigh) valueHigh = next;
     else valueLow = next;
   }
+  return { valueLow, valueHigh };
+}
+
+export function calculateSessionVolumeProfile(
+  window: SessionWindow,
+  bars: readonly OhlcvBar[],
+  requestedRows: number,
+  now = Math.floor(Date.now() / 1_000),
+): SessionVolumeProfile | null {
+  const count = Math.min(100, Math.max(10, Math.round(requestedRows)));
+  const sessionBars = filterSessionBars(bars, window);
+  if (!sessionBars.length) return null;
+
+  const low = Math.min(...sessionBars.map((bar) => bar.low));
+  const high = Math.max(...sessionBars.map((bar) => bar.high));
+  const span = high - low;
+  const rowHeight = span || Math.max(Math.abs(low) * 1e-8, 1e-8);
+  const rows = buildEmptyRows(low, rowHeight, count);
+
+  for (const bar of sessionBars) {
+    distributeBarVolume(rows, bar, low, span, count);
+  }
+
+  const totalVolume = rows.reduce((total, row) => total + row.total, 0);
+  const pocIndex = findPointOfControlIndex(rows);
+  const { valueLow, valueHigh } = expandValueArea(rows, pocIndex, totalVolume);
   rows[pocIndex]!.isValueArea = true;
 
   return {

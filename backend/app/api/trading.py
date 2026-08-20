@@ -1,6 +1,7 @@
+import logging
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,9 +20,27 @@ from app.exchange.okx_client import OKXClient
 from app.security.encryption import decrypt_json
 from app.symbols import get_symbol
 
+LOG = logging.getLogger("trading")
+
 router = APIRouter(prefix="/api")
 
 Mode = Literal["demo", "live"]
+
+
+def _log_exchange_error(operation: str, *, exchange: str, user: User, mode: Mode, exc: ExchangeError) -> None:
+    # Never include exc.args beyond the message OKX/httpx already put there —
+    # verified (see okx_client.py) that path never embeds api_key/api_secret/
+    # passphrase. Bounded length as a defensive cap, not because a secret is
+    # expected to show up here.
+    LOG.warning(
+        "exchange_error operation=%s exchange=%s mode=%s user_id=%s code=%s message=%s",
+        operation,
+        exchange,
+        mode,
+        user.id,
+        exc.code,
+        str(exc)[:300],
+    )
 
 
 async def _get_okx_client(mode: Mode, user: User, db: AsyncSession) -> OKXClient:
@@ -49,15 +68,28 @@ class PlaceOrderRequest(BaseModel):
     symbol: str  # our symbol id, e.g. "OKX:BTCUSD" — not the exchange's own instId
     side: Literal["BUY", "SELL"]
     type: Literal["MARKET", "LIMIT"]
-    quantity: float
-    price: float | None = None
+    # Defense-in-depth before this ever reaches OKX: reject non-positive,
+    # NaN, and +/-Infinity. `gt=0` alone isn't enough for the infinity case —
+    # `inf > 0` is true — and standard JSON parsing (what Starlette uses for
+    # request bodies) accepts bare `NaN`/`Infinity` tokens, so this isn't a
+    # theoretical gap.
+    quantity: float = Field(gt=0, allow_inf_nan=False)
+    price: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def _limit_orders_require_a_price(self) -> "PlaceOrderRequest":
+        # Mirrors OrderPanel.tsx's existing client-side rule (validateOrderInput)
+        # — not a new business rule, just enforcing the same contract server-side.
+        if self.type == "LIMIT" and self.price is None:
+            raise ValueError("price is required for LIMIT orders")
+        return self
 
 
 class ClosePositionRequest(BaseModel):
     symbol: str  # our symbol id, e.g. "OKX:BTCUSD"
     posSide: Literal["long", "short", "net"]  # OKX's raw posSide — used verbatim for a full close
     side: Literal["LONG", "SHORT"]  # our derived side — picks the reduce-only order direction
-    quantity: float | None = None  # omit for a full close
+    quantity: float | None = Field(default=None, gt=0, allow_inf_nan=False)  # omit for a full close
 
 
 _CLOSING_ORDER_SIDE = {"LONG": "sell", "SHORT": "buy"}
@@ -125,6 +157,7 @@ async def place_order(
             price=str(body.price) if body.price is not None else None,
         )
     except ExchangeError as exc:
+        _log_exchange_error("place_order", exchange="okx", user=user, mode=mode, exc=exc)
         raise HTTPException(status_code=502, detail=str(exc))
     if not result or result[0].get("sCode") != "0":
         msg = result[0].get("sMsg") if result else "order placement failed"
@@ -151,6 +184,7 @@ async def close_position(
                 size=str(body.quantity),
             )
     except ExchangeError as exc:
+        _log_exchange_error("close_position", exchange="okx", user=user, mode=mode, exc=exc)
         raise HTTPException(status_code=502, detail=str(exc))
     if not result or result[0].get("sCode") not in ("0", None):
         msg = result[0].get("sMsg") if result else "position close failed"
@@ -183,6 +217,7 @@ async def cancel_order(
     try:
         result = await client.cancel_order(inst_id=inst_id, order_id=order_id)
     except ExchangeError as exc:
+        _log_exchange_error("cancel_order", exchange="okx", user=user, mode=mode, exc=exc)
         raise HTTPException(status_code=502, detail=str(exc))
     if not result or result[0].get("sCode") != "0":
         msg = result[0].get("sMsg") if result else "order cancellation failed"

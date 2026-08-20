@@ -76,7 +76,7 @@ export function OrderConfirmDialog({
 
   return (
     <>
-      <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+      <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm" onClick={onCancel} aria-hidden="true" />
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
           <div
