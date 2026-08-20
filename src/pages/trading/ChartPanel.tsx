@@ -821,7 +821,7 @@ function ChartLegendHeader({
 }) {
   return (
     <div className="absolute top-2 left-3 z-10 pointer-events-none select-none">
-      <div className="flex items-center gap-2 text-[11px] font-mono leading-none mb-1">
+      <div className="flex items-center gap-2 text-[13px] font-mono leading-none mb-1">
         {legend && showOhlcLegend && <OhlcvLegendRow legend={legend} pipDigits={pipDigits} />}
       </div>
     </div>
@@ -1858,7 +1858,7 @@ export function ChartPanel({
           className="pointer-events-none absolute z-30 rounded-md border border-[#f0b90b]/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
           style={{ left: etfTooltip.x, top: etfTooltip.y }}
         >
-          <div className="text-[10px] text-muted-foreground">ETF Flow · {etfTooltip.flow.flowDate}</div>
+          <div className="text-xs text-muted-foreground">ETF Flow · {etfTooltip.flow.flowDate}</div>
           <div className="font-mono text-xs font-semibold text-[#f0b90b]">
             {formatEtfFlowValue(etfTooltip.flow.totalNetFlow)}
           </div>
@@ -1871,25 +1871,25 @@ export function ChartPanel({
           className="pointer-events-none absolute z-30 min-w-48 rounded-md border border-[#0ecb81]/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
           style={{ left: sessionVolumeProfileTooltip.x, top: sessionVolumeProfileTooltip.y }}
         >
-          <div className="text-[10px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {sessionVolumeProfileTooltip.data.market} · {sessionVolumeProfileTooltip.data.date}
           </div>
-          <div className="font-mono text-[11px] text-foreground">
+          <div className="font-mono text-[13px] text-foreground">
             {sessionVolumeProfileTooltip.data.low.toFixed(pipDigits)}–
             {sessionVolumeProfileTooltip.data.high.toFixed(pipDigits)}
           </div>
-          <div className="mt-0.5 flex gap-2 font-mono text-[10px]">
+          <div className="mt-0.5 flex gap-2 font-mono text-xs">
             <span className="text-[#0ecb81]">Up {formatNumber(sessionVolumeProfileTooltip.data.up, 2)}</span>
             <span className="text-[#f6465d]">Down {formatNumber(sessionVolumeProfileTooltip.data.down, 2)}</span>
           </div>
-          <div className="font-mono text-[10px] text-muted-foreground">
+          <div className="font-mono text-xs text-muted-foreground">
             Total {formatNumber(sessionVolumeProfileTooltip.data.total, 2)} · {formatNumber(sessionVolumeProfileTooltip.data.percent, 1)}%
           </div>
         </div>
       )}
 
       {largeOrderHistoryUnavailable && activeIndicators.includes("LARGE_ORDER_BOOK") && (
-        <div className="pointer-events-none absolute right-16 top-2 z-20 rounded border border-amber-500/30 bg-card/90 px-2 py-1 text-[10px] text-amber-400">
+        <div className="pointer-events-none absolute right-16 top-2 z-20 rounded border border-amber-500/30 bg-card/90 px-2 py-1 text-xs text-amber-400">
           Large Order Book · live only
         </div>
       )}
@@ -1915,7 +1915,7 @@ export function ChartPanel({
         >
           <div
             className={cn(
-              "px-2 py-1 rounded text-[11px] font-mono font-bold shadow-lg border",
+              "px-2 py-1 rounded text-[13px] font-mono font-bold shadow-lg border",
               dragPrice.field === "TP"
                 ? "bg-[#0ecb81]/20 text-[#0ecb81] border-[#0ecb81]/40"
                 : "bg-[#f6465d]/20 text-[#f6465d] border-[#f6465d]/40",

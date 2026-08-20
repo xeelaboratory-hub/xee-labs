@@ -105,7 +105,7 @@ function MarginInfo({ symbolInfo, tick, side, quantity }: MarginInfoProps) {
   const margin = qty * (symbolInfo?.contractSize ?? 0) * price * ((symbolInfo?.marginPercent ?? 0) / 100);
   const commission = (symbolInfo?.commission ?? 0) * qty;
   return (
-    <div className="bg-secondary rounded p-2 text-[10px] space-y-1">
+    <div className="bg-secondary rounded p-2 text-xs space-y-1">
       <div className="flex justify-between">
         <span className="text-muted-foreground">Contract Size</span>
         <span>{symbolInfo?.contractSize?.toLocaleString()}</span>
@@ -231,7 +231,7 @@ export function OrderPanel({
           <button
             onClick={onToggleMute}
             className={cn(
-              "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium border transition-colors",
+              "flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border transition-colors",
               !soundMuted
                 ? "bg-accent/15 text-accent border-accent/30"
                 : "text-muted-foreground border-border hover:bg-secondary",
@@ -243,7 +243,7 @@ export function OrderPanel({
           <button
             onClick={onToggleOneClick}
             className={cn(
-              "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium border transition-colors",
+              "flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border transition-colors",
               oneClick
                 ? "bg-buy/15 text-buy border-buy/30"
                 : "text-muted-foreground border-border hover:bg-secondary",
@@ -282,7 +282,7 @@ export function OrderPanel({
 
         {/* Order Type */}
         <div>
-          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider">
             Order Type
           </label>
           <div className="grid grid-cols-3 gap-1 mt-1">
@@ -291,7 +291,7 @@ export function OrderPanel({
                 key={t}
                 onClick={() => setOrderType(t)}
                 className={cn(
-                  "px-1 py-1 text-[10px] rounded border border-border",
+                  "px-1 py-1 text-xs rounded border border-border",
                   t === orderType
                     ? "bg-primary text-primary-foreground border-primary"
                     : "hover:bg-secondary",
@@ -303,7 +303,7 @@ export function OrderPanel({
             <button
               disabled
               title="OKX conditional orders aren't wired up yet"
-              className="px-1 py-1 text-[10px] rounded border border-border opacity-40 cursor-not-allowed"
+              className="px-1 py-1 text-xs rounded border border-border opacity-40 cursor-not-allowed"
             >
               STOP
             </button>
@@ -312,7 +312,7 @@ export function OrderPanel({
 
         {/* Quantity */}
         <div>
-          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider">
             Volume (lots)
           </label>
           <div className="flex items-center gap-1 mt-1">
@@ -345,7 +345,7 @@ export function OrderPanel({
                 key={q}
                 onClick={() => setQuantity(String(q))}
                 className={cn(
-                  "flex-1 text-[10px] py-0.5 rounded border border-border",
+                  "flex-1 text-xs py-0.5 rounded border border-border",
                   Number.parseFloat(quantity) === q ? "bg-secondary" : "hover:bg-secondary/50",
                 )}
               >
@@ -357,7 +357,7 @@ export function OrderPanel({
 
         {orderType === "LIMIT" && (
           <div>
-            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider">
               Price
             </label>
             <input
@@ -371,7 +371,7 @@ export function OrderPanel({
           </div>
         )}
 
-        <p className="text-[9px] text-muted-foreground text-center">
+        <p className="text-[11px] text-muted-foreground text-center">
           Take-profit/stop-loss aren't supported yet — OKX conditional orders aren't wired up.
         </p>
 

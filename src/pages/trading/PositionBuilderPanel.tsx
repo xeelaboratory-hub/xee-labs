@@ -167,7 +167,7 @@ export function PositionBuilderPanel({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider">
             Risk %
             <input
               type="number"
@@ -179,7 +179,7 @@ export function PositionBuilderPanel({
               min="0"
             />
           </label>
-          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider">
             Leverage
             <input
               type="number"
@@ -191,14 +191,14 @@ export function PositionBuilderPanel({
               min="0"
             />
             {instrument.maxLever > 0 && (
-              <i className="block text-[9px] not-italic text-muted-foreground">
+              <i className="block text-[11px] not-italic text-muted-foreground mt-0.5">
                 max {instrument.maxLever}x
               </i>
             )}
           </label>
         </div>
 
-        <label className="block text-[10px] text-muted-foreground uppercase tracking-wider">
+        <label className="block text-xs text-muted-foreground uppercase tracking-wider">
           Margin ($)
           <input
             type="number"
@@ -212,12 +212,12 @@ export function PositionBuilderPanel({
         </label>
 
         <div>
-          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Entry</label>
+          <label className="text-xs text-muted-foreground uppercase tracking-wider">Entry</label>
           <div className="grid grid-cols-2 gap-1 mt-1">
             <button
               onClick={() => setEntryMode("market")}
               className={cn(
-                "px-1 py-1 text-[10px] rounded border border-border",
+                "px-1 py-1.5 text-xs rounded border border-border",
                 entryMode === "market"
                   ? "bg-primary text-primary-foreground border-primary"
                   : "hover:bg-secondary",
@@ -228,7 +228,7 @@ export function PositionBuilderPanel({
             <button
               onClick={() => setEntryMode("limit")}
               className={cn(
-                "px-1 py-1 text-[10px] rounded border border-border",
+                "px-1 py-1.5 text-xs rounded border border-border",
                 entryMode === "limit"
                   ? "bg-primary text-primary-foreground border-primary"
                   : "hover:bg-secondary",
@@ -252,7 +252,7 @@ export function PositionBuilderPanel({
           )}
         </div>
 
-        <label className="block text-[10px] text-muted-foreground uppercase tracking-wider">
+        <label className="block text-xs text-muted-foreground uppercase tracking-wider">
           RR (risk:reward)
           <input
             type="number"
@@ -265,7 +265,7 @@ export function PositionBuilderPanel({
           />
         </label>
 
-        <div className="bg-secondary rounded p-2 text-[10px] space-y-1">
+        <div className="bg-secondary rounded p-2.5 text-[13px] space-y-1.5">
           {!plan.ok ? (
             <p className="text-muted-foreground">{plan.error}</p>
           ) : (
@@ -304,19 +304,19 @@ export function PositionBuilderPanel({
                 <span className="text-muted-foreground">Liquidation ≈</span>
                 <span className="font-mono">{formatNumber(plan.approxLiq, 4)}</span>
               </div>
-              <p className="text-muted-foreground pt-1">
+              <p className="text-muted-foreground text-xs pt-1">
                 Liquidation is a rough isolated-margin estimate — it ignores fees and
                 maintenance margin.
               </p>
               {isApproximateInstrument && (
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {isOkx && isLoadingInstrument
                     ? "Loading real OKX instrument specs…"
                     : "Using approximate instrument data — not exchange-accurate."}
                 </p>
               )}
               {plan.warnings.map((w) => (
-                <p key={w} className="text-destructive">
+                <p key={w} className="text-destructive text-xs">
                   {w}
                 </p>
               ))}

@@ -149,7 +149,7 @@ export function PriceAlertManager({ symbol }: { symbol: string }) {
           ))
         )}
         {otherAlerts.length > 0 && (
-          <p className="text-[10px] text-muted-foreground text-center pt-1">
+          <p className="text-xs text-muted-foreground text-center pt-1">
             {otherAlerts.length} alert(s) on other symbols
           </p>
         )}
@@ -199,7 +199,7 @@ export function MarketSentimentGauge({ symbol }: { symbol: string }) {
             { label: "Algo", buy: Math.max(25, buyPct - 5) },
           ].map((g) => (
             <div key={g.label} className="text-center">
-              <p className="text-[10px] text-muted-foreground">{g.label}</p>
+              <p className="text-xs text-muted-foreground">{g.label}</p>
               <p
                 className={cn(
                   "text-xs font-medium",
@@ -395,7 +395,7 @@ export function RiskOverlay({
           </CardTitle>
           <span
             className={cn(
-              "text-[10px] font-medium px-1.5 py-0.5 rounded",
+              "text-xs font-medium px-1.5 py-0.5 rounded",
               riskLevel === "CRITICAL"
                 ? "bg-red-500/10 text-red-500"
                 : riskLevel === "WARNING"
@@ -524,14 +524,14 @@ export function PnlHeatmap({ data = [] }: { data?: { hour: number; day: number; 
           <div className="flex gap-1">
             <div className="w-8" />
             {hours.map((h) => (
-              <div key={h} className="flex-1 text-[9px] text-muted-foreground text-center">
+              <div key={h} className="flex-1 text-[11px] text-muted-foreground text-center">
                 {h}
               </div>
             ))}
           </div>
           {days.map((day, di) => (
             <div key={day} className="flex gap-1 items-center">
-              <span className="w-8 text-[10px] text-muted-foreground">{day}</span>
+              <span className="w-8 text-xs text-muted-foreground">{day}</span>
               {hours.map((_, hi) => {
                 const cell = heatData.find((d) => d.day === di && d.hour === hi * 4);
                 return (
@@ -541,7 +541,7 @@ export function PnlHeatmap({ data = [] }: { data?: { hour: number; day: number; 
                     style={{ backgroundColor: cellColor(cell?.pnl || 0) }}
                     title={`${day} ${hours[hi]}: ${formatCurrency(cell?.pnl || 0)}`}
                   >
-                    <span className="text-[8px] font-medium">
+                    <span className="text-[10px] font-medium">
                       {cell ? (cell.pnl > 0 ? "+" : "") + cell.pnl.toFixed(0) : ""}
                     </span>
                   </div>
@@ -551,21 +551,21 @@ export function PnlHeatmap({ data = [] }: { data?: { hour: number; day: number; 
           ))}
         </div>
         <div className="flex items-center justify-center gap-3 mt-2">
-          <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <div
               className="h-2 w-4 rounded-sm"
               style={{ backgroundColor: "rgba(239, 68, 68, 0.5)" }}
             />{" "}
             Loss
           </div>
-          <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <div
               className="h-2 w-4 rounded-sm"
               style={{ backgroundColor: "rgba(128, 128, 128, 0.1)" }}
             />{" "}
             Neutral
           </div>
-          <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <div
               className="h-2 w-4 rounded-sm"
               style={{ backgroundColor: "rgba(34, 197, 94, 0.5)" }}

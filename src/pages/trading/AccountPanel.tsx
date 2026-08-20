@@ -54,7 +54,7 @@ export function AccountPanel() {
               key={m}
               onClick={() => switchMode(m)}
               className={cn(
-                "px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                "px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
                 m === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary",
               )}
             >
@@ -66,11 +66,11 @@ export function AccountPanel() {
         {accessToken ? (
           <div className="flex items-center gap-2 min-w-0">
             {accountError ? (
-              <span className="text-destructive text-[10px]" title={accountError.message}>
+              <span className="text-destructive text-xs" title={accountError.message}>
                 {noCredentials ? `No ${mode} credentials` : "Exchange error"}
               </span>
             ) : (
-              <span className="font-mono text-[11px] truncate">
+              <span className="font-mono text-[13px] truncate">
                 {account ? `$${account.equity.toFixed(2)}` : "…"}
               </span>
             )}
@@ -99,7 +99,7 @@ export function AccountPanel() {
           </button>
         )}
       </div>
-      {user && <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{user.email}</div>}
+      {user && <div className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</div>}
 
       {open && <CredentialsDialog onClose={() => setOpen(false)} />}
       {loginOpen && <LoginPage onClose={() => setLoginOpen(false)} />}
@@ -180,7 +180,7 @@ function CredentialsDialog({ onClose }: { onClose: () => void }) {
           )}
 
           <form onSubmit={handleAdd} className="space-y-2">
-            <div className="flex rounded border border-border overflow-hidden text-[10px]">
+            <div className="flex rounded border border-border overflow-hidden text-xs">
               <button
                 type="button"
                 onClick={() => setIsDemo(true)}

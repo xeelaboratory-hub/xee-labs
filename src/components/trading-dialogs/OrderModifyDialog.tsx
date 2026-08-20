@@ -45,7 +45,7 @@ export function OrderModifyDialog({ order, onClose, tick }: OrderModifyDialogPro
               Amending a pending order isn't supported yet — cancel it and place a new one instead.
             </p>
             {tick && (
-              <div className="text-[10px] text-muted-foreground flex gap-3 justify-center">
+              <div className="text-xs text-muted-foreground flex gap-3 justify-center">
                 <span>
                   Bid: <span className="font-mono text-sell">{formatNumber(tick.bid, 5)}</span>
                 </span>

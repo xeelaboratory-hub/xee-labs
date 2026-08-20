@@ -171,7 +171,7 @@ export function BottomPanel({
             <t.icon className="h-3 w-3" />
             <span className="hidden md:inline">{t.label}</span>
             {t.count !== undefined && t.count > 0 && (
-              <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[9px]">
+              <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px]">
                 {t.count}
               </span>
             )}
@@ -203,7 +203,7 @@ export function BottomPanel({
                 variant="destructive"
                 size="sm"
                 onClick={handleCloseAll}
-                className="text-[10px] h-5"
+                className="text-xs h-5"
                 disabled={closeAllPositions.isPending || !isFeedConnected}
               >
                 Close All
@@ -212,7 +212,7 @@ export function BottomPanel({
           )}
           {(tab === "positions" || tab === "orders" || tab === "history") &&
             !(tab === "positions" && openPositions.length > 0) && (
-              <span className="text-[10px] text-muted-foreground font-mono px-2 uppercase">
+              <span className="text-xs text-muted-foreground font-mono px-2 uppercase">
                 {mode}
               </span>
             )}
@@ -265,7 +265,7 @@ function TradeHistoryTable({ mode }: { mode: TradingMode }) {
 
   return (
     <div className="flex flex-col h-full">
-      <table className="w-full text-[11px]">
+      <table className="w-full text-[13px]">
         <thead className="sticky top-0 bg-card z-10">
           <tr>
             <th>Time</th>

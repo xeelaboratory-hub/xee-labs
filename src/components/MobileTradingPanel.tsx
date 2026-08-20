@@ -214,7 +214,7 @@ export function MobileTradingPanel({
             />
           </div>
 
-          <p className="text-[10px] text-slate-500 text-center">
+          <p className="text-xs text-slate-500 text-center">
             Stop-loss/take-profit aren't supported yet — OKX conditional orders aren't wired up.
           </p>
 
@@ -380,31 +380,31 @@ export function MobileAccountBar({
   return (
     <div className="md:hidden flex items-center gap-2 px-2 py-1 bg-slate-800/80 border-b border-slate-700 overflow-x-auto no-scrollbar">
       <div className="shrink-0">
-        <div className="text-[9px] text-slate-500 uppercase">Bal</div>
-        <div className="text-[11px] font-mono font-bold text-white">
+        <div className="text-[11px] text-slate-500 uppercase">Bal</div>
+        <div className="text-[13px] font-mono font-bold text-white">
           ${balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
       </div>
       <div className="w-px h-5 bg-slate-700 shrink-0" />
       <div className="shrink-0">
-        <div className="text-[9px] text-slate-500 uppercase">Equity</div>
-        <div className="text-[11px] font-mono font-bold text-white">
+        <div className="text-[11px] text-slate-500 uppercase">Equity</div>
+        <div className="text-[13px] font-mono font-bold text-white">
           ${equity.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
       </div>
       <div className="w-px h-5 bg-slate-700 shrink-0" />
       <div className="shrink-0">
-        <div className="text-[9px] text-slate-500 uppercase">Margin</div>
-        <div className="text-[11px] font-mono font-bold text-slate-300">
+        <div className="text-[11px] text-slate-500 uppercase">Margin</div>
+        <div className="text-[13px] font-mono font-bold text-slate-300">
           ${margin.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
       </div>
       <div className="w-px h-5 bg-slate-700 shrink-0" />
       <div className="shrink-0">
-        <div className="text-[9px] text-slate-500 uppercase">P&L</div>
+        <div className="text-[11px] text-slate-500 uppercase">P&L</div>
         <div
           className={cn(
-            "text-[11px] font-mono font-bold",
+            "text-[13px] font-mono font-bold",
             pnl >= 0 ? "text-emerald-400" : "text-red-400",
           )}
         >
@@ -442,7 +442,7 @@ export function MobileSymbolSelector({
             )}
           >
             <div className="font-semibold">{s.symbol}</div>
-            <div className="font-mono mt-0.5 text-[10px] opacity-75">
+            <div className="font-mono mt-0.5 text-xs opacity-75">
               {s.bid != null ? s.bid.toFixed(s.bid > 10 ? 2 : 5) : "—"}
             </div>
           </button>

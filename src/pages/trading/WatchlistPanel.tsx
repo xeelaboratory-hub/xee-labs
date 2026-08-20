@@ -83,7 +83,7 @@ export function WatchlistPanel({
           className="w-full text-xs"
         />
       </div>
-      <div className="flex gap-1 px-2 py-1 border-b border-border overflow-x-auto text-[10px]">
+      <div className="flex gap-1 px-2 py-1 border-b border-border overflow-x-auto text-xs">
         <button
           onClick={() => setSelectedCat(null)}
           className={cn(
@@ -103,7 +103,7 @@ export function WatchlistPanel({
           )}
         >
           <Star className="h-2.5 w-2.5" fill="currentColor" />
-          {favorites.size > 0 && <span className="text-[9px]">{favorites.size}</span>}
+          {favorites.size > 0 && <span className="text-[11px]">{favorites.size}</span>}
         </button>
         {categories.map((c) => (
           <button
@@ -164,7 +164,7 @@ export function WatchlistPanel({
               </button>
               <button onClick={() => onSelect(s.name)} className="text-left flex-1 min-w-0">
                 <div className="font-semibold">{s.name}</div>
-                <div className="text-[10px] text-muted-foreground">{s.category}</div>
+                <div className="text-xs text-muted-foreground">{s.category}</div>
               </button>
               {t ? (
                 <div className="flex items-center gap-1">
@@ -176,13 +176,13 @@ export function WatchlistPanel({
                     <div className="hidden group-hover:flex flex-col gap-0.5 ml-1">
                       <button
                         onClick={() => handleQuickTrade("BUY")}
-                        className="px-1 py-0.5 text-[8px] rounded bg-buy/20 text-buy hover:bg-buy/30 font-semibold"
+                        className="px-1 py-0.5 text-[10px] rounded bg-buy/20 text-buy hover:bg-buy/30 font-semibold"
                       >
                         B
                       </button>
                       <button
                         onClick={() => handleQuickTrade("SELL")}
-                        className="px-1 py-0.5 text-[8px] rounded bg-sell/20 text-sell hover:bg-sell/30 font-semibold"
+                        className="px-1 py-0.5 text-[10px] rounded bg-sell/20 text-sell hover:bg-sell/30 font-semibold"
                       >
                         S
                       </button>

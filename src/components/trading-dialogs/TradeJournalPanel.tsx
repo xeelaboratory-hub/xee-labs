@@ -138,7 +138,7 @@ export function TradeJournalPanel({
             resetForm();
             setShowForm(true);
           }}
-          className="flex items-center gap-1 px-2 py-0.5 text-[10px] rounded bg-primary/10 text-primary hover:bg-primary/20"
+          className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-primary/10 text-primary hover:bg-primary/20"
         >
           <Plus className="h-3 w-3" /> New
         </button>
@@ -150,7 +150,7 @@ export function TradeJournalPanel({
             <>
               <div className="grid grid-cols-3 gap-1">
                 <div className="col-span-2">
-                  <label className="text-[10px] text-muted-foreground">Symbol</label>
+                  <label className="text-xs text-muted-foreground">Symbol</label>
                   <input
                     value={symbolName}
                     onChange={(e) => setSymbolName(e.target.value)}
@@ -159,7 +159,7 @@ export function TradeJournalPanel({
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Side</label>
+                  <label className="text-xs text-muted-foreground">Side</label>
                   <select
                     value={side}
                     onChange={(e) => setSide(e.target.value as "BUY" | "SELL")}
@@ -172,7 +172,7 @@ export function TradeJournalPanel({
               </div>
               <div className="grid grid-cols-3 gap-1">
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Entry</label>
+                  <label className="text-xs text-muted-foreground">Entry</label>
                   <input
                     type="number"
                     value={entryPrice}
@@ -182,7 +182,7 @@ export function TradeJournalPanel({
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Exit</label>
+                  <label className="text-xs text-muted-foreground">Exit</label>
                   <input
                     type="number"
                     value={exitPrice}
@@ -192,7 +192,7 @@ export function TradeJournalPanel({
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">P&L</label>
+                  <label className="text-xs text-muted-foreground">P&L</label>
                   <input
                     type="number"
                     value={pnl}
@@ -204,14 +204,14 @@ export function TradeJournalPanel({
             </>
           )}
           <div>
-            <label className="text-[10px] text-muted-foreground">Emotion</label>
+            <label className="text-xs text-muted-foreground">Emotion</label>
             <div className="flex gap-1 flex-wrap mt-0.5">
               {EMOTIONS.map((em) => (
                 <button
                   key={em}
                   onClick={() => setEmotion(emotion === em ? "" : em)}
                   className={cn(
-                    "px-1.5 py-0.5 rounded text-[10px] border border-border",
+                    "px-1.5 py-0.5 rounded text-xs border border-border",
                     emotion === em
                       ? "bg-primary text-primary-foreground border-primary"
                       : "hover:bg-secondary",
@@ -223,7 +223,7 @@ export function TradeJournalPanel({
             </div>
           </div>
           <div>
-            <label className="text-[10px] text-muted-foreground">Rating</label>
+            <label className="text-xs text-muted-foreground">Rating</label>
             <div className="flex gap-0.5 mt-0.5">
               {[1, 2, 3, 4, 5].map((r) => (
                 <button
@@ -240,7 +240,7 @@ export function TradeJournalPanel({
             </div>
           </div>
           <div>
-            <label className="text-[10px] text-muted-foreground">Tags (comma-separated)</label>
+            <label className="text-xs text-muted-foreground">Tags (comma-separated)</label>
             <input
               value={tags}
               onChange={(e) => setTags(e.target.value)}
@@ -249,7 +249,7 @@ export function TradeJournalPanel({
             />
           </div>
           <div>
-            <label className="text-[10px] text-muted-foreground">Notes</label>
+            <label className="text-xs text-muted-foreground">Notes</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -258,10 +258,10 @@ export function TradeJournalPanel({
             />
           </div>
           <div className="flex gap-1">
-            <Button size="sm" variant="outline" className="text-[10px] h-6" onClick={resetForm}>
+            <Button size="sm" variant="outline" className="text-xs h-6" onClick={resetForm}>
               Cancel
             </Button>
-            <Button size="sm" className="text-[10px] h-6" onClick={handleSubmit}>
+            <Button size="sm" className="text-xs h-6" onClick={handleSubmit}>
               {editingId ? "Update" : "Save Entry"}
             </Button>
           </div>
@@ -273,7 +273,7 @@ export function TradeJournalPanel({
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-xs gap-2">
             <BookOpen className="h-8 w-8 opacity-30" />
             <span>No journal entries yet</span>
-            <span className="text-[10px]">Click "New" to record your first trade</span>
+            <span className="text-xs">Click "New" to record your first trade</span>
           </div>
         ) : (
           <div className="divide-y divide-border/30">
@@ -285,7 +285,7 @@ export function TradeJournalPanel({
                     {entry.side && (
                       <span
                         className={cn(
-                          "text-[10px] font-medium",
+                          "text-xs font-medium",
                           entry.side === "BUY" ? "text-buy" : "text-sell",
                         )}
                       >
@@ -295,7 +295,7 @@ export function TradeJournalPanel({
                     {entry.pnl != null && (
                       <span
                         className={cn(
-                          "font-mono text-[10px] font-semibold",
+                          "font-mono text-xs font-semibold",
                           entry.pnl >= 0 ? "text-buy" : "text-sell",
                         )}
                       >
@@ -304,12 +304,12 @@ export function TradeJournalPanel({
                       </span>
                     )}
                     {entry.emotion && (
-                      <span className="px-1 py-0.5 rounded bg-accent/10 text-accent text-[9px]">
+                      <span className="px-1 py-0.5 rounded bg-accent/10 text-accent text-[11px]">
                         {entry.emotion}
                       </span>
                     )}
                     {entry.rating != null && entry.rating > 0 && (
-                      <span className="text-yellow-400 text-[10px]">
+                      <span className="text-yellow-400 text-xs">
                         {"★".repeat(entry.rating)}
                       </span>
                     )}
@@ -334,7 +334,7 @@ export function TradeJournalPanel({
                     {entry.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="px-1 py-0.5 rounded bg-secondary text-[9px] text-muted-foreground"
+                        className="px-1 py-0.5 rounded bg-secondary text-[11px] text-muted-foreground"
                       >
                         {tag}
                       </span>
@@ -342,9 +342,9 @@ export function TradeJournalPanel({
                   </div>
                 )}
                 {entry.notes && (
-                  <p className="text-[11px] text-foreground/80 leading-relaxed">{entry.notes}</p>
+                  <p className="text-[13px] text-foreground/80 leading-relaxed">{entry.notes}</p>
                 )}
-                <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                   {entry.entryPrice != null && (
                     <span>Entry: {formatNumber(entry.entryPrice, 5)}</span>
                   )}

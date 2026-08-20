@@ -169,7 +169,7 @@ function Row({
       <span className="text-muted-foreground text-xs">{label}</span>
       <span className={cn("font-mono text-xs", valueClass, bold && "font-semibold text-sm")}>
         {value}
-        {extra && <span className="text-[10px] ml-1 opacity-70">{extra}</span>}
+        {extra && <span className="text-xs ml-1 opacity-70">{extra}</span>}
       </span>
     </div>
   );

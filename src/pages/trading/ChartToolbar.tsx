@@ -242,7 +242,7 @@ export function ChartToolbar({
             <BarChart3 className="h-3 w-3" />
             Indicators
             {activeIndicators.length > 0 && (
-              <span className="bg-primary text-primary-foreground rounded-full px-1 text-[9px]">
+              <span className="bg-primary text-primary-foreground rounded-full px-1 text-[11px]">
                 {activeIndicators.length}
               </span>
             )}
@@ -264,7 +264,7 @@ export function ChartToolbar({
                       style={{ backgroundColor: ind.color }}
                     />
                     <span className="flex-1">{ind.label}</span>
-                    <span className="text-[10px] text-muted-foreground">{ind.pane}</span>
+                    <span className="text-xs text-muted-foreground">{ind.pane}</span>
                   </button>
                   {ind.type === "SESSION_VOLUME_PROFILE" && activeIndicators.includes(ind.type) && (
                     <div className="ml-4 mr-1 mt-1 space-y-2 rounded border border-border/70 bg-background/40 p-2">
@@ -274,7 +274,7 @@ export function ChartToolbar({
                             key={market}
                             onClick={() => onSessionVolumeProfileMarket(market)}
                             className={cn(
-                              "rounded px-1 py-1 text-[10px] font-medium hover:bg-secondary",
+                              "rounded px-1 py-1 text-xs font-medium hover:bg-secondary",
                               sessionVolumeProfileMarkets.includes(market) && "bg-primary text-primary-foreground",
                             )}
                           >
@@ -282,7 +282,7 @@ export function ChartToolbar({
                           </button>
                         ))}
                       </div>
-                      <label className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                      <label className="flex items-center justify-between gap-2 text-[13px] text-muted-foreground">
                         Rows
                         <input
                           aria-label="Session Volume Profile rows"

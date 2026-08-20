@@ -113,7 +113,7 @@ export function PositionModifyDialog({
               </div>
               <div>
                 <h3 className="text-sm font-semibold">Modify {position.symbolName}</h3>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {position.side} {position.quantity} @ {formatNumber(position.entryPrice, 5)}
                 </p>
               </div>
@@ -126,11 +126,11 @@ export function PositionModifyDialog({
           {/* Current Status */}
           <div className="px-5 py-3 grid grid-cols-3 gap-3 border-b border-border/40 text-center">
             <div>
-              <div className="text-[10px] text-muted-foreground">Current</div>
+              <div className="text-xs text-muted-foreground">Current</div>
               <div className="text-sm font-mono font-semibold">{formatNumber(currentPrice, 5)}</div>
             </div>
             <div>
-              <div className="text-[10px] text-muted-foreground">P&L</div>
+              <div className="text-xs text-muted-foreground">P&L</div>
               <div
                 className={cn(
                   "text-sm font-mono font-semibold",
@@ -143,7 +143,7 @@ export function PositionModifyDialog({
             </div>
             {instrumentType === "FOREX" && (
               <div>
-                <div className="text-[10px] text-muted-foreground">Pips</div>
+                <div className="text-xs text-muted-foreground">Pips</div>
                 <div
                   className={cn(
                     "text-sm font-mono font-semibold",
@@ -163,7 +163,7 @@ export function PositionModifyDialog({
                 <WifiOff className="h-3.5 w-3.5" />
                 Data Feed Disconnected
               </div>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Modifications disabled until connection is restored
               </p>
             </div>
@@ -207,7 +207,7 @@ export function PositionModifyDialog({
             {activeTab === "partial" && (
               <>
                 <div>
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider">
                     Close Volume ({unitLabel})
                   </label>
                   <input
@@ -235,14 +235,14 @@ export function PositionModifyDialog({
                         key={pct}
                         onClick={() => setPartialQty(isFutures ? String(amt) : amt.toFixed(2))}
                         className={cn(
-                          "text-[10px] py-1.5 rounded border border-border transition-colors",
+                          "text-xs py-1.5 rounded border border-border transition-colors",
                           parseFloat(partialQty) === amt
                             ? "bg-accent/15 text-accent border-accent/30"
                             : "hover:bg-secondary",
                         )}
                       >
                         {pct}%
-                        <div className="text-[9px] text-muted-foreground">
+                        <div className="text-[11px] text-muted-foreground">
                           {isFutures ? amt : amt.toFixed(2)}
                         </div>
                       </button>
