@@ -41,6 +41,7 @@ import { MarketClosedBanner } from "./trading/MarketClosedBanner.tsx";
 import { PositionBuilderPanel, type PositionBuilderPreview } from "./trading/PositionBuilderPanel.tsx";
 import { getPipDigits } from "./trading/utils.ts";
 import { WatchlistPanel } from "./trading/WatchlistPanel.tsx";
+import { SettingsPage } from "./SettingsPage.tsx";
 
 type ConfirmOrderState = {
   symbol: string;
@@ -450,8 +451,17 @@ export function TradingPage() {
   );
   const [mobilePanelTab, setMobilePanelTab] = useState<"whales" | "trade">("whales");
 
+  // Settings is an in-page view-swap (not a route) — see SettingsPage.tsx.
+  const [showSettings, setShowSettings] = useState(false);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {showSettings ? (
+        <div className="flex-1 min-h-0">
+          <SettingsPage onBack={() => setShowSettings(false)} />
+        </div>
+      ) : (
+        <>
       {/* ── Mobile Account Bar (small screens only) ────── */}
       <div className="md:hidden">
         <MobileAccountBar
@@ -692,6 +702,8 @@ export function TradingPage() {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* Dialogs */}
       <PositionModifyDialog
@@ -732,7 +744,7 @@ export function TradingPage() {
       />
 
       {/* ── Footer ──────────────────────────────────────── */}
-      <Footer />
+      <Footer onOpenSettings={() => setShowSettings(true)} />
     </div>
   );
 }

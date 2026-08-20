@@ -242,14 +242,14 @@ export function PositionBuilderPanel({
   return (
     <div className="flex flex-col h-full" data-testid="position-builder">
       <PanelHeader
-        title="Position Builder"
-        titleClassName="text-heading normal-case font-semibold text-foreground"
+        title="TRADE SETUP"
+        titleClassName="text-[13px] font-extrabold tracking-wide normal-case text-foreground"
         right={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={handleToggleMute}
               className={cn(
-                "flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-medium border transition-colors",
+                "flex items-center gap-1 px-1.5 py-1 rounded text-meta font-medium border transition-colors",
                 !soundMuted
                   ? "bg-accent/15 text-accent border-accent/30"
                   : "text-muted-foreground border-border hover:bg-secondary",
@@ -261,7 +261,7 @@ export function PositionBuilderPanel({
             <button
               onClick={handleToggleOneClick}
               className={cn(
-                "flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-medium border transition-colors",
+                "flex items-center gap-1 px-1.5 py-1 rounded text-meta font-medium border transition-colors",
                 oneClick
                   ? "bg-buy/15 text-buy border-buy/30"
                   : "text-muted-foreground border-border hover:bg-secondary",
@@ -271,12 +271,17 @@ export function PositionBuilderPanel({
               <Zap className="h-7 w-7" />
               1-Click
             </button>
-            <span className="text-xs font-semibold">{symbol}</span>
           </div>
         }
       >
-        <div className="mt-1 text-meta text-muted-foreground">
-          Balance <span className="font-mono text-foreground">{formatCurrency(accountEquity)}</span>
+        <div className="mt-1.5 flex items-baseline justify-between gap-2">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-label uppercase text-muted-foreground">Balance</span>
+            <span className="text-[18px] font-extrabold leading-none text-foreground font-mono">
+              {formatCurrency(accountEquity)}
+            </span>
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground truncate">{symbol}</span>
         </div>
       </PanelHeader>
 

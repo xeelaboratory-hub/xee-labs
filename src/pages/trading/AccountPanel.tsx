@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Settings } from "lucide-react";
 import { ThemeSwitcher } from "../../components/ThemeSwitcher.tsx";
@@ -10,12 +9,12 @@ import type { TradingMode } from "../../services/schemas.ts";
 
 /**
  * Global trading status bar — DEMO/LIVE mode, exchange connection status,
- * equity, theme, and a link into Settings. Always visible (mounted in
- * ChartToolbar, not gated by the right panel), unlike the old AccountPanel
- * this replaces: account/API management moved to SettingsPage so this stays
- * a thin, always-on strip.
+ * equity, theme, and an entry point into Settings. Always visible (mounted
+ * in Footer, not gated by the right panel); account/API management lives in
+ * the Settings view (see TradingPage's showSettings toggle) so this stays a
+ * thin, always-on strip.
  */
-export function AccountPanel() {
+export function AccountPanel({ onOpenSettings }: { onOpenSettings: () => void }) {
   const mode = useTradingStore((s) => s.mode);
   const setMode = useTradingStore((s) => s.setMode);
   const loadPositions = useTradingStore((s) => s.loadPositions);
@@ -76,16 +75,19 @@ export function AccountPanel() {
           )}
         </div>
       ) : (
-        <Link to="/settings" className="text-muted-foreground hover:text-foreground whitespace-nowrap">
+        <button
+          onClick={onOpenSettings}
+          className="text-muted-foreground hover:text-foreground whitespace-nowrap"
+        >
           Log in
-        </Link>
+        </button>
       )}
 
       <div className="flex items-center gap-2 ml-auto shrink-0">
         <ThemeSwitcher />
-        <Link to="/settings" title="Settings" className="text-muted-foreground hover:text-foreground">
+        <button onClick={onOpenSettings} title="Settings" className="text-muted-foreground hover:text-foreground">
           <Settings className="h-7 w-7" />
-        </Link>
+        </button>
       </div>
     </div>
   );

@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import { Route, Routes } from "react-router-dom";
 import { TradingPage } from "./pages/TradingPage.tsx";
-import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { api } from "./services/api.ts";
 import {
   PREFERENCES_UPDATED_EVENT,
@@ -96,10 +94,5 @@ export function App() {
     );
   }
 
-  return (
-    <Routes>
-      <Route path="/" element={<TradingPage />} />
-      <Route path="/settings" element={<SettingsPage />} />
-    </Routes>
-  );
+  return <TradingPage />;
 }
