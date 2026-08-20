@@ -1,5 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { Star } from "lucide-react";
+import { PanelHeader } from "../../components/PanelHeader.tsx";
+import { Button } from "../../components/ui/button.tsx";
 import { usePlaceOrder } from "../../services/queries.ts";
 import { formatNumber, cn } from "../../lib/utils.ts";
 import { toast } from "../../services/toast.ts";
@@ -72,17 +74,14 @@ export function WatchlistPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-border bg-secondary">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-          Watchlist
-        </h3>
+      <PanelHeader title="Watchlist">
         <input
           placeholder="Search..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="w-full text-xs"
+          className="w-full text-xs mt-1.5"
         />
-      </div>
+      </PanelHeader>
       <div className="flex gap-1 px-2 py-1 border-b border-border overflow-x-auto text-xs">
         <button
           onClick={() => setSelectedCat(null)}
@@ -174,18 +173,12 @@ export function WatchlistPanel({
                   </div>
                   {oneClick && (
                     <div className="hidden group-hover:flex flex-col gap-0.5 ml-1">
-                      <button
-                        onClick={() => handleQuickTrade("BUY")}
-                        className="px-1 py-0.5 text-[10px] rounded bg-buy/20 text-buy hover:bg-buy/30 font-semibold"
-                      >
+                      <Button variant="buy" size="xs" onClick={() => handleQuickTrade("BUY")}>
                         B
-                      </button>
-                      <button
-                        onClick={() => handleQuickTrade("SELL")}
-                        className="px-1 py-0.5 text-[10px] rounded bg-sell/20 text-sell hover:bg-sell/30 font-semibold"
-                      >
+                      </Button>
+                      <Button variant="sell" size="xs" onClick={() => handleQuickTrade("SELL")}>
                         S
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { Button } from "../../components/ui/button.tsx";
+import { PanelHeader } from "../../components/PanelHeader.tsx";
 import { formatCurrency, formatNumber, cn } from "../../lib/utils.ts";
 import { useInstrument } from "../../services/queries.ts";
 import type { Symbol, TradingMode } from "../../services/schemas.ts";
@@ -137,12 +138,7 @@ export function PositionBuilderPanel({
 
   return (
     <div className="flex flex-col h-full" data-testid="position-builder">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Position Builder
-        </h3>
-        <span className="text-xs font-semibold">{symbol}</span>
-      </div>
+      <PanelHeader title="Position Builder" right={<span className="text-xs font-semibold">{symbol}</span>} />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         <div className="grid grid-cols-2 gap-1">

@@ -24,7 +24,7 @@ export function OrderModifyDialog({ order, onClose, tick }: OrderModifyDialogPro
     <>
       <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
+        <div className="w-full max-w-sm bg-card border border-border rounded-lg shadow-2xl overflow-hidden">
           <div
             className={cn(
               "px-5 py-3 border-b flex items-center justify-between",

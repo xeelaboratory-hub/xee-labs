@@ -10,6 +10,7 @@ import { PositionsTable } from "./PositionsTable.tsx";
 import { OrdersTable } from "./OrdersTable.tsx";
 import { computeLivePnl, computeLivePrice } from "../../lib/livePnl.ts";
 import { useTradingStore } from "../../services/store.tsx";
+import { useThemeStore } from "../../services/themeStore.ts";
 
 type TradingActionError = {
   error?: { message?: string };
@@ -299,7 +300,7 @@ function TradeHistoryTable({ mode }: { mode: TradingMode }) {
 
 // ── Economic Calendar ────────────────────────────────────────
 function EconomicCalendar() {
-  const isDark = !document.documentElement.classList.contains("light");
+  const isDark = useThemeStore((s) => s.mode === "dark");
 
   return (
     <TradingViewEconomicCalendar

@@ -24,6 +24,16 @@
     <title>Xee.Labs — Open-Source Trading Terminal</title>
   </head>
   <body>
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem("theme_mode");
+          var accent = localStorage.getItem("theme_accent");
+          document.documentElement.classList.toggle("light", mode === "light");
+          if (accent && accent !== "teal") document.documentElement.dataset.accent = accent;
+        } catch (e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

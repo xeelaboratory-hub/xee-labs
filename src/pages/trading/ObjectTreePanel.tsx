@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "../../lib/utils.ts";
+import { PanelHeader } from "../../components/PanelHeader.tsx";
 import type { DrawingLine } from "./constants.ts";
 
 const TYPE_META: Record<string, { icon: LucideIcon; label: string }> = {
@@ -143,16 +144,18 @@ export function ObjectTreePanel({
 }: ObjectTreePanelProps) {
   return (
     <div className="absolute top-2 right-2 bottom-10 z-20 w-60 flex flex-col rounded-lg bg-card border border-border shadow-xl">
-      <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border">
-        <span className="text-xs font-semibold">Objects ({drawings.length})</span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1 rounded hover:bg-secondary text-muted-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      <PanelHeader
+        title={`Objects (${drawings.length})`}
+        right={
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded hover:bg-secondary text-muted-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        }
+      />
       <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
         {drawings.length === 0 ? (
           <div className="px-2 py-6 text-center text-xs text-muted-foreground">No drawings yet</div>

@@ -774,7 +774,7 @@ function OhlcvCell({
       <span className="text-muted-foreground/70">{label}</span>
       <span
         className={cn(
-          up ? "text-[#0ecb81]" : "text-[#f6465d]",
+          up ? "text-buy" : "text-sell",
           bold ? "font-semibold" : "font-medium",
         )}
       >
@@ -793,7 +793,7 @@ function OhlcvLegendRow({ legend, pipDigits }: { legend: OhlcvLegend; pipDigits:
       <OhlcvCell label="L" value={legend.l} digits={pipDigits} up={up} />
       <OhlcvCell label="C" value={legend.c} digits={pipDigits} up={up} bold />
       <span
-        className={cn("font-semibold", legend.change >= 0 ? "text-[#0ecb81]" : "text-[#f6465d]")}
+        className={cn("font-semibold", legend.change >= 0 ? "text-buy" : "text-sell")}
       >
         {legend.change >= 0 ? "+" : ""}
         {legend.change.toFixed(2)}%
@@ -1855,11 +1855,11 @@ export function ChartPanel({
       {etfTooltip && (
         <div
           role="tooltip"
-          className="pointer-events-none absolute z-30 rounded-md border border-[#f0b90b]/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
+          className="pointer-events-none absolute z-30 rounded-md border border-warning/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
           style={{ left: etfTooltip.x, top: etfTooltip.y }}
         >
           <div className="text-xs text-muted-foreground">ETF Flow · {etfTooltip.flow.flowDate}</div>
-          <div className="font-mono text-xs font-semibold text-[#f0b90b]">
+          <div className="font-mono text-xs font-semibold text-warning">
             {formatEtfFlowValue(etfTooltip.flow.totalNetFlow)}
           </div>
         </div>
@@ -1868,7 +1868,7 @@ export function ChartPanel({
       {sessionVolumeProfileTooltip && (
         <div
           role="tooltip"
-          className="pointer-events-none absolute z-30 min-w-48 rounded-md border border-[#0ecb81]/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
+          className="pointer-events-none absolute z-30 min-w-48 rounded-md border border-buy/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
           style={{ left: sessionVolumeProfileTooltip.x, top: sessionVolumeProfileTooltip.y }}
         >
           <div className="text-xs text-muted-foreground">
@@ -1879,8 +1879,8 @@ export function ChartPanel({
             {sessionVolumeProfileTooltip.data.high.toFixed(pipDigits)}
           </div>
           <div className="mt-0.5 flex gap-2 font-mono text-xs">
-            <span className="text-[#0ecb81]">Up {formatNumber(sessionVolumeProfileTooltip.data.up, 2)}</span>
-            <span className="text-[#f6465d]">Down {formatNumber(sessionVolumeProfileTooltip.data.down, 2)}</span>
+            <span className="text-buy">Up {formatNumber(sessionVolumeProfileTooltip.data.up, 2)}</span>
+            <span className="text-sell">Down {formatNumber(sessionVolumeProfileTooltip.data.down, 2)}</span>
           </div>
           <div className="font-mono text-xs text-muted-foreground">
             Total {formatNumber(sessionVolumeProfileTooltip.data.total, 2)} · {formatNumber(sessionVolumeProfileTooltip.data.percent, 1)}%
@@ -1889,7 +1889,7 @@ export function ChartPanel({
       )}
 
       {largeOrderHistoryUnavailable && activeIndicators.includes("LARGE_ORDER_BOOK") && (
-        <div className="pointer-events-none absolute right-16 top-2 z-20 rounded border border-amber-500/30 bg-card/90 px-2 py-1 text-xs text-amber-400">
+        <div className="pointer-events-none absolute right-16 top-2 z-20 rounded border border-warning/30 bg-card/90 px-2 py-1 text-xs text-warning">
           Large Order Book · live only
         </div>
       )}
@@ -1917,13 +1917,13 @@ export function ChartPanel({
             className={cn(
               "px-2 py-1 rounded text-[13px] font-mono font-bold shadow-lg border",
               dragPrice.field === "TP"
-                ? "bg-[#0ecb81]/20 text-[#0ecb81] border-[#0ecb81]/40"
-                : "bg-[#f6465d]/20 text-[#f6465d] border-[#f6465d]/40",
+                ? "bg-buy/20 text-buy border-buy/40"
+                : "bg-sell/20 text-sell border-sell/40",
             )}
           >
             {dragPrice.field} → {dragPrice.price.toFixed(pipDigits)}
             <span
-              className={dragPrice.pnlUsd >= 0 ? "ml-1.5 text-[#0ecb81]" : "ml-1.5 text-[#f6465d]"}
+              className={dragPrice.pnlUsd >= 0 ? "ml-1.5 text-buy" : "ml-1.5 text-sell"}
             >
               {dragPrice.pnlUsd >= 0 ? "+" : ""}${dragPrice.pnlUsd.toFixed(2)}
             </span>

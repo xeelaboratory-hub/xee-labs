@@ -29,6 +29,7 @@ import {
 import { useAccount, useCandles, useOrders, usePositions, useSymbols } from "../services/queries.ts";
 import type { Order, PlaceOrderInput, Position, Symbol } from "../services/schemas.ts";
 import { useTradingStore } from "../services/store.tsx";
+import { useThemeStore } from "../services/themeStore.ts";
 import { toast } from "../services/toast.ts";
 import { AiTraderPanel } from "./AiTraderPage.tsx";
 import { AccountPanel } from "./trading/AccountPanel.tsx";
@@ -457,7 +458,7 @@ export function TradingPage() {
     [symbolInfo, selectedSymbol],
   );
 
-  const isDark = !document.documentElement.classList.contains("light");
+  const isDark = useThemeStore((s) => s.mode === "dark");
 
   // Mobile trading state
   const [mobilePanelOpen, setMobilePanelOpen] = useState(

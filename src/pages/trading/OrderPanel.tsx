@@ -3,6 +3,7 @@ import { Minus, Plus, TrendingUp, TrendingDown, Zap, Volume2, VolumeX } from "lu
 import { usePlaceOrder } from "../../services/queries.ts";
 import { readTraderPrefs } from "../../hooks/useTraderPreferences.ts";
 import { Button } from "../../components/ui/button.tsx";
+import { PanelHeader } from "../../components/PanelHeader.tsx";
 import { DisconnectedTradingBanner } from "../../components/ConnectionIndicator.tsx";
 import type { PlaceOrderInput, TradingMode } from "../../services/schemas.ts";
 import { toast } from "../../services/toast.ts";
@@ -223,39 +224,39 @@ export function OrderPanel({
 
   return (
     <div className="flex flex-col h-full" data-testid="order-form">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          New Order
-        </h3>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onToggleMute}
-            className={cn(
-              "flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border transition-colors",
-              !soundMuted
-                ? "bg-accent/15 text-accent border-accent/30"
-                : "text-muted-foreground border-border hover:bg-secondary",
-            )}
-            title={soundMuted ? "Unmute trade sounds" : "Mute trade sounds"}
-          >
-            {soundMuted ? <VolumeX className="h-2.5 w-2.5" /> : <Volume2 className="h-2.5 w-2.5" />}
-          </button>
-          <button
-            onClick={onToggleOneClick}
-            className={cn(
-              "flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border transition-colors",
-              oneClick
-                ? "bg-buy/15 text-buy border-buy/30"
-                : "text-muted-foreground border-border hover:bg-secondary",
-            )}
-            title="One-click trading: skip confirmation for market orders"
-          >
-            <Zap className="h-2.5 w-2.5" />
-            1-Click
-          </button>
-          <span className="text-xs font-semibold">{symbol}</span>
-        </div>
-      </div>
+      <PanelHeader
+        title="New Order"
+        right={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onToggleMute}
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-medium border transition-colors",
+                !soundMuted
+                  ? "bg-accent/15 text-accent border-accent/30"
+                  : "text-muted-foreground border-border hover:bg-secondary",
+              )}
+              title={soundMuted ? "Unmute trade sounds" : "Mute trade sounds"}
+            >
+              {soundMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={onToggleOneClick}
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-medium border transition-colors",
+                oneClick
+                  ? "bg-buy/15 text-buy border-buy/30"
+                  : "text-muted-foreground border-border hover:bg-secondary",
+              )}
+              title="One-click trading: skip confirmation for market orders"
+            >
+              <Zap className="h-3.5 w-3.5" />
+              1-Click
+            </button>
+            <span className="text-xs font-semibold">{symbol}</span>
+          </div>
+        }
+      />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {/* Side */}
