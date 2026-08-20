@@ -5,7 +5,7 @@ export interface UserPreferences {
   chart: Record<string, string>;
   bottomPanelCollapsed?: boolean;
   rightPanelCollapsed?: boolean;
-  rightPanel?: "order" | "dom" | "watchlist" | "ai-trader";
+  rightPanel?: "order" | "dom" | "watchlist" | "ai-trader" | "position-builder";
   rightPanelWidth?: number;
   bottomPanelHeight?: number;
   oneClickTrading?: boolean;

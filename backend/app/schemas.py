@@ -28,6 +28,24 @@ class Symbol(BaseModel):
     isActive: bool = True
 
 
+class InstrumentSpec(BaseModel):
+    """Real per-instrument specs from OKX's public instruments endpoint —
+    used by Position Builder for exchange-accurate sizing/liquidation math,
+    unlike Symbol's static tickSize/maxLeverage placeholders above."""
+
+    instId: str
+    instType: str
+    ctVal: float
+    ctValCcy: str
+    lotSz: float
+    minSz: float
+    tickSz: float
+    settleCcy: str
+    quoteCcy: str
+    baseCcy: str
+    maxLever: float
+
+
 class Candle(BaseModel):
     time: int  # unix seconds
     open: float

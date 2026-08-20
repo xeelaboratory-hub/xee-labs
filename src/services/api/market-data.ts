@@ -23,6 +23,22 @@ export interface MarketDataSymbol {
   [key: string]: unknown;
 }
 
+// Mirrors backend/app/schemas.py's InstrumentSpec — real per-instrument
+// specs from OKX's public instruments endpoint, used by Position Builder.
+export interface MarketDataInstrumentSpec {
+  instId: string;
+  instType: string;
+  ctVal: number;
+  ctValCcy: string;
+  lotSz: number;
+  minSz: number;
+  tickSz: number;
+  settleCcy: string;
+  quoteCcy: string;
+  baseCcy: string;
+  maxLever: number;
+}
+
 export interface MarketDataCandle {
   time: number;
   timestamp: number | string;
@@ -100,6 +116,9 @@ export interface EconomicEvent {
 export const marketdataApi = {
   // ── Market Data ──
   getSymbols: () => request<MarketDataSymbol[]>("/market-data/symbols"),
+
+  getInstrument: (symbol: string) =>
+    request<MarketDataInstrumentSpec>(`/market-data/instrument/${encodeURIComponent(symbol)}`),
 
   getTick: (symbol: string) => request<MarketDataTick>(`/market-data/ticks/${symbol}`),
 

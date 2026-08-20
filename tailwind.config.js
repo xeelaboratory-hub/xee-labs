@@ -44,6 +44,16 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      // Typography scale — 5 roles, replacing the ad hoc text-[Npx] values
+      // that had drifted across panels (see docs/design-system audit).
+      // "Body" intentionally reuses Tailwind's own text-xs (12px), which was
+      // already the dominant convention; only the other 4 roles are added.
+      fontSize: {
+        label: ["10px", { lineHeight: "14px", letterSpacing: "0.06em", fontWeight: "600" }],
+        meta: ["11px", { lineHeight: "16px" }],
+        data: ["13px", { lineHeight: "18px" }],
+        heading: ["15px", { lineHeight: "20px", fontWeight: "600" }],
+      },
       fontFamily: {
         sans: ["-apple-system", "BlinkMacSystemFont", "Trebuchet MS", "Roboto", "Ubuntu", "sans-serif"],
         mono: ["-apple-system", "BlinkMacSystemFont", "Trebuchet MS", "Roboto", "Ubuntu", "sans-serif"],

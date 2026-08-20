@@ -24,7 +24,7 @@ export function OrderModifyDialog({ order, onClose, tick }: OrderModifyDialogPro
     <>
       <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
+        <div className="w-full max-w-sm bg-card border border-border rounded-lg shadow-2xl overflow-hidden">
           <div
             className={cn(
               "px-5 py-3 border-b flex items-center justify-between",
@@ -45,7 +45,7 @@ export function OrderModifyDialog({ order, onClose, tick }: OrderModifyDialogPro
               Amending a pending order isn't supported yet — cancel it and place a new one instead.
             </p>
             {tick && (
-              <div className="text-[10px] text-muted-foreground flex gap-3 justify-center">
+              <div className="text-xs text-muted-foreground flex gap-3 justify-center">
                 <span>
                   Bid: <span className="font-mono text-sell">{formatNumber(tick.bid, 5)}</span>
                 </span>

@@ -29,6 +29,7 @@ import {
 import { useAccount, useCandles, useOrders, usePositions, useSymbols } from "../services/queries.ts";
 import type { Order, PlaceOrderInput, Position, Symbol } from "../services/schemas.ts";
 import { useTradingStore } from "../services/store.tsx";
+import { useThemeStore } from "../services/themeStore.ts";
 import { toast } from "../services/toast.ts";
 import { AiTraderPanel } from "./AiTraderPage.tsx";
 import { AccountPanel } from "./trading/AccountPanel.tsx";
@@ -39,6 +40,7 @@ import { type DrawingTool, type MagnetMode, TIMEFRAMES, type Timeframe } from ".
 import { DOMPanel } from "./trading/DOMPanel.tsx";
 import { MarketClosedBanner } from "./trading/MarketClosedBanner.tsx";
 import { OrderPanel } from "./trading/OrderPanel.tsx";
+import { PositionBuilderPanel, type PositionBuilderPreview } from "./trading/PositionBuilderPanel.tsx";
 import { getPipDigits } from "./trading/utils.ts";
 import { WatchlistPanel } from "./trading/WatchlistPanel.tsx";
 
@@ -52,7 +54,7 @@ type ConfirmOrderState = {
 } | null;
 
 type BottomTab = "positions" | "orders" | "history" | "calendar" | "ai-trader";
-type RightPanelId = "order" | "dom" | "watchlist" | "ai-trader";
+type RightPanelId = "order" | "dom" | "watchlist" | "ai-trader" | "position-builder";
 
 export function TradingPage() {
   const hasTrackedFirstTrade = useRef(false);
@@ -156,6 +158,25 @@ export function TradingPage() {
     const saved = readLocalPreferences().rightPanelWidth;
     return typeof saved === "number" && saved >= 240 && saved <= 520 ? saved : 320;
   });
+
+  // Position Builder: chart preview lines + the one-shot "Apply to Order" draft.
+  const [positionBuilderPreview, setPositionBuilderPreview] = useState<PositionBuilderPreview | null>(
+    null,
+  );
+  const [positionBuilderDraft, setPositionBuilderDraft] = useState<{
+    side: "BUY" | "SELL";
+    quantity: number;
+    price?: number;
+  } | null>(null);
+  const handleApplyPositionToOrder = useCallback(
+    (draft: { side: "BUY" | "SELL"; quantity: number; price?: number }) => {
+      setPositionBuilderDraft(draft);
+      setRightPanel("order");
+      setShowRightPanel(true);
+      updateLocalPreferences({ rightPanel: "order", rightPanelCollapsed: false });
+    },
+    [],
+  );
 
   const toggleBottomPanel = useCallback(() => {
     setBottomCollapsed((current) => {
@@ -437,7 +458,7 @@ export function TradingPage() {
     [symbolInfo, selectedSymbol],
   );
 
-  const isDark = !document.documentElement.classList.contains("light");
+  const isDark = useThemeStore((s) => s.mode === "dark");
 
   // Mobile trading state
   const [mobilePanelOpen, setMobilePanelOpen] = useState(
@@ -524,6 +545,7 @@ export function TradingPage() {
               onQuickOrder={handleQuickOrder}
               onClearDrawings={clearDrawings}
               onClearIndicators={handleClearIndicators}
+              positionBuilderPreview={rightPanel === "position-builder" ? positionBuilderPreview : null}
             />
           </div>
 
@@ -611,9 +633,22 @@ export function TradingPage() {
                   playTradeSound();
                   handleFirstTrade();
                 }}
+                applyDraft={positionBuilderDraft}
+                onApplyDraftConsumed={() => setPositionBuilderDraft(null)}
               />
             )}
             {rightPanel === "dom" && <DOMPanel symbol={selectedSymbol} tick={tick} />}
+            {rightPanel === "position-builder" && (
+              <PositionBuilderPanel
+                symbol={selectedSymbol}
+                symbolInfo={symbolInfo}
+                tick={tick}
+                mode={mode}
+                accountEquity={account?.equity ?? account?.balance ?? 0}
+                onApplyToOrder={handleApplyPositionToOrder}
+                onPreviewChange={setPositionBuilderPreview}
+              />
+            )}
             {rightPanel === "watchlist" && (
               <WatchlistPanel
                 symbols={symbols}

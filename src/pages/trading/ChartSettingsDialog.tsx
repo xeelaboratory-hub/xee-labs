@@ -104,7 +104,7 @@ function ToggleRow({
     <div className={cn("flex items-center justify-between gap-4 py-2", disabled && "opacity-40")}>
       <div className="min-w-0">
         <div className="text-xs text-foreground">{label}</div>
-        {hint && <div className="text-[10px] text-muted-foreground">{hint}</div>}
+        {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
       </div>
       <Switch checked={checked} onChange={disabled ? () => undefined : onChange} />
     </div>
@@ -150,7 +150,7 @@ function ColorRow({
         {value && (
           <button
             onClick={() => onChange("")}
-            className="text-[10px] text-muted-foreground hover:text-foreground"
+            className="text-xs text-muted-foreground hover:text-foreground"
           >
             Reset
           </button>
@@ -183,7 +183,7 @@ function ColorPairRow({
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <div className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground first:mt-0">
+    <div className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground first:mt-0">
       {children}
     </div>
   );
@@ -436,7 +436,7 @@ export function ChartSettingsDialog(props: ChartSettingsDialogProps) {
           {resetPayload ? (
             <button
               onClick={() => updateChartPreferences(resetPayload)}
-              className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground"
             >
               <RotateCcw className="h-3 w-3" />
               Reset to defaults

@@ -243,6 +243,10 @@ export interface ChartPanelProps {
   onClearDrawings?: () => void;
   /** Context-menu "Remove N indicators". */
   onClearIndicators?: () => void;
+  /** Position Builder's synthetic preview lines — entry/stop/TP, distinct
+   * from real position overlays (see addPositionOverlay). null clears all
+   * three. */
+  positionBuilderPreview?: { entry: number; stop: number; takeProfit: number; side: "long" | "short" } | null;
 }
 
 // ── Chart plugin overlays ─────────────────────────────────────────────────────
@@ -770,7 +774,7 @@ function OhlcvCell({
       <span className="text-muted-foreground/70">{label}</span>
       <span
         className={cn(
-          up ? "text-[#0ecb81]" : "text-[#f6465d]",
+          up ? "text-buy" : "text-sell",
           bold ? "font-semibold" : "font-medium",
         )}
       >
@@ -789,7 +793,7 @@ function OhlcvLegendRow({ legend, pipDigits }: { legend: OhlcvLegend; pipDigits:
       <OhlcvCell label="L" value={legend.l} digits={pipDigits} up={up} />
       <OhlcvCell label="C" value={legend.c} digits={pipDigits} up={up} bold />
       <span
-        className={cn("font-semibold", legend.change >= 0 ? "text-[#0ecb81]" : "text-[#f6465d]")}
+        className={cn("font-semibold", legend.change >= 0 ? "text-buy" : "text-sell")}
       >
         {legend.change >= 0 ? "+" : ""}
         {legend.change.toFixed(2)}%
@@ -817,7 +821,7 @@ function ChartLegendHeader({
 }) {
   return (
     <div className="absolute top-2 left-3 z-10 pointer-events-none select-none">
-      <div className="flex items-center gap-2 text-[11px] font-mono leading-none mb-1">
+      <div className="flex items-center gap-2 text-[13px] font-mono leading-none mb-1">
         {legend && showOhlcLegend && <OhlcvLegendRow legend={legend} pipDigits={pipDigits} />}
       </div>
     </div>
@@ -962,6 +966,7 @@ export function ChartPanel({
   onQuickOrder,
   onClearDrawings,
   onClearIndicators,
+  positionBuilderPreview,
 }: ChartPanelProps) {
   const queryClient = useQueryClient();
   const lastGapRefetchAtRef = useRef<number>(0);
@@ -988,6 +993,9 @@ export function ChartPanel({
   const timeframeRef = useRef(timeframe);
   const chartPluginsRef = useRef<ISeriesPrimitive<Time>[]>([]);
   const midLineRef = useRef<IPriceLine | null>(null);
+  const previewEntryLineRef = useRef<IPriceLine | null>(null);
+  const previewStopLineRef = useRef<IPriceLine | null>(null);
+  const previewTpLineRef = useRef<IPriceLine | null>(null);
 
   // ── SL/TP drag-to-edit state ──
   const slTpLinesRef = useRef<SlTpMap>(new Map());
@@ -1801,6 +1809,40 @@ export function ChartPanel({
     chartPrefs.overlayPositionsOnChart,
   ]);
 
+  // ── Position Builder preview lines ──────────────────────────
+  // A single synthetic {entry, stop, takeProfit} triple — not backed by a
+  // real Position/Order, so it reuses the single-line upsert/remove helpers
+  // directly rather than the array-based addPositionOverlay/addSlTpLine.
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    if (!series) return;
+    const preview = positionBuilderPreview;
+    upsertPriceLine(previewEntryLineRef, series, !!preview, {
+      price: preview?.entry ?? 0,
+      color: colors.orderLine,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: "entry (preview)",
+    });
+    upsertPriceLine(previewStopLineRef, series, !!preview, {
+      price: preview?.stop ?? 0,
+      color: colors.slLine,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "SL (preview)",
+    });
+    upsertPriceLine(previewTpLineRef, series, !!preview, {
+      price: preview?.takeProfit ?? 0,
+      color: colors.tpLine,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "TP (preview)",
+    });
+  }, [positionBuilderPreview, colors]);
+
   return (
     <div className="relative w-full h-full">
       {/* OHLCV Legend Overlay */}
@@ -1813,11 +1855,11 @@ export function ChartPanel({
       {etfTooltip && (
         <div
           role="tooltip"
-          className="pointer-events-none absolute z-30 rounded-md border border-[#f0b90b]/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
+          className="pointer-events-none absolute z-30 rounded-md border border-warning/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
           style={{ left: etfTooltip.x, top: etfTooltip.y }}
         >
-          <div className="text-[10px] text-muted-foreground">ETF Flow · {etfTooltip.flow.flowDate}</div>
-          <div className="font-mono text-xs font-semibold text-[#f0b90b]">
+          <div className="text-xs text-muted-foreground">ETF Flow · {etfTooltip.flow.flowDate}</div>
+          <div className="font-mono text-xs font-semibold text-warning">
             {formatEtfFlowValue(etfTooltip.flow.totalNetFlow)}
           </div>
         </div>
@@ -1826,28 +1868,28 @@ export function ChartPanel({
       {sessionVolumeProfileTooltip && (
         <div
           role="tooltip"
-          className="pointer-events-none absolute z-30 min-w-48 rounded-md border border-[#0ecb81]/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
+          className="pointer-events-none absolute z-30 min-w-48 rounded-md border border-buy/40 bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur-sm"
           style={{ left: sessionVolumeProfileTooltip.x, top: sessionVolumeProfileTooltip.y }}
         >
-          <div className="text-[10px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {sessionVolumeProfileTooltip.data.market} · {sessionVolumeProfileTooltip.data.date}
           </div>
-          <div className="font-mono text-[11px] text-foreground">
+          <div className="font-mono text-[13px] text-foreground">
             {sessionVolumeProfileTooltip.data.low.toFixed(pipDigits)}–
             {sessionVolumeProfileTooltip.data.high.toFixed(pipDigits)}
           </div>
-          <div className="mt-0.5 flex gap-2 font-mono text-[10px]">
-            <span className="text-[#0ecb81]">Up {formatNumber(sessionVolumeProfileTooltip.data.up, 2)}</span>
-            <span className="text-[#f6465d]">Down {formatNumber(sessionVolumeProfileTooltip.data.down, 2)}</span>
+          <div className="mt-0.5 flex gap-2 font-mono text-xs">
+            <span className="text-buy">Up {formatNumber(sessionVolumeProfileTooltip.data.up, 2)}</span>
+            <span className="text-sell">Down {formatNumber(sessionVolumeProfileTooltip.data.down, 2)}</span>
           </div>
-          <div className="font-mono text-[10px] text-muted-foreground">
+          <div className="font-mono text-xs text-muted-foreground">
             Total {formatNumber(sessionVolumeProfileTooltip.data.total, 2)} · {formatNumber(sessionVolumeProfileTooltip.data.percent, 1)}%
           </div>
         </div>
       )}
 
       {largeOrderHistoryUnavailable && activeIndicators.includes("LARGE_ORDER_BOOK") && (
-        <div className="pointer-events-none absolute right-16 top-2 z-20 rounded border border-amber-500/30 bg-card/90 px-2 py-1 text-[10px] text-amber-400">
+        <div className="pointer-events-none absolute right-16 top-2 z-20 rounded border border-warning/30 bg-card/90 px-2 py-1 text-xs text-warning">
           Large Order Book · live only
         </div>
       )}
@@ -1873,15 +1915,15 @@ export function ChartPanel({
         >
           <div
             className={cn(
-              "px-2 py-1 rounded text-[11px] font-mono font-bold shadow-lg border",
+              "px-2 py-1 rounded text-[13px] font-mono font-bold shadow-lg border",
               dragPrice.field === "TP"
-                ? "bg-[#0ecb81]/20 text-[#0ecb81] border-[#0ecb81]/40"
-                : "bg-[#f6465d]/20 text-[#f6465d] border-[#f6465d]/40",
+                ? "bg-buy/20 text-buy border-buy/40"
+                : "bg-sell/20 text-sell border-sell/40",
             )}
           >
             {dragPrice.field} → {dragPrice.price.toFixed(pipDigits)}
             <span
-              className={dragPrice.pnlUsd >= 0 ? "ml-1.5 text-[#0ecb81]" : "ml-1.5 text-[#f6465d]"}
+              className={dragPrice.pnlUsd >= 0 ? "ml-1.5 text-buy" : "ml-1.5 text-sell"}
             >
               {dragPrice.pnlUsd >= 0 ? "+" : ""}${dragPrice.pnlUsd.toFixed(2)}
             </span>

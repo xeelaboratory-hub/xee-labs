@@ -28,11 +28,11 @@ export function TradeCalculator({ tick: _tick, symbolInfo }: TradeCalcProps) {
 
   return (
     <div className="p-3 space-y-2 text-xs">
-      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Position Size Calculator
       </h4>
       <div>
-        <label className="text-[10px] text-muted-foreground">Account Balance</label>
+        <label className="text-xs text-muted-foreground">Account Balance</label>
         <input
           type="number"
           value={accountBalance}
@@ -41,7 +41,7 @@ export function TradeCalculator({ tick: _tick, symbolInfo }: TradeCalcProps) {
         />
       </div>
       <div>
-        <label className="text-[10px] text-muted-foreground">Risk %</label>
+        <label className="text-xs text-muted-foreground">Risk %</label>
         <input
           type="number"
           value={riskPercent}
@@ -53,7 +53,7 @@ export function TradeCalculator({ tick: _tick, symbolInfo }: TradeCalcProps) {
         />
       </div>
       <div>
-        <label className="text-[10px] text-muted-foreground">Stop Loss (pips)</label>
+        <label className="text-xs text-muted-foreground">Stop Loss (pips)</label>
         <input
           type="number"
           value={slPips}

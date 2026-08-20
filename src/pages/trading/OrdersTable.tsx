@@ -34,7 +34,7 @@ export function OrdersTable({
   }
 
   return (
-    <table className="w-full text-[11px]">
+    <table className="w-full text-[13px]">
       <thead className="sticky top-0 bg-card z-10">
         <tr>
           <th>Symbol</th>
@@ -93,7 +93,7 @@ export function OrdersTable({
                       e.stopPropagation();
                       onModify(o);
                     }}
-                    className="px-1.5 py-0.5 text-[10px] rounded bg-accent/20 text-accent hover:bg-accent/30"
+                    className="px-1.5 py-0.5 text-xs rounded bg-accent/20 text-accent hover:bg-accent/30"
                   >
                     Modify
                   </button>
@@ -103,7 +103,7 @@ export function OrdersTable({
                     e.stopPropagation();
                     onCancel(o.id);
                   }}
-                  className="px-1.5 py-0.5 text-[10px] rounded bg-warning/20 text-warning hover:bg-warning/30"
+                  className="px-1.5 py-0.5 text-xs rounded bg-warning/20 text-warning hover:bg-warning/30"
                 >
                   Cancel
                 </button>

@@ -104,12 +104,12 @@ export function MobileTradingPanel({
 
   return (
     <div
-      className="md:hidden flex flex-col bg-slate-900 border-t border-slate-700 safe-area-bottom"
+      className="md:hidden flex flex-col bg-card border-t border-border safe-area-bottom"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       {/* Tab bar */}
-      <div className="flex border-b border-slate-700">
+      <div className="flex border-b border-border">
         {[
           { key: "order" as const, label: "Order" },
           { key: "positions" as const, label: `Positions (${positions.length})` },
@@ -121,8 +121,8 @@ export function MobileTradingPanel({
             className={cn(
               "flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition",
               activeTab === tab.key
-                ? "text-violet-400 border-b-2 border-violet-500"
-                : "text-slate-500",
+                ? "text-primary border-b-2 border-primary"
+                : "text-muted-foreground",
             )}
           >
             {tab.label}
@@ -135,9 +135,9 @@ export function MobileTradingPanel({
         <div className="p-3 space-y-3">
           {/* Symbol + Spread */}
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-white">{symbol}</span>
-            <span className="text-xs text-slate-500">
-              Spread: <span className="text-amber-400">{spread.toFixed(1)} pts</span>
+            <span className="text-sm font-bold text-foreground">{symbol}</span>
+            <span className="text-xs text-muted-foreground">
+              Spread: <span className="text-warning">{spread.toFixed(1)} pts</span>
             </span>
           </div>
 
@@ -149,7 +149,7 @@ export function MobileTradingPanel({
                 onClick={() => setOrderType(t)}
                 className={cn(
                   "flex-1 py-2 rounded-lg text-xs font-medium transition",
-                  orderType === t ? "bg-violet-600 text-white" : "bg-slate-800 text-slate-400",
+                  orderType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground",
                 )}
               >
                 {t}
@@ -158,7 +158,7 @@ export function MobileTradingPanel({
             <button
               disabled
               title="OKX conditional orders aren't wired up yet"
-              className="flex-1 py-2 rounded-lg text-xs font-medium bg-slate-800 text-slate-600 opacity-50"
+              className="flex-1 py-2 rounded-lg text-xs font-medium bg-secondary text-muted-foreground opacity-50"
             >
               STOP
             </button>
@@ -167,7 +167,7 @@ export function MobileTradingPanel({
           {/* Limit price input */}
           {orderType === "LIMIT" && (
             <div>
-              <label htmlFor="mobile-limit-price" className="text-xs text-slate-400 mb-1 block">
+              <label htmlFor="mobile-limit-price" className="text-xs text-muted-foreground mb-1 block">
                 Limit Price
               </label>
               <input
@@ -177,15 +177,15 @@ export function MobileTradingPanel({
                 value={limitPrice}
                 onChange={(e) => setLimitPrice(e.target.value)}
                 placeholder={bid.toFixed(5)}
-                className="w-full px-3 py-2.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm font-mono text-center focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2.5 bg-input border border-border rounded-lg text-foreground text-sm font-mono text-center focus:ring-2 focus:ring-primary"
               />
             </div>
           )}
 
           {/* Lot size presets */}
           <div>
-            <label className="text-xs text-slate-400 mb-1.5 block">
-              Lot Size: <span className="text-white font-mono">{quantity}</span>
+            <label className="text-xs text-muted-foreground mb-1.5 block">
+              Lot Size: <span className="text-foreground font-mono">{quantity}</span>
             </label>
             <div className="grid grid-cols-3 min-[400px]:grid-cols-6 gap-1.5">
               {LOT_PRESETS.map((lot) => (
@@ -195,8 +195,8 @@ export function MobileTradingPanel({
                   className={cn(
                     "py-2.5 rounded-lg text-xs font-mono font-medium transition active:scale-95",
                     quantity === lot
-                      ? "bg-violet-600 text-white ring-1 ring-violet-400"
-                      : "bg-slate-800 text-slate-300",
+                      ? "bg-primary text-primary-foreground ring-1 ring-primary/60"
+                      : "bg-secondary text-foreground",
                   )}
                 >
                   {lot}
@@ -210,11 +210,11 @@ export function MobileTradingPanel({
               min="0.01"
               value={quantity}
               onChange={(e) => setQuantity(Number(e.target.value) || 0.01)}
-              className="w-full mt-2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm font-mono text-center focus:ring-2 focus:ring-violet-500"
+              className="w-full mt-2 px-3 py-2 bg-input border border-border rounded-lg text-foreground text-sm font-mono text-center focus:ring-2 focus:ring-primary"
             />
           </div>
 
-          <p className="text-[10px] text-slate-500 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Stop-loss/take-profit aren't supported yet — OKX conditional orders aren't wired up.
           </p>
 
@@ -222,14 +222,14 @@ export function MobileTradingPanel({
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => handleOrder("SELL")}
-              className="py-4 rounded-xl bg-red-600 hover:bg-red-500 active:bg-red-700 active:scale-[0.98] text-white font-bold transition-all"
+              className="py-4 rounded-lg bg-sell hover:bg-sell/90 active:bg-sell/80 active:scale-[0.98] text-white font-bold transition-all"
             >
               <div className="text-lg">SELL</div>
               <div className="text-xs font-mono opacity-80">{bid.toFixed(5)}</div>
             </button>
             <button
               onClick={() => handleOrder("BUY")}
-              className="py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 active:scale-[0.98] text-white font-bold transition-all"
+              className="py-4 rounded-lg bg-buy hover:bg-buy/90 active:bg-buy/80 active:scale-[0.98] text-white font-bold transition-all"
             >
               <div className="text-lg">BUY</div>
               <div className="text-xs font-mono opacity-80">{ask.toFixed(5)}</div>
@@ -237,7 +237,7 @@ export function MobileTradingPanel({
           </div>
 
           {/* Account info */}
-          <div className="flex justify-between text-xs text-slate-500 pt-1">
+          <div className="flex justify-between text-xs text-muted-foreground pt-1">
             <span>
               Balance: ${accountBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </span>
@@ -250,18 +250,18 @@ export function MobileTradingPanel({
       {activeTab === "positions" && (
         <div className="p-3 space-y-2 max-h-[50vh] overflow-y-auto">
           {positions.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 text-sm">No open positions</div>
+            <div className="text-center py-8 text-muted-foreground text-sm">No open positions</div>
           ) : (
             <>
               {/* Total P&L bar */}
-              <div className="flex items-center justify-between bg-slate-800/60 rounded-lg p-2.5">
-                <span className="text-xs text-slate-400">
+              <div className="flex items-center justify-between bg-secondary/60 rounded-lg p-2.5">
+                <span className="text-xs text-muted-foreground">
                   Total P&L ({positions.length} positions)
                 </span>
                 <span
                   className={cn(
                     "font-mono font-bold text-sm",
-                    totalPnl >= 0 ? "text-emerald-400" : "text-red-400",
+                    totalPnl >= 0 ? "text-buy" : "text-sell",
                   )}
                 >
                   {totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
@@ -277,7 +277,7 @@ export function MobileTradingPanel({
                 return (
                   <div
                     key={pos.id}
-                    className="bg-slate-800/40 border border-slate-700 rounded-xl p-3"
+                    className="bg-secondary/40 border border-border rounded-lg p-3"
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
@@ -285,28 +285,28 @@ export function MobileTradingPanel({
                           className={cn(
                             "px-1.5 py-0.5 rounded text-xs font-bold",
                             posSide === "BUY"
-                              ? "bg-emerald-500/20 text-emerald-400"
-                              : "bg-red-500/20 text-red-400",
+                              ? "bg-buy/20 text-buy"
+                              : "bg-sell/20 text-sell",
                           )}
                         >
                           {posSide}
                         </span>
-                        <span className="text-sm font-medium text-white">{posSymbol}</span>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-sm font-medium text-foreground">{posSymbol}</span>
+                        <span className="text-xs text-muted-foreground">
                           {formatQty(pos.quantity ?? 0)}
                         </span>
                       </div>
                       <span
                         className={cn(
                           "font-mono text-sm font-bold",
-                          posPnl >= 0 ? "text-emerald-400" : "text-red-400",
+                          posPnl >= 0 ? "text-buy" : "text-sell",
                         )}
                       >
                         {posPnl >= 0 ? "+" : ""}${posPnl.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500 font-mono">
+                      <span className="text-xs text-muted-foreground font-mono">
                         Entry: {pos.entryPrice?.toFixed(5) ?? "—"}
                       </span>
                       {onClosePosition && (
@@ -316,8 +316,8 @@ export function MobileTradingPanel({
                           className={cn(
                             "px-3 py-1.5 rounded-lg text-xs font-medium transition active:scale-95",
                             closingPositionId === pos.id
-                              ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
-                              : "bg-slate-700 hover:bg-red-600/40 active:bg-red-600/60 text-slate-300 hover:text-white",
+                              ? "bg-secondary/50 text-muted-foreground cursor-not-allowed"
+                              : "bg-secondary hover:bg-destructive/40 active:bg-destructive/60 text-muted-foreground hover:text-foreground",
                           )}
                         >
                           {closingPositionId === pos.id ? "Closing…" : "Close"}
@@ -334,10 +334,10 @@ export function MobileTradingPanel({
                   onClick={onCloseAllPositions}
                   disabled={closingAll}
                   className={cn(
-                    "w-full py-3 rounded-xl text-sm font-semibold transition active:scale-[0.98]",
+                    "w-full py-3 rounded-lg text-sm font-semibold transition active:scale-[0.98]",
                     closingAll
-                      ? "bg-slate-700/30 text-slate-500 cursor-not-allowed"
-                      : "bg-red-600/20 hover:bg-red-600/30 active:bg-red-600/40 text-red-400",
+                      ? "bg-secondary/30 text-muted-foreground cursor-not-allowed"
+                      : "bg-destructive/20 hover:bg-destructive/30 active:bg-destructive/40 text-destructive",
                   )}
                 >
                   {closingAll ? "Closing All…" : "Close All Positions"}
@@ -352,8 +352,8 @@ export function MobileTradingPanel({
       {activeTab === "alerts" && (
         <div className="p-3 space-y-3">
           <div className="text-center py-8">
-            <p className="text-slate-500 text-sm">Price alerts coming soon</p>
-            <p className="text-xs text-slate-600 mt-1">
+            <p className="text-muted-foreground text-sm">Price alerts coming soon</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">
               Set alerts for price levels and get push notifications
             </p>
           </div>
@@ -378,34 +378,34 @@ export function MobileAccountBar({
   pnl: number;
 }) {
   return (
-    <div className="md:hidden flex items-center gap-2 px-2 py-1 bg-slate-800/80 border-b border-slate-700 overflow-x-auto no-scrollbar">
+    <div className="md:hidden flex items-center gap-2 px-2 py-1 bg-secondary/80 border-b border-border overflow-x-auto no-scrollbar">
       <div className="shrink-0">
-        <div className="text-[9px] text-slate-500 uppercase">Bal</div>
-        <div className="text-[11px] font-mono font-bold text-white">
+        <div className="text-[11px] text-muted-foreground uppercase">Bal</div>
+        <div className="text-[13px] font-mono font-bold text-foreground">
           ${balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
       </div>
-      <div className="w-px h-5 bg-slate-700 shrink-0" />
+      <div className="w-px h-5 bg-border shrink-0" />
       <div className="shrink-0">
-        <div className="text-[9px] text-slate-500 uppercase">Equity</div>
-        <div className="text-[11px] font-mono font-bold text-white">
+        <div className="text-[11px] text-muted-foreground uppercase">Equity</div>
+        <div className="text-[13px] font-mono font-bold text-foreground">
           ${equity.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
       </div>
-      <div className="w-px h-5 bg-slate-700 shrink-0" />
+      <div className="w-px h-5 bg-border shrink-0" />
       <div className="shrink-0">
-        <div className="text-[9px] text-slate-500 uppercase">Margin</div>
-        <div className="text-[11px] font-mono font-bold text-slate-300">
+        <div className="text-[11px] text-muted-foreground uppercase">Margin</div>
+        <div className="text-[13px] font-mono font-bold text-muted-foreground">
           ${margin.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
       </div>
-      <div className="w-px h-5 bg-slate-700 shrink-0" />
+      <div className="w-px h-5 bg-border shrink-0" />
       <div className="shrink-0">
-        <div className="text-[9px] text-slate-500 uppercase">P&L</div>
+        <div className="text-[11px] text-muted-foreground uppercase">P&L</div>
         <div
           className={cn(
-            "text-[11px] font-mono font-bold",
-            pnl >= 0 ? "text-emerald-400" : "text-red-400",
+            "text-[13px] font-mono font-bold",
+            pnl >= 0 ? "text-buy" : "text-sell",
           )}
         >
           {pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}
@@ -435,14 +435,14 @@ export function MobileSymbolSelector({
             key={s.symbol}
             onClick={() => onSelect(s.symbol)}
             className={cn(
-              "shrink-0 px-3 py-2 rounded-xl text-xs transition active:scale-95",
+              "shrink-0 px-3 py-2 rounded-lg text-xs transition active:scale-95",
               selected === s.symbol
-                ? "bg-violet-600 text-white ring-1 ring-violet-400"
-                : "bg-slate-800 text-slate-300 border border-slate-700",
+                ? "bg-primary text-primary-foreground ring-1 ring-primary/60"
+                : "bg-secondary text-foreground border border-border",
             )}
           >
             <div className="font-semibold">{s.symbol}</div>
-            <div className="font-mono mt-0.5 text-[10px] opacity-75">
+            <div className="font-mono mt-0.5 text-xs opacity-75">
               {s.bid != null ? s.bid.toFixed(s.bid > 10 ? 2 : 5) : "—"}
             </div>
           </button>

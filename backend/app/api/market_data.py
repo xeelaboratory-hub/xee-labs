@@ -2,14 +2,25 @@
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import EtfFlow as EtfFlowModel, LargeOrderLevel as LargeOrderLevelModel
 from app.db.session import get_db
+from app.exchange import okx_instruments
 from app.historical import service as historical_service
-from app.schemas import CandlesRequest, CandlesResponse, EtfFlow, HealthResponse, LargeOrderLevel, Symbol, Tick
+from app.schemas import (
+    CandlesRequest,
+    CandlesResponse,
+    EtfFlow,
+    HealthResponse,
+    InstrumentSpec,
+    LargeOrderLevel,
+    Symbol,
+    Tick,
+)
 from app.store import store
 from app.symbols import get_symbol, list_symbols
 
@@ -19,6 +30,44 @@ router = APIRouter(prefix="/api/market-data")
 @router.get("/symbols", response_model=list[Symbol])
 async def get_symbols() -> list[Symbol]:
     return [info.to_schema() for info in list_symbols()]
+
+
+@router.get("/instrument/{symbol}", response_model=InstrumentSpec)
+async def get_instrument(symbol: str) -> InstrumentSpec:
+    symbol_info = get_symbol(symbol)
+    if symbol_info is None:
+        raise HTTPException(status_code=404, detail=f"unknown symbol: {symbol}")
+    if symbol_info.exchange != "okx":
+        raise HTTPException(
+            status_code=400, detail="instrument specs are only available for OKX symbols"
+        )
+
+    try:
+        # This app only trades perpetual swaps today (see symbols.py's
+        # native_symbol) — no need for the SPOT/FUTURES instType detection
+        # a general-purpose OKX client would need.
+        raw = await okx_instruments.get_instrument_cached(symbol_info.native_symbol, "SWAP")
+    except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+        raise HTTPException(status_code=503, detail="upstream exchange error") from exc
+
+    if raw is None:
+        raise HTTPException(
+            status_code=502, detail=f"OKX returned no instrument for {symbol_info.native_symbol}"
+        )
+
+    return InstrumentSpec(
+        instId=raw["instId"],
+        instType=raw["instType"],
+        ctVal=float(raw["ctVal"]),
+        ctValCcy=raw["ctValCcy"],
+        lotSz=float(raw["lotSz"]),
+        minSz=float(raw["minSz"]),
+        tickSz=float(raw["tickSz"]),
+        settleCcy=raw["settleCcy"],
+        quoteCcy=raw["quoteCcy"],
+        baseCcy=raw["baseCcy"],
+        maxLever=float(raw["lever"]),
+    )
 
 
 @router.post("/candles/{symbol}", response_model=CandlesResponse)

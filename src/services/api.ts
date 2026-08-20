@@ -79,6 +79,7 @@ const realImplementation = {
 
   // ── Market data (real backend, unchanged since Phase 3) ──
   getSymbols: marketdataApi.getSymbols,
+  getInstrument: marketdataApi.getInstrument,
   getTick: marketdataApi.getTick,
   getCandles: marketdataApi.getCandles,
   getCandlesWithMeta: marketdataApi.getCandlesWithMeta,

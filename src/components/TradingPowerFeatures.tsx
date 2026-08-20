@@ -124,7 +124,7 @@ export function PriceAlertManager({ symbol }: { symbol: string }) {
               className="flex items-center justify-between text-xs py-1 border-b border-border/30"
             >
               <div className="flex items-center gap-1.5">
-                <span className={a.condition === "above" ? "text-green-500" : "text-red-500"}>
+                <span className={a.condition === "above" ? "text-buy" : "text-sell"}>
                   {a.condition === "above" ? (
                     <ChevronUp className="h-3 w-3" />
                   ) : (
@@ -141,15 +141,15 @@ export function PriceAlertManager({ symbol }: { symbol: string }) {
                     <BellOff className="h-3 w-3 text-muted-foreground" />
                   )}
                 </button>
-                <button onClick={() => removeAlert(a.id)} className="p-0.5 hover:text-red-500">
-                  <X className="h-3 w-3" />
+                <button onClick={() => removeAlert(a.id)} className="p-0.5 hover:text-sell">
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
           ))
         )}
         {otherAlerts.length > 0 && (
-          <p className="text-[10px] text-muted-foreground text-center pt-1">
+          <p className="text-xs text-muted-foreground text-center pt-1">
             {otherAlerts.length} alert(s) on other symbols
           </p>
         )}
@@ -171,7 +171,7 @@ export function MarketSentimentGauge({ symbol }: { symbol: string }) {
   const sellPct = 100 - buyPct;
   const label = buyPct > 60 ? "Bullish" : buyPct < 40 ? "Bearish" : "Neutral";
   const labelColor =
-    buyPct > 60 ? "text-green-500" : buyPct < 40 ? "text-red-500" : "text-yellow-500";
+    buyPct > 60 ? "text-buy" : buyPct < 40 ? "text-sell" : "text-warning";
 
   return (
     <Card>
@@ -182,13 +182,13 @@ export function MarketSentimentGauge({ symbol }: { symbol: string }) {
       </CardHeader>
       <CardContent className="p-3 pt-2">
         <div className="flex items-center justify-between text-xs mb-1.5">
-          <span className="text-green-500 font-medium">{buyPct}% Buy</span>
+          <span className="text-buy font-medium">{buyPct}% Buy</span>
           <span className={cn("font-medium", labelColor)}>{label}</span>
-          <span className="text-red-500 font-medium">{sellPct}% Sell</span>
+          <span className="text-sell font-medium">{sellPct}% Sell</span>
         </div>
-        <div className="h-2.5 bg-red-500/30 rounded-full overflow-hidden">
+        <div className="h-2.5 bg-sell/30 rounded-full overflow-hidden">
           <div
-            className="h-full bg-green-500 rounded-full transition-all"
+            className="h-full bg-buy rounded-full transition-all"
             style={{ width: `${buyPct}%` }}
           />
         </div>
@@ -199,11 +199,11 @@ export function MarketSentimentGauge({ symbol }: { symbol: string }) {
             { label: "Algo", buy: Math.max(25, buyPct - 5) },
           ].map((g) => (
             <div key={g.label} className="text-center">
-              <p className="text-[10px] text-muted-foreground">{g.label}</p>
+              <p className="text-xs text-muted-foreground">{g.label}</p>
               <p
                 className={cn(
                   "text-xs font-medium",
-                  g.buy > 50 ? "text-green-500" : "text-red-500",
+                  g.buy > 50 ? "text-buy" : "text-sell",
                 )}
               >
                 {g.buy}% B
@@ -262,7 +262,7 @@ export function MultiSymbolComparison({
               <div
                 className={cn(
                   "absolute top-0.5 bottom-0.5 rounded",
-                  d.change >= 0 ? "bg-green-500" : "bg-red-500",
+                  d.change >= 0 ? "bg-buy" : "bg-sell",
                 )}
                 style={{
                   left: d.change >= 0 ? "50%" : `${50 + d.change * 25}%`,
@@ -273,7 +273,7 @@ export function MultiSymbolComparison({
             <span
               className={cn(
                 "text-xs font-medium w-12 text-right",
-                d.change >= 0 ? "text-green-500" : "text-red-500",
+                d.change >= 0 ? "text-buy" : "text-sell",
               )}
             >
               {d.change >= 0 ? "+" : ""}
@@ -325,10 +325,10 @@ export function TradeSignals({ symbol }: { symbol: string }) {
           className={cn(
             "text-center py-2 rounded-lg mb-2",
             overall.includes("BUY")
-              ? "bg-green-500/10 text-green-500"
+              ? "bg-buy/10 text-buy"
               : overall.includes("SELL")
-                ? "bg-red-500/10 text-red-500"
-                : "bg-yellow-500/10 text-yellow-500",
+                ? "bg-sell/10 text-sell"
+                : "bg-warning/10 text-warning",
           )}
         >
           <p className="text-xs text-muted-foreground">Overall</p>
@@ -342,10 +342,10 @@ export function TradeSignals({ symbol }: { symbol: string }) {
                 className={cn(
                   "font-medium",
                   s.signal === "BUY"
-                    ? "text-green-500"
+                    ? "text-buy"
                     : s.signal === "SELL"
-                      ? "text-red-500"
-                      : "text-yellow-500",
+                      ? "text-sell"
+                      : "text-warning",
                 )}
               >
                 {s.signal}
@@ -395,12 +395,12 @@ export function RiskOverlay({
           </CardTitle>
           <span
             className={cn(
-              "text-[10px] font-medium px-1.5 py-0.5 rounded",
+              "text-xs font-medium px-1.5 py-0.5 rounded",
               riskLevel === "CRITICAL"
-                ? "bg-red-500/10 text-red-500"
+                ? "bg-sell/10 text-sell"
                 : riskLevel === "WARNING"
-                  ? "bg-yellow-500/10 text-yellow-500"
-                  : "bg-green-500/10 text-green-500",
+                  ? "bg-warning/10 text-warning"
+                  : "bg-buy/10 text-buy",
             )}
           >
             {riskLevel}
@@ -414,10 +414,10 @@ export function RiskOverlay({
             <span
               className={
                 dailyUsed > 80
-                  ? "text-red-500"
+                  ? "text-sell"
                   : dailyUsed > 50
-                    ? "text-yellow-500"
-                    : "text-green-500"
+                    ? "text-warning"
+                    : "text-buy"
               }
             >
               {dailyUsed.toFixed(0)}%
@@ -427,7 +427,7 @@ export function RiskOverlay({
             <div
               className={cn(
                 "h-full rounded-full transition-all",
-                dailyUsed > 80 ? "bg-red-500" : dailyUsed > 50 ? "bg-yellow-500" : "bg-green-500",
+                dailyUsed > 80 ? "bg-sell" : dailyUsed > 50 ? "bg-warning" : "bg-buy",
               )}
               style={{ width: `${Math.min(100, dailyUsed)}%` }}
             />
@@ -439,10 +439,10 @@ export function RiskOverlay({
             <span
               className={
                 totalUsed > 80
-                  ? "text-red-500"
+                  ? "text-sell"
                   : totalUsed > 50
-                    ? "text-yellow-500"
-                    : "text-green-500"
+                    ? "text-warning"
+                    : "text-buy"
               }
             >
               {totalUsed.toFixed(0)}%
@@ -452,7 +452,7 @@ export function RiskOverlay({
             <div
               className={cn(
                 "h-full rounded-full transition-all",
-                totalUsed > 80 ? "bg-red-500" : totalUsed > 50 ? "bg-yellow-500" : "bg-green-500",
+                totalUsed > 80 ? "bg-sell" : totalUsed > 50 ? "bg-warning" : "bg-buy",
               )}
               style={{ width: `${Math.min(100, totalUsed)}%` }}
             />
@@ -465,13 +465,13 @@ export function RiskOverlay({
           </div>
           <div className="bg-muted/50 p-2 rounded text-center">
             <p className="text-muted-foreground">Daily P/L</p>
-            <p className={cn("font-bold", dailyPnl >= 0 ? "text-green-500" : "text-red-500")}>
+            <p className={cn("font-bold", dailyPnl >= 0 ? "text-buy" : "text-sell")}>
               {formatCurrency(dailyPnl)}
             </p>
           </div>
         </div>
         {dailyUsed > 70 && (
-          <div className="flex items-center gap-1.5 p-2 bg-red-500/10 rounded text-xs text-red-500">
+          <div className="flex items-center gap-1.5 p-2 bg-sell/10 rounded text-xs text-sell">
             <AlertTriangle className="h-3 w-3 shrink-0" />
             <span>Approaching daily loss limit. Consider reducing exposure.</span>
           </div>
@@ -507,9 +507,9 @@ export function PnlHeatmap({ data = [] }: { data?: { hour: number; day: number; 
 
   function cellColor(pnl: number) {
     const intensity = Math.abs(pnl) / maxAbs;
-    if (pnl > 0) return `rgba(34, 197, 94, ${0.1 + intensity * 0.6})`;
-    if (pnl < 0) return `rgba(239, 68, 68, ${0.1 + intensity * 0.6})`;
-    return "rgba(128, 128, 128, 0.1)";
+    if (pnl > 0) return `hsl(var(--buy) / ${0.1 + intensity * 0.6})`;
+    if (pnl < 0) return `hsl(var(--sell) / ${0.1 + intensity * 0.6})`;
+    return "hsl(var(--muted-foreground) / 0.15)";
   }
 
   return (
@@ -524,14 +524,14 @@ export function PnlHeatmap({ data = [] }: { data?: { hour: number; day: number; 
           <div className="flex gap-1">
             <div className="w-8" />
             {hours.map((h) => (
-              <div key={h} className="flex-1 text-[9px] text-muted-foreground text-center">
+              <div key={h} className="flex-1 text-[11px] text-muted-foreground text-center">
                 {h}
               </div>
             ))}
           </div>
           {days.map((day, di) => (
             <div key={day} className="flex gap-1 items-center">
-              <span className="w-8 text-[10px] text-muted-foreground">{day}</span>
+              <span className="w-8 text-xs text-muted-foreground">{day}</span>
               {hours.map((_, hi) => {
                 const cell = heatData.find((d) => d.day === di && d.hour === hi * 4);
                 return (
@@ -541,7 +541,7 @@ export function PnlHeatmap({ data = [] }: { data?: { hour: number; day: number; 
                     style={{ backgroundColor: cellColor(cell?.pnl || 0) }}
                     title={`${day} ${hours[hi]}: ${formatCurrency(cell?.pnl || 0)}`}
                   >
-                    <span className="text-[8px] font-medium">
+                    <span className="text-[10px] font-medium">
                       {cell ? (cell.pnl > 0 ? "+" : "") + cell.pnl.toFixed(0) : ""}
                     </span>
                   </div>
@@ -551,24 +551,24 @@ export function PnlHeatmap({ data = [] }: { data?: { hour: number; day: number; 
           ))}
         </div>
         <div className="flex items-center justify-center gap-3 mt-2">
-          <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <div
               className="h-2 w-4 rounded-sm"
-              style={{ backgroundColor: "rgba(239, 68, 68, 0.5)" }}
+              style={{ backgroundColor: "hsl(var(--sell) / 0.5)" }}
             />{" "}
             Loss
           </div>
-          <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <div
               className="h-2 w-4 rounded-sm"
-              style={{ backgroundColor: "rgba(128, 128, 128, 0.1)" }}
+              style={{ backgroundColor: "hsl(var(--muted-foreground) / 0.15)" }}
             />{" "}
             Neutral
           </div>
-          <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <div
               className="h-2 w-4 rounded-sm"
-              style={{ backgroundColor: "rgba(34, 197, 94, 0.5)" }}
+              style={{ backgroundColor: "hsl(var(--buy) / 0.5)" }}
             />{" "}
             Profit
           </div>

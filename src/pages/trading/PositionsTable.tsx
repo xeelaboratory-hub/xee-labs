@@ -48,7 +48,7 @@ export function PositionsTable({
   };
 
   return (
-    <table className="w-full text-[11px]">
+    <table className="w-full text-[13px]">
       <thead className="sticky top-0 bg-card z-10">
         <tr>
           <th>Symbol</th>
@@ -106,7 +106,7 @@ export function PositionsTable({
                     min={0.01}
                     max={p.quantity - 0.01}
                     step="any"
-                    className="w-16 h-5 text-[10px] rounded border border-border bg-background px-1 font-mono"
+                    className="w-16 h-5 text-xs rounded border border-border bg-background px-1 font-mono"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handlePartialSubmit(p.id, p.quantity);
@@ -121,7 +121,7 @@ export function PositionsTable({
                       e.stopPropagation();
                       handlePartialSubmit(p.id, p.quantity);
                     }}
-                    className="px-1 py-0.5 text-[9px] rounded bg-warning/20 text-warning hover:bg-warning/30"
+                    className="px-1 py-0.5 text-[11px] rounded bg-warning/20 text-warning hover:bg-warning/30"
                   >
                     Go
                   </button>
@@ -131,9 +131,9 @@ export function PositionsTable({
                       setPartialCloseId(null);
                       setPartialQty("");
                     }}
-                    className="px-1 py-0.5 text-[9px] rounded bg-secondary text-muted-foreground hover:bg-secondary/80"
+                    className="px-1 py-0.5 text-[11px] rounded bg-secondary text-muted-foreground hover:bg-secondary/80"
                   >
-                    <X className="h-2.5 w-2.5" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ) : (
@@ -144,7 +144,7 @@ export function PositionsTable({
                         e.stopPropagation();
                         onModify(p);
                       }}
-                      className="px-1.5 py-0.5 text-[10px] rounded bg-accent/20 text-accent hover:bg-accent/30"
+                      className="px-1.5 py-0.5 text-xs rounded bg-accent/20 text-accent hover:bg-accent/30"
                     >
                       Modify
                     </button>
@@ -156,7 +156,7 @@ export function PositionsTable({
                         setPartialCloseId(p.id);
                         setPartialQty("");
                       }}
-                      className="px-1.5 py-0.5 text-[10px] rounded bg-warning/20 text-warning hover:bg-warning/30 flex items-center gap-0.5"
+                      className="px-1.5 py-0.5 text-xs rounded bg-warning/20 text-warning hover:bg-warning/30 flex items-center gap-0.5"
                       title="Partial Close"
                     >
                       <Scissors className="h-2.5 w-2.5" /> Partial
@@ -167,7 +167,7 @@ export function PositionsTable({
                       e.stopPropagation();
                       onClose(p.id);
                     }}
-                    className="px-1.5 py-0.5 text-[10px] rounded bg-destructive/20 text-destructive hover:bg-destructive/30"
+                    className="px-1.5 py-0.5 text-xs rounded bg-destructive/20 text-destructive hover:bg-destructive/30"
                   >
                     Close
                   </button>

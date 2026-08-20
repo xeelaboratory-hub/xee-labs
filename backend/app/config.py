@@ -39,3 +39,8 @@ HISTORICAL_CACHE_MAX_ENTRIES = 256
 
 BINANCE_KLINES_URL = "https://fapi.binance.com/fapi/v1/klines"
 OKX_CANDLES_URL = "https://www.okx.com/api/v5/market/history-candles"
+OKX_INSTRUMENTS_URL = "https://www.okx.com/api/v5/public/instruments"
+
+# Instrument specs (ctVal/lotSz/minSz/tickSz/maxLever) change rarely — long TTL
+# relative to HISTORICAL_CACHE_TTL_SECONDS above.
+INSTRUMENT_CACHE_TTL_SECONDS = 3600
