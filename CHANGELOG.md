@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-08-20
+
+### Added
+- Position Builder panel with a real OKX instrument-specs backend endpoint
+  (`GET` instrument specs, `backend/app/exchange/okx_instruments.py`),
+  letting a trade be sized against real contract specs before placing it.
+- Full dark/light theming with 4 selectable accent colors (Teal/Blue/Violet/
+  Amber) via `ThemeSwitcher` and `themeStore`, replacing hard-coded colors
+  across `MobileTradingPanel`, `LoginPage`, `TradingPowerFeatures`, and
+  `ChartPanel` with semantic tokens (`bg-buy`/`bg-sell`/`text-warning`/etc.).
+- A typography scale (`text-label`/`text-meta`/`text-data`/`text-heading`)
+  and a shared `PanelHeader` component, replacing 6 near-identical hand-rolled
+  panel header implementations.
+
+### Changed
+- Unified buy/sell quick-trade buttons onto the shared `Button` component
+  (new `xs` size) instead of hand-rolled markup.
+- Normalized the corner-radius scale to two tiers (`rounded-md`/`rounded-lg`),
+  removing stray `rounded-xl` usage across trading dialogs and the mobile
+  panel.
+- Unified the inconsistent close (`X`) icon sizing across panels and dialogs
+  to two levels: 14px inline/panel, 16px dialog-level.
+
+### Removed
+- Dead legacy CSS classes (`.btn*`, `.panel*`, `.stat-*`, `.tab-*`, `.pnl-*`,
+  `.mono`, `.text-muted`) from `src/styles/global.css`, verified unused
+  across every `.tsx` file before deletion.
+
 ## [1.6.0] - 2026-08-20
 
 Production-readiness and hardening pass ahead of the v1.0 launch — no new
