@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LogIn, LogOut, Plug, Trash2, X } from "lucide-react";
+import { LogIn, LogOut, Plug, Trash2, Volume2, VolumeX, X, Zap } from "lucide-react";
 import { ThemeSwitcher } from "../../components/ThemeSwitcher.tsx";
 import { api, type ExchangeCredentialInput } from "../../services/api.ts";
 import { ApiError } from "../../services/api/request.ts";
@@ -10,12 +10,22 @@ import { cn } from "../../lib/utils.ts";
 import type { TradingMode } from "../../services/schemas.ts";
 import { LoginPage } from "../LoginPage.tsx";
 
+export interface AccountPanelProps {
+  oneClick?: boolean;
+  onToggleOneClick?: () => void;
+  soundMuted?: boolean;
+  onToggleMute?: () => void;
+}
+
 /**
  * Mode switcher (OKX demo-trading vs live-trading) + exchange-credential
  * management. Replaces the old PropSim multi-account concept — there's just
- * one OKX identity per mode, and this is where a user connects it.
+ * one OKX identity per mode, and this is where a user connects it. Also
+ * hosts the app-wide one-click-trading and trade-sound-mute toggles, since
+ * it's the one panel always visible regardless of which right-panel tab
+ * is open.
  */
-export function AccountPanel() {
+export function AccountPanel({ oneClick, onToggleOneClick, soundMuted, onToggleMute }: AccountPanelProps) {
   const mode = useTradingStore((s) => s.mode);
   const setMode = useTradingStore((s) => s.setMode);
   const loadPositions = useTradingStore((s) => s.loadPositions);
@@ -65,6 +75,20 @@ export function AccountPanel() {
         </div>
 
         <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={onToggleMute}
+            title={soundMuted ? "Unmute trade sounds" : "Mute trade sounds"}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {soundMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            onClick={onToggleOneClick}
+            title="One-click trading: skip confirmation for market orders"
+            className={oneClick ? "text-buy" : "text-muted-foreground hover:text-foreground"}
+          >
+            <Zap className="h-3.5 w-3.5" />
+          </button>
           <ThemeSwitcher />
           {accessToken && <div className="h-3.5 w-px bg-border" />}
 

@@ -271,12 +271,20 @@ export function TradingPage() {
     [rightPanelWidth],
   );
 
-  // (#4) One-click trading mode — fixed at whatever was last persisted;
-  // no in-app toggle since Position Builder absorbed order placement.
-  const [oneClick] = useState(() => readLocalPreferences().oneClickTrading ?? false);
+  // (#4) One-click trading mode
+  const [oneClick, setOneClick] = useState(
+    () => readLocalPreferences().oneClickTrading ?? false,
+  );
+  const toggleOneClick = useCallback(() => {
+    setOneClick((prev) => {
+      const v = !prev;
+      updateLocalPreferences({ oneClickTrading: v });
+      return v;
+    });
+  }, []);
 
   // Trade sound effect
-  const { playTradeSound } = useTradeSound();
+  const { muted: soundMuted, toggleMute: toggleSoundMute, playTradeSound } = useTradeSound();
 
   // (#6) Position modify dialog
   const [modifyingPosition, setModifyingPosition] = useState<Position | null>(null);
@@ -592,7 +600,12 @@ export function TradingPage() {
               className="flex h-full flex-col overflow-hidden border-l border-border bg-card"
               style={{ width: rightPanelWidth }}
             >
-            <AccountPanel />
+            <AccountPanel
+              oneClick={oneClick}
+              onToggleOneClick={toggleOneClick}
+              soundMuted={soundMuted}
+              onToggleMute={toggleSoundMute}
+            />
             {rightPanel === "dom" && <DOMPanel symbol={selectedSymbol} tick={tick} />}
             {rightPanel === "position-builder" && (
               <PositionBuilderPanel
