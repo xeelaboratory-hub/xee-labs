@@ -7,6 +7,7 @@ import { api, type ExchangeCredentialInput } from "../services/api.ts";
 import { useAuthStore, useTradingStore } from "../services/store.tsx";
 import { toast } from "../services/toast.ts";
 import { cn } from "../lib/utils.ts";
+import { trimCredentialFields, validateOkxCredentials } from "../lib/okx-credentials.ts";
 
 // ── Settings — Account / API connections, promoted out of the trading
 // screen's always-visible chrome (see AccountPanel, which now only hosts
@@ -119,11 +120,27 @@ function ConnectionsTab() {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["credentials"] });
 
+  // Live shape feedback while typing; the same call gates submission below.
+  const validation = validateOkxCredentials({ apiKey, apiSecret, passphrase });
+  const raw: Record<string, string> = { apiKey, apiSecret, passphrase };
+  // Don't flag a field as missing until it has been typed into — a pristine
+  // form shouldn't render three red lines. A whitespace-only value counts as
+  // touched, so it still surfaces rather than failing silently on submit.
+  const liveErrors = validation.errors.filter((issue) => !(issue.kind === "required" && raw[issue.field] === ""));
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Blocking checks run against the trimmed values that would actually be
+    // sent, so a paste with trailing whitespace can't slip past them. The
+    // submit button is disabled while these exist and every one of them is
+    // already rendered above the button, so this is just a backstop.
+    const trimmed = trimCredentialFields({ apiKey, apiSecret, passphrase });
+    if (validateOkxCredentials(trimmed).errors.length > 0) return;
+
     setSubmitting(true);
-    const input: ExchangeCredentialInput = { exchange: "okx", isDemo, apiKey, apiSecret, passphrase, label };
+    const input: ExchangeCredentialInput = { exchange: "okx", isDemo, ...trimmed, label };
     try {
       await api.createCredential(input);
       setApiKey("");
@@ -211,10 +228,20 @@ function ConnectionsTab() {
             placeholder="Label"
             className="w-full rounded border border-border bg-background px-2 py-1.5"
           />
+          {liveErrors.map((issue) => (
+            <p key={issue.message} className="text-destructive">
+              {issue.message}
+            </p>
+          ))}
+          {validation.warnings.map((issue) => (
+            <p key={issue.message} className="text-warning">
+              {issue.message}
+            </p>
+          ))}
           {error && <p className="text-destructive">{error}</p>}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || validation.errors.length > 0}
             className="w-full rounded bg-primary py-1.5 font-medium text-primary-foreground disabled:opacity-50"
           >
             {submitting ? "Saving…" : "Save credentials"}
