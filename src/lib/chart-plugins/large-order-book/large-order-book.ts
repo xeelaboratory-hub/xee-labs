@@ -131,7 +131,9 @@ export class LargeOrderBookPrimitive extends PluginBase {
     if (level.endedAt) return this.coordinateForTime(Date.parse(level.firstSeen) / 1000, ctx.data);
     const encounter = findLatestCandleAtPrice(level.price, ctx.data, ctx.firstVisible, ctx.lastVisible);
     if (encounter) return this.chart.timeScale().timeToCoordinate(encounter.time);
-    return null;
+    // Price hasn't traded through this level yet (e.g. an ask above current price) —
+    // fall back to where the order was first seen, same as ended levels.
+    return this.coordinateForTime(Date.parse(level.firstSeen) / 1000, ctx.data);
   }
 
   private lineForLevel(
