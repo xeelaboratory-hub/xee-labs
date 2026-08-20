@@ -67,9 +67,20 @@ npm run test:watch         # vitest watch mode
 npx vitest run src/__tests__/utils.test.ts   # single test file
 ```
 
-`npm run lint` is defined (`eslint src/`) but there is no ESLint config file
-in the repo — it fails immediately with "ESLint couldn't find a
-configuration file." Don't rely on it until a config is added.
+`npm run lint` runs ESLint 9 against `src/` using the flat config in
+`eslint.config.js`. It is scoped to what `tsc` can't catch — React hook
+dependency arrays, Fast Refresh-unsafe exports, unreachable code — since
+`npm run typecheck` already owns type correctness and is clean repo-wide.
+typescript-eslint runs in its non-type-checked mode on purpose: the
+type-aware rules need a second full program build per run and would largely
+duplicate `typecheck`.
+
+The baseline is **0 errors, 5 warnings** (hook dependency arrays in
+`App.tsx`, `ChartPanel.tsx`, `useLargeOrderBookPrimitive.ts`,
+`useSessionVolumeProfile.ts`, and one Fast Refresh export in
+`PositionBuilderPanel.tsx`). Those 5 predate the config and were left
+untouched when it was added — don't treat them as newly introduced, and
+don't let the count grow.
 
 ### Backend (`backend/`)
 
