@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { cn, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { PanelHeader } from "@/components/PanelHeader";
 import { BookOpen, Star, Pencil, Trash2, Plus } from "lucide-react";
 
 const EMOTIONS = [
@@ -128,21 +129,20 @@ export function TradeJournalPanel({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <BookOpen className="h-3 w-3" />
-          Trade Journal
-        </h3>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowForm(true);
-          }}
-          className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-primary/10 text-primary hover:bg-primary/20"
-        >
-          <Plus className="h-3 w-3" /> New
-        </button>
-      </div>
+      <PanelHeader
+        title="Trade Journal"
+        right={
+          <button
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+            className="flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-primary/10 text-primary hover:bg-primary/20"
+          >
+            <Plus className="h-3 w-3" /> New
+          </button>
+        }
+      />
 
       {showForm && (
         <div className="px-3 py-2 border-b border-border/50 bg-secondary/30 space-y-2 text-xs">
