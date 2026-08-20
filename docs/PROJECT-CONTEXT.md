@@ -89,7 +89,8 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
   (`demo` | `live`), never mixed.
 - `docker-compose.yml` runs four services — `postgres` (internal only),
   `backend` (runs `alembic upgrade head` automatically on container start,
-  then serves on `:3000`), `frontend` (nginx on `:8080`, reverse-proxying
+  then serves on `127.0.0.1:3000` — host-local only, not externally
+  reachable), `frontend` (nginx on `:8080`, reverse-proxying
   `/api`/`/ws` to `backend`), and `etf-scraper` (no published port, keeps
   `etf_flows` current against the same Postgres). See
   [architecture/OVERVIEW.md](architecture/OVERVIEW.md).

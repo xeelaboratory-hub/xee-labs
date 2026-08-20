@@ -23,18 +23,21 @@ from app.auth.schemas import LoginRequest
 LOG = logging.getLogger("auth")
 
 
-# docker-compose.yml publishes the backend's port directly to the host
-# (`3000:3000`) alongside nginx's `8080:80` — see AGENTS.md's "Local dev vs.
-# Docker" section — so the backend is reachable two ways: proxied through
-# nginx (which sets X-Forwarded-For, see nginx.conf) and hit directly on
-# :3000, bypassing nginx entirely. A direct hit lets the caller set
-# X-Forwarded-For to anything, which would otherwise let an attacker rotate
-# through fake values to dodge the IP limiter with a single real connection.
-# Only trust the header when the TCP peer itself is a private-network address
-# — i.e. the request actually came from something inside the Docker network
-# (nginx) rather than directly from the public internet. A direct external
-# hit's peer address is the real socket peer (not attacker-controlled) and is
-# used as-is.
+# docker-compose.yml binds the backend's port to the host's loopback only
+# (`127.0.0.1:3000:3000`) — not exposed to the public internet — but it's
+# still reachable two ways within that trust boundary: proxied through nginx
+# (which sets X-Forwarded-For, see nginx.conf and its `8080:80` mapping), or
+# hit directly on 127.0.0.1:3000 from the host itself, or by any other
+# container on the same Docker network addressing `backend:3000` directly,
+# bypassing nginx entirely in both cases. Either path lets the caller set
+# X-Forwarded-For to anything, which would otherwise let it dodge the IP
+# limiter with a single real connection. Only trust the header when the TCP
+# peer itself is a private-network address — i.e. the request came from
+# inside the Docker network or the host itself, not the public internet.
+# This doesn't distinguish nginx from another local/in-network process
+# hitting :3000 directly; the real backstop against that is that :3000 is no
+# longer internet-reachable at all, which is the actual boundary that
+# matters for this rate limiter's intended purpose (external brute-force).
 def _is_trusted_proxy_peer(peer: str) -> bool:
     try:
         return ipaddress.ip_address(peer).is_private

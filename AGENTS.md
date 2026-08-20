@@ -58,16 +58,16 @@ budget. `/register` is limited per IP only (3/60s). Over the limit returns
 `429` with a `Retry-After` header; the response never reveals whether the
 attempted email exists.
 
-**The backend is reachable two ways, and only one of them can be trusted to
-report the real client IP.** `docker-compose.yml` publishes the backend's
-port directly to the host (`3000:3000`) alongside nginx's `8080:80` — so a
-request can arrive proxied through nginx (which sets `X-Forwarded-For`, see
-`nginx.conf`) or hit the backend directly on `:3000`, bypassing nginx and
-its header entirely. The rate limiter only trusts `X-Forwarded-For` when the
-TCP peer itself is a private-network address (`_is_trusted_proxy_peer` in
-`rate_limit.py`) — i.e. the request actually came from inside the Docker
-network — and falls back to the raw socket peer otherwise, so a direct hit
-can't forge its way past the IP limiter by setting an arbitrary header.
+**The backend's `:3000` is bound to the host's loopback only
+(`127.0.0.1:3000:3000`)** — not exposed to the public internet — but
+requests can still arrive two ways within that boundary: proxied through
+nginx (which sets `X-Forwarded-For`, see `nginx.conf` and its `8080:80`
+mapping), or hit directly on `127.0.0.1:3000` from the host, or by another
+container addressing `backend:3000` on the Docker network, bypassing nginx
+either way. The rate limiter only trusts `X-Forwarded-For` when the TCP peer
+itself is a private-network address (`_is_trusted_proxy_peer` in
+`rate_limit.py`) and falls back to the raw socket peer otherwise — see that
+file's comment for what this does and doesn't cover.
 
 **`npm run dev` alone is not sufficient for a working terminal.** The Vite
 dev server's `/api` and `/ws` proxies target `localhost:3000` — if the
@@ -87,8 +87,9 @@ Postgres + the backend + the frontend together for local dev; see
   `backend/pyproject.toml`), migrations (`backend/alembic/versions/`), or
   build configuration (`vite.config.ts`, etc.) change.
 - `docker compose up --build` runs four services together: `postgres`
-  (internal only, not published to the host), `backend` (published on
-  `:3000`, runs `alembic upgrade head` automatically on container start via
+  (internal only, not published to the host), `backend` (bound to
+  `127.0.0.1:3000` on the host — local-only, not reachable from outside the
+  machine — runs `alembic upgrade head` automatically on container start via
   `backend/docker-entrypoint.sh` before starting uvicorn), `frontend`
   (nginx on `:8080`, serving the static build and reverse-proxying
   `/api`/`/ws` to `backend` per `nginx.conf`), and `etf-scraper` (no

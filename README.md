@@ -265,7 +265,8 @@ This builds and runs four services:
 
 - **`postgres`** — internal to the compose network only, not published to
   the host.
-- **`backend`** — the FastAPI service, published on `:3000`. Its entrypoint
+- **`backend`** — the FastAPI service, bound to `127.0.0.1:3000` on the
+  host (local-only, not reachable from outside the machine). Its entrypoint
   (`backend/docker-entrypoint.sh`) runs `alembic upgrade head` before
   starting uvicorn, so a fresh `docker compose up --build` against an empty
   Postgres works with no manual migration step.

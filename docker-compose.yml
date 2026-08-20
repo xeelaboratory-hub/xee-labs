@@ -9,7 +9,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       DATABASE_URL: postgresql+asyncpg://xee_labs:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/xee_labs
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?set CREDENTIAL_ENCRYPTION_KEY in .env}
