@@ -1,5 +1,4 @@
 import {
-  ArrowUpDown,
   BarChart3,
   Bot,
   Calculator,
@@ -39,7 +38,7 @@ export interface ChartToolbarProps {
   showIndicatorMenu: boolean;
   onToggleIndicatorMenu: () => void;
   rightPanel: string;
-  onRightPanel: (p: "order" | "dom" | "watchlist" | "ai-trader" | "position-builder") => void;
+  onRightPanel: (p: "dom" | "watchlist" | "ai-trader" | "position-builder") => void;
   aiTraderEnabled?: boolean;
   showRightPanel: boolean;
   tick?: { bid: number; ask: number; timestamp: number };
@@ -308,12 +307,6 @@ export function ChartToolbar({
 
       {/* Right Panel Toggles */}
       <div className="hidden md:flex items-center gap-0.5">
-        <ToolButton
-          icon={ArrowUpDown}
-          tooltip="Order Panel"
-          active={showRightPanel && rightPanel === "order"}
-          onClick={() => onRightPanel("order")}
-        />
         <ToolButton
           icon={Layers}
           tooltip="Depth of Market"

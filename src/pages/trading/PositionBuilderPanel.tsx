@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { Button } from "../../components/ui/button.tsx";
 import { PanelHeader } from "../../components/PanelHeader.tsx";
+import { DisconnectedTradingBanner } from "../../components/ConnectionIndicator.tsx";
 import { formatCurrency, formatNumber, cn } from "../../lib/utils.ts";
-import { useInstrument } from "../../services/queries.ts";
-import type { Symbol, TradingMode } from "../../services/schemas.ts";
+import { useInstrument, usePlaceOrder } from "../../services/queries.ts";
+import type { PlaceOrderInput, Symbol, TradingMode } from "../../services/schemas.ts";
+import { toast } from "../../services/toast.ts";
 import {
   calcStopFromMargin,
   calcTakeProfitFromRr,
@@ -16,14 +18,11 @@ export interface PositionBuilderPreview {
   entry: number;
   stop: number;
   takeProfit: number;
+  liquidation: number;
   side: Side;
 }
 
-export interface PositionBuilderApplyDraft {
-  side: "BUY" | "SELL";
-  quantity: number;
-  price?: number;
-}
+type ConfirmableOrder = PlaceOrderInput & { _submit: () => Promise<unknown> };
 
 export interface PositionBuilderPanelProps {
   symbol: string;
@@ -31,8 +30,52 @@ export interface PositionBuilderPanelProps {
   tick?: { bid: number; ask: number; timestamp: number };
   mode: TradingMode;
   accountEquity?: number;
-  onApplyToOrder: (draft: PositionBuilderApplyDraft) => void;
   onPreviewChange: (preview: PositionBuilderPreview | null) => void;
+  oneClick?: boolean;
+  onConfirmOrder?: (order: ConfirmableOrder) => void;
+  isFeedConnected?: boolean;
+  onOrderSuccess?: () => void;
+}
+
+interface OrderValidationInput {
+  isFeedConnected: boolean;
+  quantity: string;
+  orderType: "MARKET" | "LIMIT";
+  price: string;
+}
+
+type OrderValidationResult =
+  | { ok: true; quantity: number; price?: number }
+  | { ok: false; title: string; message: string };
+
+/** Validates the final quantity/price before an order actually goes out —
+ * same rules the standalone Order Panel enforced before Position Builder
+ * absorbed order placement. */
+export function validateOrderInput({
+  isFeedConnected,
+  quantity,
+  orderType,
+  price,
+}: OrderValidationInput): OrderValidationResult {
+  if (!isFeedConnected) {
+    return {
+      ok: false,
+      title: "No Data Feed",
+      message: "Cannot place orders while disconnected from the data feed",
+    };
+  }
+  const qty = Number.parseFloat(quantity);
+  if (isNaN(qty) || qty <= 0) {
+    return { ok: false, title: "Invalid Quantity", message: "Quantity must be a positive number" };
+  }
+  if (qty > 1000) {
+    return { ok: false, title: "Invalid Quantity", message: "Maximum quantity is 1000 lots" };
+  }
+  if (orderType === "LIMIT" && (!price || isNaN(Number.parseFloat(price)) || Number.parseFloat(price) <= 0)) {
+    return { ok: false, title: "Missing Price", message: "Limit orders require a valid price" };
+  }
+  const parsedPrice = orderType === "LIMIT" && price ? Number.parseFloat(price) : undefined;
+  return parsedPrice === undefined ? { ok: true, quantity: qty } : { ok: true, quantity: qty, price: parsedPrice };
 }
 
 /** Builds a synthetic InstrumentSpec from this app's static Symbol metadata,
@@ -58,16 +101,23 @@ export function PositionBuilderPanel({
   symbol,
   symbolInfo,
   tick,
+  mode,
   accountEquity = 0,
-  onApplyToOrder,
   onPreviewChange,
+  oneClick,
+  onConfirmOrder,
+  isFeedConnected = true,
+  onOrderSuccess,
 }: PositionBuilderPanelProps) {
   const isOkx = symbolInfo?.exchange === "okx";
 
   const [side, setSide] = useState<Side>("long");
   const [riskPercent, setRiskPercent] = useState("2");
   const [leverage, setLeverage] = useState("10");
-  const [margin, setMargin] = useState("100");
+  // Margin is no longer a manual input — it's sized directly off the risk
+  // amount (Total Equity × Risk %), so the amount at stake at the stop is
+  // always exactly the margin committed.
+  const margin = accountEquity * ((Number(riskPercent) || 0) / 100);
   const [entryMode, setEntryMode] = useState<"market" | "limit">("market");
   const [limitPrice, setLimitPrice] = useState("");
   const [rr, setRr] = useState("2");
@@ -98,7 +148,7 @@ export function PositionBuilderPanel({
     entry,
     riskPercent: Number(riskPercent) || 0,
     totalEquity: accountEquity,
-    margin: Number(margin) || 0,
+    margin,
     leverage: Number(leverage) || 0,
     instrument,
   });
@@ -116,29 +166,78 @@ export function PositionBuilderPanel({
 
   useEffect(() => {
     if (plan.ok && tpPlan) {
-      onPreviewChange({ entry, stop: plan.stop, takeProfit: tpPlan.takeProfit, side });
+      onPreviewChange({ entry, stop: plan.stop, takeProfit: tpPlan.takeProfit, liquidation: plan.approxLiq, side });
     } else {
       onPreviewChange(null);
     }
     // onPreviewChange is a stable callback from the parent; including it
     // would re-run this effect every render since TradingPage recreates it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan.ok, plan.ok ? plan.stop : null, tpPlan?.takeProfit, entry, side]);
+  }, [plan.ok, plan.ok ? plan.stop : null, plan.ok ? plan.approxLiq : null, tpPlan?.takeProfit, entry, side]);
 
   const canApply = isOkx && plan.ok;
+  const placeOrder = usePlaceOrder();
 
   const handleApply = () => {
     if (!plan.ok) return;
-    onApplyToOrder({
-      side: side === "long" ? "BUY" : "SELL",
-      quantity: plan.contracts,
-      price: entryMode === "limit" ? entry : undefined,
+    const orderSide = side === "long" ? "BUY" : "SELL";
+    const validation = validateOrderInput({
+      isFeedConnected,
+      quantity: String(plan.contracts),
+      orderType: entryMode === "limit" ? "LIMIT" : "MARKET",
+      price: entryMode === "limit" ? String(entry) : "",
     });
+    if (!validation.ok) {
+      toast.warning(validation.title, validation.message);
+      return;
+    }
+
+    const input: PlaceOrderInput = {
+      mode,
+      symbol,
+      side: orderSide,
+      type: entryMode === "limit" ? "LIMIT" : "MARKET",
+      quantity: validation.quantity,
+    };
+    if (validation.price !== undefined) input.price = validation.price;
+
+    const doSubmit = () =>
+      placeOrder.mutateAsync(input, {
+        onSuccess: () => {
+          toast.success("Order Sent", `${orderSide} ${formatNumber(validation.quantity, 2)} ${symbol} (${input.type})`);
+          onOrderSuccess?.();
+        },
+        onError: (err: unknown) => {
+          const e = err as { message?: string; code?: string };
+          const msg = e?.message || "Failed to place order";
+          if (e?.code === "REQUEST_TIMEOUT") {
+            toast.error(
+              "Order Timed Out",
+              "The server didn't respond in time. Check your connection and try again.",
+            );
+          } else {
+            toast.error("Order Failed", msg);
+          }
+        },
+      });
+
+    if (oneClick && input.type === "MARKET") {
+      doSubmit().catch(() => {});
+      return;
+    }
+    if (onConfirmOrder) {
+      onConfirmOrder({ ...input, _submit: doSubmit });
+      return;
+    }
+    doSubmit();
   };
 
   return (
     <div className="flex flex-col h-full" data-testid="position-builder">
-      <PanelHeader title="Position Builder" right={<span className="text-xs font-semibold">{symbol}</span>} />
+      <PanelHeader
+        title="Position Builder"
+        right={<span className="text-xs font-semibold">{symbol}</span>}
+      />
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         <div className="grid grid-cols-2 gap-1">
@@ -193,19 +292,6 @@ export function PositionBuilderPanel({
             )}
           </label>
         </div>
-
-        <label className="block text-xs text-muted-foreground uppercase tracking-wider">
-          Margin ($)
-          <input
-            type="number"
-            inputMode="decimal"
-            value={margin}
-            onChange={(e) => setMargin(e.target.value)}
-            className="w-full mt-1 text-sm font-mono"
-            step="1"
-            min="0"
-          />
-        </label>
 
         <div>
           <label className="text-xs text-muted-foreground uppercase tracking-wider">Entry</label>
@@ -268,21 +354,13 @@ export function PositionBuilderPanel({
             <>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Stop Loss</span>
-                <span className="text-sell font-mono">{formatNumber(plan.stop, 4)}</span>
+                <span className="text-sell font-mono">{formatNumber(plan.stop, 2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Take Profit</span>
                 <span className="text-buy font-mono">
-                  {tpPlan ? formatNumber(tpPlan.takeProfit, 4) : "—"}
+                  {tpPlan ? formatNumber(tpPlan.takeProfit, 2) : "—"}
                 </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Size (contracts)</span>
-                <span className="font-mono">{formatNumber(plan.contracts, 4)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Base size</span>
-                <span className="font-mono">{formatNumber(plan.baseSize, 6)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Loss at SL</span>
@@ -298,7 +376,7 @@ export function PositionBuilderPanel({
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Liquidation ≈</span>
-                <span className="font-mono">{formatNumber(plan.approxLiq, 4)}</span>
+                <span className="font-mono text-orange-500">{formatNumber(plan.approxLiq, 2)}</span>
               </div>
               <p className="text-muted-foreground text-xs pt-1">
                 Liquidation is a rough isolated-margin estimate — it ignores fees and
@@ -320,15 +398,32 @@ export function PositionBuilderPanel({
           )}
         </div>
 
+        {!isFeedConnected && <DisconnectedTradingBanner />}
         <Button
           variant={side === "long" ? "buy" : "sell"}
           className="w-full"
           onClick={handleApply}
-          disabled={!canApply}
-          title={!isOkx ? "Apply to Order is only available for OKX symbols" : undefined}
+          loading={placeOrder.isPending}
+          disabled={!canApply || !isFeedConnected || placeOrder.isPending}
+          title={
+            !isOkx
+              ? "Apply to Order is only available for OKX symbols"
+              : !isFeedConnected
+                ? "Cannot place orders while disconnected from the data feed"
+                : undefined
+          }
         >
-          Apply to Order
+          {placeOrder.isPending ? "Placing…" : "Apply to Order"}
         </Button>
+
+        {placeOrder.isError && (
+          <p className="text-destructive text-xs mt-1 p-1.5 bg-destructive/10 rounded">
+            {(placeOrder.error as { message?: string } | null)?.message || "Order failed"}
+          </p>
+        )}
+        {placeOrder.isSuccess && (
+          <p className="text-buy text-xs mt-1 p-1.5 bg-buy/10 rounded">Order placed successfully</p>
+        )}
       </div>
     </div>
   );

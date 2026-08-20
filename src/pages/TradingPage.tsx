@@ -39,7 +39,6 @@ import { ChartToolbar } from "./trading/ChartToolbar.tsx";
 import { type DrawingTool, type MagnetMode, TIMEFRAMES, type Timeframe } from "./trading/constants.ts";
 import { DOMPanel } from "./trading/DOMPanel.tsx";
 import { MarketClosedBanner } from "./trading/MarketClosedBanner.tsx";
-import { OrderPanel } from "./trading/OrderPanel.tsx";
 import { PositionBuilderPanel, type PositionBuilderPreview } from "./trading/PositionBuilderPanel.tsx";
 import { getPipDigits } from "./trading/utils.ts";
 import { WatchlistPanel } from "./trading/WatchlistPanel.tsx";
@@ -54,7 +53,7 @@ type ConfirmOrderState = {
 } | null;
 
 type BottomTab = "positions" | "orders" | "history" | "calendar" | "ai-trader";
-type RightPanelId = "order" | "dom" | "watchlist" | "ai-trader" | "position-builder";
+type RightPanelId = "dom" | "watchlist" | "ai-trader" | "position-builder";
 
 export function TradingPage() {
   const hasTrackedFirstTrade = useRef(false);
@@ -149,7 +148,7 @@ export function TradingPage() {
   // AI trader is a PropSim-era feature not part of Xee.Labs (see AiTraderPage.tsx).
   const aiTraderEnabled = false;
   const [rightPanel, setRightPanel] = useState<RightPanelId>(
-    () => readLocalPreferences().rightPanel ?? "order",
+    () => readLocalPreferences().rightPanel ?? "position-builder",
   );
   const [showRightPanel, setShowRightPanel] = useState(
     () => !(readLocalPreferences().rightPanelCollapsed ?? false),
@@ -159,23 +158,9 @@ export function TradingPage() {
     return typeof saved === "number" && saved >= 240 && saved <= 520 ? saved : 320;
   });
 
-  // Position Builder: chart preview lines + the one-shot "Apply to Order" draft.
+  // Position Builder: chart preview lines for entry/stop/take-profit/liquidation.
   const [positionBuilderPreview, setPositionBuilderPreview] = useState<PositionBuilderPreview | null>(
     null,
-  );
-  const [positionBuilderDraft, setPositionBuilderDraft] = useState<{
-    side: "BUY" | "SELL";
-    quantity: number;
-    price?: number;
-  } | null>(null);
-  const handleApplyPositionToOrder = useCallback(
-    (draft: { side: "BUY" | "SELL"; quantity: number; price?: number }) => {
-      setPositionBuilderDraft(draft);
-      setRightPanel("order");
-      setShowRightPanel(true);
-      updateLocalPreferences({ rightPanel: "order", rightPanelCollapsed: false });
-    },
-    [],
   );
 
   const toggleBottomPanel = useCallback(() => {
@@ -286,20 +271,12 @@ export function TradingPage() {
     [rightPanelWidth],
   );
 
-  // (#4) One-click trading mode
-  const [oneClick, setOneClick] = useState(
-    () => readLocalPreferences().oneClickTrading ?? false,
-  );
+  // (#4) One-click trading mode — fixed at whatever was last persisted;
+  // no in-app toggle since Position Builder absorbed order placement.
+  const [oneClick] = useState(() => readLocalPreferences().oneClickTrading ?? false);
 
   // Trade sound effect
-  const { muted: soundMuted, toggleMute: toggleSoundMute, playTradeSound } = useTradeSound();
-  const toggleOneClick = useCallback(() => {
-    setOneClick((prev) => {
-      const v = !prev;
-      updateLocalPreferences({ oneClickTrading: v });
-      return v;
-    });
-  }, []);
+  const { playTradeSound } = useTradeSound();
 
   // (#6) Position modify dialog
   const [modifyingPosition, setModifyingPosition] = useState<Position | null>(null);
@@ -616,27 +593,6 @@ export function TradingPage() {
               style={{ width: rightPanelWidth }}
             >
             <AccountPanel />
-            {rightPanel === "order" && (
-              <OrderPanel
-                symbol={selectedSymbol}
-                symbolInfo={symbolInfo}
-                tick={tick}
-                mode={mode}
-                oneClick={oneClick}
-                onToggleOneClick={toggleOneClick}
-                onConfirmOrder={setConfirmOrder}
-                accountBalance={account?.balance}
-                isFeedConnected={isFeedConnected}
-                soundMuted={soundMuted}
-                onToggleMute={toggleSoundMute}
-                onOrderSuccess={() => {
-                  playTradeSound();
-                  handleFirstTrade();
-                }}
-                applyDraft={positionBuilderDraft}
-                onApplyDraftConsumed={() => setPositionBuilderDraft(null)}
-              />
-            )}
             {rightPanel === "dom" && <DOMPanel symbol={selectedSymbol} tick={tick} />}
             {rightPanel === "position-builder" && (
               <PositionBuilderPanel
@@ -645,8 +601,14 @@ export function TradingPage() {
                 tick={tick}
                 mode={mode}
                 accountEquity={account?.equity ?? account?.balance ?? 0}
-                onApplyToOrder={handleApplyPositionToOrder}
                 onPreviewChange={setPositionBuilderPreview}
+                oneClick={oneClick}
+                onConfirmOrder={setConfirmOrder}
+                isFeedConnected={isFeedConnected}
+                onOrderSuccess={() => {
+                  playTradeSound();
+                  handleFirstTrade();
+                }}
               />
             )}
             {rightPanel === "watchlist" && (

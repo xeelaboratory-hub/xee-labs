@@ -138,9 +138,9 @@ export function calcStopFromMargin(input: PositionPlanInput): PositionPlanResult
   if (margin > totalEquity) {
     warnings.push("Margin is larger than Total Equity");
   }
-  if (riskAmount >= margin) {
+  if (riskAmount > margin) {
     warnings.push(
-      "Risk amount ≥ margin — stop may be unrealistically far at this leverage",
+      "Risk amount exceeds margin — stop may be unrealistically far at this leverage",
     );
   }
 

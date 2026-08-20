@@ -21,6 +21,7 @@ export const CHART_COLORS = {
     positionShort: "#f6465d",
     tpLine: "#0ecb81",
     slLine: "#f6465d",
+    liqLine: "#f97316",
   },
   light: {
     background: "#ffffff",
@@ -39,6 +40,7 @@ export const CHART_COLORS = {
     positionShort: "#f6465d",
     tpLine: "#0ecb81",
     slLine: "#f6465d",
+    liqLine: "#f97316",
   },
 };
 

@@ -6,6 +6,7 @@ import {
   roundToTick,
   type InstrumentSpec,
 } from "../pages/trading/positionBuilder.ts";
+import { validateOrderInput } from "../pages/trading/PositionBuilderPanel.tsx";
 
 const SWAP_INSTRUMENT: InstrumentSpec = {
   instId: "BTC-USDT-SWAP",
@@ -134,11 +135,21 @@ describe("calcStopFromMargin", () => {
     expect(result.warnings).toContain("Margin is larger than Total Equity");
   });
 
-  it("warns when risk amount is at or above margin", () => {
+  it("warns when risk amount exceeds margin", () => {
     const result = calcStopFromMargin({ ...baseInput, riskPercent: 50, margin: 100, totalEquity: 1000 });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.warnings.some((w) => w.includes("Risk amount ≥ margin"))).toBe(true);
+    expect(result.warnings.some((w) => w.includes("Risk amount exceeds margin"))).toBe(true);
+  });
+
+  it("does not warn when risk amount exactly equals margin (Position Builder's auto-margin case)", () => {
+    // margin sized as totalEquity × riskPercent/100 makes riskAmount === margin by
+    // construction — that equality is the intended design, not a misconfiguration.
+    const result = calcStopFromMargin({ ...baseInput, riskPercent: 10, margin: 100, totalEquity: 1000 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.riskAmount).toBe(result.margin);
+    expect(result.warnings.some((w) => w.includes("Risk amount exceeds margin"))).toBe(false);
   });
 
   it("warns when the stop crosses approx. liquidation — long", () => {
@@ -206,5 +217,53 @@ describe("calcTakeProfitFromRr", () => {
 
   it("returns null when stop equals entry (zero stop distance)", () => {
     expect(calcTakeProfitFromRr({ ...tp, stop: tp.entry })).toBeNull();
+  });
+});
+
+describe("validateOrderInput", () => {
+  const base = { isFeedConnected: true, quantity: "1", orderType: "MARKET" as const, price: "" };
+
+  it("rejects placing an order while the data feed is disconnected", () => {
+    const result = validateOrderInput({ ...base, isFeedConnected: false });
+    expect(result).toEqual({
+      ok: false,
+      title: "No Data Feed",
+      message: "Cannot place orders while disconnected from the data feed",
+    });
+  });
+
+  it("rejects non-numeric or non-positive quantity", () => {
+    expect(validateOrderInput({ ...base, quantity: "abc" }).ok).toBe(false);
+    expect(validateOrderInput({ ...base, quantity: "0" }).ok).toBe(false);
+    expect(validateOrderInput({ ...base, quantity: "-5" }).ok).toBe(false);
+  });
+
+  it("rejects quantity above the 1000 lot cap", () => {
+    const result = validateOrderInput({ ...base, quantity: "1000.01" });
+    expect(result).toEqual({
+      ok: false,
+      title: "Invalid Quantity",
+      message: "Maximum quantity is 1000 lots",
+    });
+  });
+
+  it("accepts exactly the 1000 lot cap", () => {
+    expect(validateOrderInput({ ...base, quantity: "1000" })).toEqual({ ok: true, quantity: 1000 });
+  });
+
+  it("requires a valid price for LIMIT orders", () => {
+    expect(validateOrderInput({ ...base, orderType: "LIMIT", price: "" }).ok).toBe(false);
+    expect(validateOrderInput({ ...base, orderType: "LIMIT", price: "0" }).ok).toBe(false);
+    expect(validateOrderInput({ ...base, orderType: "LIMIT", price: "abc" }).ok).toBe(false);
+  });
+
+  it("ignores any price for MARKET orders even if garbage was left in the field", () => {
+    const result = validateOrderInput({ ...base, orderType: "MARKET", price: "not-a-number" });
+    expect(result).toEqual({ ok: true, quantity: 1 });
+  });
+
+  it("parses a valid LIMIT order with quantity and price", () => {
+    const result = validateOrderInput({ ...base, orderType: "LIMIT", price: "50000" });
+    expect(result).toEqual({ ok: true, quantity: 1, price: 50000 });
   });
 });

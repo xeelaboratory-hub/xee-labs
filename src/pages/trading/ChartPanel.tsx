@@ -243,10 +243,12 @@ export interface ChartPanelProps {
   onClearDrawings?: () => void;
   /** Context-menu "Remove N indicators". */
   onClearIndicators?: () => void;
-  /** Position Builder's synthetic preview lines — entry/stop/TP, distinct
-   * from real position overlays (see addPositionOverlay). null clears all
-   * three. */
-  positionBuilderPreview?: { entry: number; stop: number; takeProfit: number; side: "long" | "short" } | null;
+  /** Position Builder's synthetic preview lines — entry/stop/TP/liquidation,
+   * distinct from real position overlays (see addPositionOverlay). null
+   * clears all four. */
+  positionBuilderPreview?:
+    | { entry: number; stop: number; takeProfit: number; liquidation: number; side: "long" | "short" }
+    | null;
 }
 
 // ── Chart plugin overlays ─────────────────────────────────────────────────────
@@ -996,6 +998,7 @@ export function ChartPanel({
   const previewEntryLineRef = useRef<IPriceLine | null>(null);
   const previewStopLineRef = useRef<IPriceLine | null>(null);
   const previewTpLineRef = useRef<IPriceLine | null>(null);
+  const previewLiqLineRef = useRef<IPriceLine | null>(null);
 
   // ── SL/TP drag-to-edit state ──
   const slTpLinesRef = useRef<SlTpMap>(new Map());
@@ -1840,6 +1843,14 @@ export function ChartPanel({
       lineStyle: LineStyle.Dotted,
       axisLabelVisible: true,
       title: "TP (preview)",
+    });
+    upsertPriceLine(previewLiqLineRef, series, !!preview, {
+      price: preview?.liquidation ?? 0,
+      color: colors.liqLine,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "liq (preview)",
     });
   }, [positionBuilderPreview, colors]);
 
