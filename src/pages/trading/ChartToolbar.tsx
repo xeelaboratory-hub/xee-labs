@@ -1,5 +1,4 @@
 import {
-  ArrowUpDown,
   BarChart3,
   Bot,
   Calculator,
@@ -39,7 +38,7 @@ export interface ChartToolbarProps {
   showIndicatorMenu: boolean;
   onToggleIndicatorMenu: () => void;
   rightPanel: string;
-  onRightPanel: (p: "order" | "dom" | "watchlist" | "ai-trader" | "position-builder") => void;
+  onRightPanel: (p: "dom" | "watchlist" | "ai-trader" | "position-builder") => void;
   aiTraderEnabled?: boolean;
   showRightPanel: boolean;
   tick?: { bid: number; ask: number; timestamp: number };
@@ -109,7 +108,7 @@ export function ChartToolbar({
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center gap-2 p-3 border-b border-border">
-                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Search className="h-8 w-8 text-muted-foreground shrink-0" />
                   <input
                     autoFocus
                     placeholder="Search symbols..."
@@ -124,7 +123,7 @@ export function ChartToolbar({
                     }}
                     className="p-1.5 rounded-md hover:bg-secondary"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-8 w-8" />
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto overscroll-contain">
@@ -309,12 +308,6 @@ export function ChartToolbar({
       {/* Right Panel Toggles */}
       <div className="hidden md:flex items-center gap-0.5">
         <ToolButton
-          icon={ArrowUpDown}
-          tooltip="Order Panel"
-          active={showRightPanel && rightPanel === "order"}
-          onClick={() => onRightPanel("order")}
-        />
-        <ToolButton
           icon={Layers}
           tooltip="Depth of Market"
           active={showRightPanel && rightPanel === "dom"}
@@ -365,7 +358,7 @@ export function ToolButton({
         active ? "bg-primary/20 text-primary" : "hover:bg-secondary text-muted-foreground",
       )}
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon className="h-7 w-7" />
     </button>
   );
 }

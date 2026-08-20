@@ -106,9 +106,9 @@ export function PositionModifyDialog({
                 )}
               >
                 {position.side === "LONG" ? (
-                  <TrendingUp className="h-4 w-4" />
+                  <TrendingUp className="h-8 w-8" />
                 ) : (
-                  <TrendingDown className="h-4 w-4" />
+                  <TrendingDown className="h-8 w-8" />
                 )}
               </div>
               <div>
@@ -119,7 +119,7 @@ export function PositionModifyDialog({
               </div>
             </div>
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onClose}>
-              <X className="h-4 w-4" />
+              <X className="h-8 w-8" />
             </Button>
           </div>
 
@@ -160,7 +160,7 @@ export function PositionModifyDialog({
           {!isFeedConnected && (
             <div className="mx-5 mt-3 bg-destructive/10 border border-destructive/30 rounded px-3 py-2 text-center">
               <div className="flex items-center justify-center gap-1.5 text-destructive text-xs font-semibold">
-                <WifiOff className="h-3.5 w-3.5" />
+                <WifiOff className="h-7 w-7" />
                 Data Feed Disconnected
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">

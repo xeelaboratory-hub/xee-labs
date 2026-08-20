@@ -10,23 +10,30 @@ const ACCENTS: { id: ThemeAccent; label: string; swatch: string }[] = [
   { id: "amber", label: "Amber", swatch: "38 92% 55%" },
 ];
 
-/** Dark/light toggle + accent-color picker, always visible in the header. */
+/** Dark/light toggle — always visible in the header. Accent color lives in
+ * Settings (see AccentPicker below), since it's a less-frequent preference. */
 export function ThemeSwitcher() {
   const mode = useThemeStore((s) => s.mode);
-  const accent = useThemeStore((s) => s.accent);
   const toggleMode = useThemeStore((s) => s.toggleMode);
+
+  return (
+    <button
+      onClick={toggleMode}
+      title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      className="text-muted-foreground hover:text-foreground"
+    >
+      {mode === "dark" ? <Moon className="h-7 w-7" /> : <Sun className="h-7 w-7" />}
+    </button>
+  );
+}
+
+/** Accent-color picker, used in Settings → Account. */
+export function AccentPicker() {
+  const accent = useThemeStore((s) => s.accent);
   const setAccent = useThemeStore((s) => s.setAccent);
 
   return (
     <div className="flex items-center gap-1">
-      <button
-        onClick={toggleMode}
-        title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-        className="text-muted-foreground hover:text-foreground"
-      >
-        {mode === "dark" ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
-      </button>
-
       <DropdownMenu.Root modal={false}>
         <DropdownMenu.Trigger
           title="Accent color"
@@ -57,7 +64,7 @@ export function ThemeSwitcher() {
               >
                 <span className="h-3 w-3 rounded-full border border-border" style={{ background: `hsl(${a.swatch})` }} />
                 <span className="flex-1">{a.label}</span>
-                {a.id === accent && <Check className="h-3.5 w-3.5 text-muted-foreground" />}
+                {a.id === accent && <Check className="h-7 w-7 text-muted-foreground" />}
               </DropdownMenu.Item>
             ))}
           </DropdownMenu.Content>

@@ -32,11 +32,11 @@ export function OrderModifyDialog({ order, onClose, tick }: OrderModifyDialogPro
             )}
           >
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <SlidersHorizontal className="h-4 w-4" />
+              <SlidersHorizontal className="h-8 w-8" />
               Modify {order.side} {order.type} — {order.symbolName}
             </h3>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-              <X className="h-4 w-4" />
+              <X className="h-8 w-8" />
             </button>
           </div>
 

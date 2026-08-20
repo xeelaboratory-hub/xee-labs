@@ -55,7 +55,7 @@ function MenuItem({
         danger ? "text-red-400 hover:bg-red-500/10" : "text-foreground hover:bg-secondary",
       )}
     >
-      <span className="flex h-3.5 w-3.5 items-center justify-center text-muted-foreground">
+      <span className="flex h-7 w-7 items-center justify-center text-muted-foreground">
         {icon}
       </span>
       <span className="flex-1 truncate">{label}</span>
@@ -94,7 +94,7 @@ function TradeSection({
     <>
       {onAddAlert && (
         <MenuItem
-          icon={<Bell className="h-3.5 w-3.5" />}
+          icon={<Bell className="h-7 w-7" />}
           label={`Add alert on ${symbol} at ${p}`}
           onClick={() => {
             onAddAlert(price);
@@ -105,7 +105,7 @@ function TradeSection({
       {onQuickOrder && tick && (
         <>
           <MenuItem
-            icon={<ArrowUpFromLine className="h-3.5 w-3.5" />}
+            icon={<ArrowUpFromLine className="h-7 w-7" />}
             label={`Buy 1 ${symbol} @ ${p} ${buyOrderType(price, tick.ask).toLowerCase()}`}
             onClick={() => {
               onQuickOrder("BUY", buyOrderType(price, tick.ask), price);
@@ -113,7 +113,7 @@ function TradeSection({
             }}
           />
           <MenuItem
-            icon={<ArrowDownToLine className="h-3.5 w-3.5" />}
+            icon={<ArrowDownToLine className="h-7 w-7" />}
             label={`Sell 1 ${symbol} @ ${p} ${sellOrderType(price, tick.bid).toLowerCase()}`}
             onClick={() => {
               onQuickOrder("SELL", sellOrderType(price, tick.bid), price);
@@ -182,7 +182,7 @@ export function ChartContextMenu(props: ChartContextMenuProps) {
         className="fixed z-50 min-w-[230px] rounded-lg border border-border bg-card/95 py-1 shadow-2xl backdrop-blur-xl"
       >
         <MenuItem
-          icon={<RotateCcw className="h-3.5 w-3.5" />}
+          icon={<RotateCcw className="h-7 w-7" />}
           label="Reset chart view"
           onClick={() => {
             onResetView();
@@ -193,7 +193,7 @@ export function ChartContextMenu(props: ChartContextMenuProps) {
           <>
             <Separator />
             <MenuItem
-              icon={<ClipboardCopy className="h-3.5 w-3.5" />}
+              icon={<ClipboardCopy className="h-7 w-7" />}
               label={`Copy price ${price.toFixed(pipDigits)}`}
               onClick={() => {
                 onCopyPrice(price);
@@ -206,7 +206,7 @@ export function ChartContextMenu(props: ChartContextMenuProps) {
         )}
         <Separator />
         <MenuItem
-          icon={<ListTree className="h-3.5 w-3.5" />}
+          icon={<ListTree className="h-7 w-7" />}
           label="Object tree"
           onClick={() => {
             onOpenObjectTree();
@@ -216,7 +216,7 @@ export function ChartContextMenu(props: ChartContextMenuProps) {
         {(drawingsCount > 0 || indicatorsCount > 0) && <Separator />}
         {drawingsCount > 0 && onRemoveAllDrawings && (
           <MenuItem
-            icon={<Trash2 className="h-3.5 w-3.5" />}
+            icon={<Trash2 className="h-7 w-7" />}
             label={`Remove ${drawingsCount} drawing${drawingsCount === 1 ? "" : "s"}`}
             danger
             onClick={() => {
@@ -227,7 +227,7 @@ export function ChartContextMenu(props: ChartContextMenuProps) {
         )}
         {indicatorsCount > 0 && onClearIndicators && (
           <MenuItem
-            icon={<Trash2 className="h-3.5 w-3.5" />}
+            icon={<Trash2 className="h-7 w-7" />}
             label={`Remove ${indicatorsCount} indicator${indicatorsCount === 1 ? "" : "s"}`}
             danger
             onClick={() => {
@@ -238,7 +238,7 @@ export function ChartContextMenu(props: ChartContextMenuProps) {
         )}
         <Separator />
         <MenuItem
-          icon={<Settings className="h-3.5 w-3.5" />}
+          icon={<Settings className="h-7 w-7" />}
           label="Chart Settings…"
           onClick={() => {
             onOpenSettings();

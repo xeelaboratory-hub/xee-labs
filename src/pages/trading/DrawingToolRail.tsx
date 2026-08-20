@@ -6,10 +6,14 @@ import {
   ChevronRight,
   Circle,
   Equal,
+  Eye,
+  EyeOff,
   Layers,
   Layers3,
-  Magnet,
+  Lock,
+  LockOpen,
   type LucideIcon,
+  Magnet,
   Minus,
   MousePointer2,
   MoveUpRight,
@@ -18,6 +22,7 @@ import {
   Ruler,
   Spline,
   Square,
+  Trash2,
   TrendingUp,
   Triangle,
   Type,
@@ -75,40 +80,56 @@ const GROUPS: ToolGroup[] = [
     ],
   },
   {
-    id: "trade",
-    icon: ArrowUpRight,
-    label: "Trade",
+    id: "text",
+    icon: Type,
+    label: "Text",
+    tools: [{ tool: "text", icon: Type, label: "Text" }],
+  },
+  {
+    id: "measure",
+    icon: Ruler,
+    label: "Measure",
     tools: [
       { tool: "long-position", icon: ArrowUpRight, label: "Long Position" },
       { tool: "short-position", icon: ArrowDownRight, label: "Short Position" },
       { tool: "measure", icon: Ruler, label: "Measure" },
     ],
   },
-  { id: "text", icon: Type, label: "Text", tools: [{ tool: "text", icon: Type, label: "Text" }] },
 ];
+
+const ICON_SIZE = "h-4 w-4";
 
 function RailButton({
   icon: Icon,
   title,
   active,
+  disabled,
   onClick,
+  danger,
 }: {
   icon: LucideIcon;
   title: string;
   active?: boolean;
+  disabled?: boolean;
   onClick: () => void;
+  danger?: boolean;
 }) {
   return (
     <button
       type="button"
       title={title}
+      aria-label={title}
+      disabled={disabled}
       onClick={onClick}
       className={cn(
-        "p-1.5 rounded hover:bg-secondary",
-        active ? "bg-primary/20 text-primary" : "text-muted-foreground",
+        "flex h-8 w-8 items-center justify-center rounded-sm transition-colors",
+        "hover:bg-secondary disabled:pointer-events-none disabled:opacity-35",
+        active && "bg-primary/15 text-primary",
+        !active && !danger && "text-muted-foreground hover:text-foreground",
+        danger && "text-muted-foreground hover:bg-destructive/15 hover:text-destructive",
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={ICON_SIZE} strokeWidth={1.75} />
     </button>
   );
 }
@@ -134,55 +155,95 @@ function RailGroup({
   const lastMeta = group.tools.find((t) => t.tool === lastTool) ?? group.tools[0]!;
   const Icon = activeMeta?.icon ?? lastMeta.icon;
   const active = Boolean(activeMeta);
+  const title = `${group.label}: ${lastMeta.label}`;
+
+  if (group.tools.length === 1) {
+    return (
+      <RailButton icon={Icon} title={lastMeta.label} active={active} onClick={onActivate} />
+    );
+  }
+
   return (
     <div className="relative">
-      {group.tools.length === 1 ? (
-        <RailButton icon={Icon} title={group.label} active={active} onClick={onActivate} />
-      ) : (
-        <div
-          className={cn(
-            "flex items-center rounded hover:bg-secondary",
-            active ? "bg-primary/20 text-primary" : "text-muted-foreground",
-          )}
+      <div
+        className={cn(
+          "flex h-8 w-8 flex-col items-center justify-center rounded-sm transition-colors",
+          "hover:bg-secondary",
+          active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <button
+          type="button"
+          title={title}
+          aria-label={title}
+          onClick={onActivate}
+          className="flex flex-1 items-center justify-center pt-0.5"
         >
-          <button
-            type="button"
-            title={`${group.label}: ${lastMeta.label}`}
-            onClick={onActivate}
-            className="py-1.5 pl-1.5 pr-0.5"
-          >
-            <Icon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            title={`Choose ${group.label.toLowerCase()} tool`}
-            onClick={onToggle}
-            className="py-1.5 pl-0.5 pr-0.5"
-          >
-            <ChevronRight className={cn("h-2.5 w-2.5 transition-transform", open && "rotate-180")} />
-          </button>
-        </div>
-      )}
+          <Icon className={ICON_SIZE} strokeWidth={1.75} />
+        </button>
+        <button
+          type="button"
+          title={`Choose ${group.label.toLowerCase()} tool`}
+          aria-label={`Choose ${group.label.toLowerCase()} tool`}
+          aria-expanded={open}
+          onClick={onToggle}
+          className="flex h-2.5 w-full items-center justify-center pb-0.5"
+        >
+          <ChevronRight
+            className={cn("h-2.5 w-2.5 transition-transform", open && "rotate-90")}
+            strokeWidth={2.5}
+          />
+        </button>
+      </div>
+
       {open && (
-        <div className="absolute left-full top-0 ml-1 z-30 min-w-[180px] rounded-md bg-card border border-border shadow-xl py-1">
-          {group.tools.map((t) => (
-            <button
-              key={t.tool}
-              type="button"
-              onClick={() => onSelect(t.tool)}
-              className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-1.5 text-sm hover:bg-secondary text-left",
-                activeTool === t.tool && "bg-secondary text-primary",
-              )}
-            >
-              <t.icon className="h-3.5 w-3.5 shrink-0" />
-              {t.label}
-            </button>
-          ))}
+        <div
+          role="menu"
+          className="absolute left-full top-0 z-40 ml-1.5 min-w-[200px] rounded-md border border-border bg-card py-1 shadow-lg"
+        >
+          <div className="px-2.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            {group.label}
+          </div>
+          {group.tools.map((t) => {
+            const selected = activeTool === t.tool;
+            return (
+              <button
+                key={t.tool}
+                type="button"
+                role="menuitem"
+                aria-label={t.label}
+                onClick={() => onSelect(t.tool)}
+                className={cn(
+                  "flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-sm transition-colors",
+                  "hover:bg-secondary",
+                  selected ? "bg-secondary/80 text-primary" : "text-foreground",
+                )}
+              >
+                <t.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                <span className="flex-1">{t.label}</span>
+                {selected && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
   );
+}
+
+function magnetTitle(mode: MagnetMode): string {
+  switch (mode) {
+    case "none":
+      return "Magnet: Off";
+    case "weak":
+      return "Magnet: Weak";
+    case "strong":
+      return "Magnet: Strong";
+    default: {
+      const _exhaustive: never = mode;
+      return _exhaustive;
+    }
+  }
 }
 
 export function DrawingToolRail({
@@ -192,6 +253,12 @@ export function DrawingToolRail({
   onCycleMagnet,
   stayInDrawingMode,
   onToggleStayInDrawingMode,
+  allLocked = false,
+  onToggleLockAll,
+  drawingsHidden = false,
+  onToggleHideAll,
+  onClearDrawings,
+  hasDrawings = false,
 }: {
   drawingTool: DrawingTool;
   onDrawingTool: (t: DrawingTool) => void;
@@ -199,15 +266,21 @@ export function DrawingToolRail({
   onCycleMagnet?: () => void;
   stayInDrawingMode: boolean;
   onToggleStayInDrawingMode?: () => void;
+  allLocked?: boolean;
+  onToggleLockAll?: () => void;
+  drawingsHidden?: boolean;
+  onToggleHideAll?: () => void;
+  onClearDrawings?: () => void;
+  hasDrawings?: boolean;
 }) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
-  const [hidden, setHidden] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [lastUsed, setLastUsed] = useState<Record<string, DrawingTool>>({
     lines: "trendline",
     fib: "fibonacci",
     shapes: "rectangle",
-    trade: "long-position",
     text: "text",
+    measure: "long-position",
   });
   const ref = useRef<HTMLDivElement>(null);
 
@@ -240,78 +313,115 @@ export function DrawingToolRail({
     activate(t);
   };
 
-  const hide = () => {
-    setOpenGroup(null);
-    setHidden(true);
-  };
+  if (collapsed) {
+    return (
+      <div className="absolute left-0 top-1/2 z-20 -translate-y-1/2">
+        <button
+          type="button"
+          title="Show drawing tools"
+          aria-label="Show drawing tools"
+          aria-expanded={false}
+          onClick={() => setCollapsed(false)}
+          className="flex h-10 w-4 items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground shadow-sm hover:text-foreground"
+        >
+          <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div
-      ref={ref}
-      className="absolute left-0 top-8 z-20"
-    >
-      <div
-        className={cn(
-          "ml-1 flex flex-col items-center gap-0.5 rounded-md bg-card/90 border border-border p-0.5 backdrop-blur-sm",
-          hidden && "invisible pointer-events-none",
-        )}
-      >
-        <RailButton
-          icon={MousePointer2}
-          title="Cursor"
-          active={drawingTool === "none"}
-          onClick={() => {
-            onDrawingTool("none");
-            setOpenGroup(null);
-          }}
-        />
-        {GROUPS.map((g) => (
-          <RailGroup
-            key={g.id}
-            group={g}
-            activeTool={drawingTool}
-            lastTool={lastUsed[g.id] ?? g.tools[0]!.tool}
-            open={openGroup === g.id}
-            onToggle={() => setOpenGroup((o) => (o === g.id ? null : g.id))}
-            onActivate={() => activate(lastUsed[g.id] ?? g.tools[0]!.tool)}
-            onSelect={(t) => select(g.id, t)}
-          />
-        ))}
-        <div className="my-0.5 w-full border-t border-border/50" />
-        {onCycleMagnet && (
+    <div ref={ref} className="absolute left-0 top-0 z-20 flex h-full items-stretch">
+      <div className="flex w-9 flex-col items-center border-r border-border bg-card/95 py-1 backdrop-blur-[2px]">
+        <div className="flex flex-col items-center gap-0.5 px-0.5">
           <RailButton
-            icon={Magnet}
-            title={`Magnet: ${magnetMode}`}
-            active={magnetMode !== "none"}
-            onClick={onCycleMagnet}
+            icon={MousePointer2}
+            title="Cursor"
+            active={drawingTool === "none"}
+            onClick={() => {
+              onDrawingTool("none");
+              setOpenGroup(null);
+            }}
           />
-        )}
-        {onToggleStayInDrawingMode && (
-          <RailButton
-            icon={Repeat}
-            title="Stay in drawing mode"
-            active={stayInDrawingMode}
-            onClick={onToggleStayInDrawingMode}
-          />
-        )}
+
+          <div className="my-1 h-px w-5 bg-border" />
+
+          {GROUPS.map((g) => (
+            <RailGroup
+              key={g.id}
+              group={g}
+              activeTool={drawingTool}
+              lastTool={lastUsed[g.id] ?? g.tools[0]!.tool}
+              open={openGroup === g.id}
+              onToggle={() => setOpenGroup((o) => (o === g.id ? null : g.id))}
+              onActivate={() => activate(lastUsed[g.id] ?? g.tools[0]!.tool)}
+              onSelect={(t) => select(g.id, t)}
+            />
+          ))}
+        </div>
+
+        <div className="flex-1" />
+
+        <div className="flex flex-col items-center gap-0.5 px-0.5 pb-0.5">
+          <div className="mb-1 h-px w-5 bg-border" />
+
+          {onCycleMagnet && (
+            <RailButton
+              icon={Magnet}
+              title={magnetTitle(magnetMode)}
+              active={magnetMode !== "none"}
+              onClick={onCycleMagnet}
+            />
+          )}
+          {onToggleStayInDrawingMode && (
+            <RailButton
+              icon={Repeat}
+              title="Stay in drawing mode"
+              active={stayInDrawingMode}
+              onClick={onToggleStayInDrawingMode}
+            />
+          )}
+          {onToggleLockAll && (
+            <RailButton
+              icon={allLocked ? Lock : LockOpen}
+              title={allLocked ? "Unlock all drawings" : "Lock all drawings"}
+              active={allLocked}
+              disabled={!hasDrawings}
+              onClick={onToggleLockAll}
+            />
+          )}
+          {onToggleHideAll && (
+            <RailButton
+              icon={drawingsHidden ? EyeOff : Eye}
+              title={drawingsHidden ? "Show drawings" : "Hide drawings"}
+              active={drawingsHidden}
+              onClick={onToggleHideAll}
+            />
+          )}
+          {onClearDrawings && (
+            <RailButton
+              icon={Trash2}
+              title="Remove all drawings"
+              disabled={!hasDrawings}
+              danger
+              onClick={onClearDrawings}
+            />
+          )}
+        </div>
       </div>
+
       <button
         type="button"
-        title={hidden ? "Show drawing tools" : "Collapse drawing tools"}
-        aria-expanded={!hidden}
-        onClick={hidden ? () => setHidden(false) : hide}
-        className={cn(
-          "absolute top-1/2 z-30 -translate-y-1/2 border border-border bg-card px-1 py-2 text-muted-foreground shadow-md hover:text-foreground",
-          hidden
-            ? "left-0 rounded-r-md border-l-0"
-            : "left-full rounded-r-md border-l-0",
-        )}
+        title="Collapse drawing tools"
+        aria-label="Collapse drawing tools"
+        aria-expanded={true}
+        onClick={() => {
+          setOpenGroup(null);
+          setCollapsed(true);
+        }}
+        className="absolute top-1/2 left-full z-30 flex h-10 w-3.5 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground shadow-sm hover:text-foreground"
       >
-        {hidden ? (
-          <ChevronRight className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronLeft className="h-3.5 w-3.5" />
-        )}
+        <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} />
       </button>
     </div>
   );

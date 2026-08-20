@@ -50,14 +50,14 @@ export function DOMPanel({ symbol }: { symbol: string; tick?: { bid: number; ask
           <DropdownMenu.Root>
             <DropdownMenu.Trigger className="flex h-7 min-w-[88px] items-center justify-between gap-2 rounded border border-border bg-secondary px-2 font-semibold text-foreground outline-none hover:border-primary/50 data-[state=open]:border-primary/50">
               <span>{thresholdLabel(settings.threshold)}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronDown className="h-7 w-7 text-muted-foreground" />
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content side="bottom" align="end" sideOffset={4} className="z-50 min-w-[96px] rounded-md border border-border bg-card p-1 text-meta shadow-xl">
                 {THRESHOLDS.map((threshold) => (
                   <DropdownMenu.Item key={threshold} onSelect={() => updateSettings({ threshold })} className="flex cursor-pointer items-center justify-between rounded px-2 py-1.5 text-foreground outline-none hover:bg-secondary focus:bg-secondary">
                     {thresholdLabel(threshold)}
-                    {settings.threshold === threshold && <Check className="h-3.5 w-3.5 text-primary" />}
+                    {settings.threshold === threshold && <Check className="h-7 w-7 text-primary" />}
                   </DropdownMenu.Item>
                 ))}
               </DropdownMenu.Content>
@@ -67,7 +67,7 @@ export function DOMPanel({ symbol }: { symbol: string; tick?: { bid: number; ask
           <DropdownMenu.Root>
             <DropdownMenu.Trigger className="flex h-7 min-w-[88px] items-center justify-between gap-2 rounded border border-border bg-secondary px-2 font-semibold uppercase text-foreground outline-none hover:border-primary/50 data-[state=open]:border-primary/50">
               <span>{settings.sources.length === 2 ? "Exchange" : settings.sources[0]}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronDown className="h-7 w-7 text-muted-foreground" />
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content side="bottom" align="end" sideOffset={4} className="z-50 min-w-[112px] rounded-md border border-border bg-card p-1 text-meta uppercase shadow-xl">
@@ -76,7 +76,7 @@ export function DOMPanel({ symbol }: { symbol: string; tick?: { bid: number; ask
                   return (
                     <DropdownMenu.Item key={option.label} onSelect={() => updateSettings({ sources: option.sources })} className="flex cursor-pointer items-center justify-between rounded px-2 py-1.5 text-foreground outline-none hover:bg-secondary focus:bg-secondary">
                       {option.label}
-                      {selected && <Check className="h-3.5 w-3.5 text-primary" />}
+                      {selected && <Check className="h-7 w-7 text-primary" />}
                     </DropdownMenu.Item>
                   );
                 })}

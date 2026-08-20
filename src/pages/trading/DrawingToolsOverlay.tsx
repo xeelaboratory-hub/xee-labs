@@ -176,7 +176,7 @@ export function DrawingFloatingToolbar({
         active={drawing.locked}
         onClick={() => patch({ locked: !drawing.locked })}
       >
-        {drawing.locked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+        {drawing.locked ? <Lock className="h-7 w-7" /> : <LockOpen className="h-7 w-7" />}
       </IconButton>
       {(drawing.type === "horizontal" || drawing.type === "trendline") && (
         <IconButton
@@ -184,17 +184,17 @@ export function DrawingFloatingToolbar({
           active={drawing.alertEnabled}
           onClick={() => patch({ alertEnabled: !drawing.alertEnabled })}
         >
-          <Bell className="h-3.5 w-3.5" />
+          <Bell className="h-7 w-7" />
         </IconButton>
       )}
       <IconButton title="Clone" onClick={onClone}>
-        <Copy className="h-3.5 w-3.5" />
+        <Copy className="h-7 w-7" />
       </IconButton>
       <IconButton title="Settings" onClick={onOpenSettings}>
-        <Settings2 className="h-3.5 w-3.5" />
+        <Settings2 className="h-7 w-7" />
       </IconButton>
       <IconButton title="Delete (Del)" onClick={onRemove}>
-        <Trash2 className="h-3.5 w-3.5" />
+        <Trash2 className="h-7 w-7" />
       </IconButton>
     </div>
   );
@@ -654,7 +654,7 @@ export function DrawingSettingsDialog({
           className="flex cursor-grab select-none items-center justify-between active:cursor-grabbing"
         >
           <span className="flex items-center gap-1.5 text-sm font-semibold capitalize">
-            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/60" />
+            <GripVertical className="h-7 w-7 text-muted-foreground/60" />
             {drawing.type} settings
           </span>
           <button
@@ -662,7 +662,7 @@ export function DrawingSettingsDialog({
             onClick={onClose}
             className="p-1 rounded hover:bg-secondary text-muted-foreground"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-7 w-7" />
           </button>
         </div>
 
@@ -754,7 +754,7 @@ function MenuItem({
         danger ? "text-destructive" : "text-foreground",
       )}
     >
-      <Icon className="h-3.5 w-3.5" />
+      <Icon className="h-7 w-7" />
       {label}
     </button>
   );

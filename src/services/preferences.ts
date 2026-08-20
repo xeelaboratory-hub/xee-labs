@@ -5,7 +5,7 @@ export interface UserPreferences {
   chart: Record<string, string>;
   bottomPanelCollapsed?: boolean;
   rightPanelCollapsed?: boolean;
-  rightPanel?: "order" | "dom" | "watchlist" | "ai-trader" | "position-builder";
+  rightPanel?: "dom" | "watchlist" | "ai-trader" | "position-builder";
   rightPanelWidth?: number;
   bottomPanelHeight?: number;
   oneClickTrading?: boolean;
@@ -126,7 +126,7 @@ function migrateLegacy(userId?: string | null): UserPreferences {
     bottomPanelHeight: Number(localStorage.getItem("bottomPanelHeight")) || undefined,
     oneClickTrading: localStorage.getItem("oneClickTrading") === "true",
     timeframes,
-    rightPanel: hasLegacyPreferences ? "order" : "dom",
+    rightPanel: hasLegacyPreferences ? "position-builder" : "dom",
     activeIndicators: hasLegacyPreferences ? [] : ["LARGE_ORDER_BOOK"],
     largeOrderBookThreshold: 1_000_000,
     largeOrderBookSources: ["binance", "okx"],
@@ -147,6 +147,9 @@ export function readLocalPreferences(userId?: string | null): UserPreferences {
   if (existing) {
     return {
       ...existing,
+      // "order" was the Order Panel, removed in favor of Position Builder.
+      rightPanel:
+        (existing.rightPanel as string) === "order" ? "position-builder" : existing.rightPanel,
       chart: existing.chart ?? {},
       timeframes: existing.timeframes ?? {},
       activeIndicators:

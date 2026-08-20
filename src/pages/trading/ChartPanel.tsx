@@ -243,10 +243,12 @@ export interface ChartPanelProps {
   onClearDrawings?: () => void;
   /** Context-menu "Remove N indicators". */
   onClearIndicators?: () => void;
-  /** Position Builder's synthetic preview lines — entry/stop/TP, distinct
-   * from real position overlays (see addPositionOverlay). null clears all
-   * three. */
-  positionBuilderPreview?: { entry: number; stop: number; takeProfit: number; side: "long" | "short" } | null;
+  /** Position Builder's synthetic preview lines — entry/stop/TP/liquidation,
+   * distinct from real position overlays (see addPositionOverlay). null
+   * clears all four. */
+  positionBuilderPreview?:
+    | { entry: number; stop: number; takeProfit: number; liquidation: number; side: "long" | "short" }
+    | null;
 }
 
 // ── Chart plugin overlays ─────────────────────────────────────────────────────
@@ -909,7 +911,7 @@ function ObjectTreeOverlay({
           open ? "text-primary" : "text-muted-foreground hover:text-foreground",
         )}
       >
-        <ListTree className="h-3.5 w-3.5" />
+        <ListTree className="h-7 w-7" />
       </button>
       {open && (
         <ObjectTreePanel
@@ -996,6 +998,7 @@ export function ChartPanel({
   const previewEntryLineRef = useRef<IPriceLine | null>(null);
   const previewStopLineRef = useRef<IPriceLine | null>(null);
   const previewTpLineRef = useRef<IPriceLine | null>(null);
+  const previewLiqLineRef = useRef<IPriceLine | null>(null);
 
   // ── SL/TP drag-to-edit state ──
   const slTpLinesRef = useRef<SlTpMap>(new Map());
@@ -1057,6 +1060,8 @@ export function ChartPanel({
   const [showDrawingSettings, setShowDrawingSettings] = useState(false);
   const [showObjectTree, setShowObjectTree] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  // Session-only: hide every drawing from the chart without mutating per-object `hidden`.
+  const [hideAllDrawings, setHideAllDrawings] = useState(false);
 
   // ── Chart-wide context menu + settings dialog ──
   // When a right-click lands on a drawing the DrawingToolsManager opens the
@@ -1077,11 +1082,24 @@ export function ChartPanel({
   );
 
   // Drawings actually shown on this chart: not hidden, and either visible on
-  // all timeframes or scoped to the current one.
+  // all timeframes or scoped to the current one. Session hide-all overrides.
   const visibleDrawings = useMemo(
-    () => drawings.filter((d) => !d.hidden && (d.visibility !== "tf" || d.createdTf === timeframe)),
-    [drawings, timeframe],
+    () =>
+      hideAllDrawings
+        ? []
+        : drawings.filter((d) => !d.hidden && (d.visibility !== "tf" || d.createdTf === timeframe)),
+    [drawings, timeframe, hideAllDrawings],
   );
+
+  const allDrawingsLocked = drawings.length > 0 && drawings.every((d) => d.locked);
+
+  const handleToggleLockAll = useCallback(() => {
+    if (!onUpdateDrawing || drawings.length === 0) return;
+    const nextLocked = !allDrawingsLocked;
+    for (const d of drawings) {
+      if (Boolean(d.locked) !== nextLocked) onUpdateDrawing({ ...d, locked: nextLocked });
+    }
+  }, [allDrawingsLocked, drawings, onUpdateDrawing]);
 
   // Stable refs so the chart-create effect doesn't re-run on every parent render
   // when these props are unstable (e.g. inline onAddDrawing).
@@ -1284,6 +1302,14 @@ export function ChartPanel({
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [timeframe]);
+
+  // Signal listener-binding hooks that a live chart instance was created.
+  // Separate effect to avoid React's strict mode warning about setState during render.
+  useEffect(() => {
+    if (chartRef.current) {
+      setChartEpoch((e) => e + 1);
+    }
+  }, [isDark, pipDigits, colors.background, colors.text, colors.grid, colors.crosshair, colors.watermark, colors.up, colors.down, selectedSymbol]);
 
   // ── Create / destroy the chart instance ────────────────────
   useEffect(() => {
@@ -1516,9 +1542,6 @@ export function ChartPanel({
       },
     );
     chart.timeScale().subscribeVisibleLogicalRangeChange(handleRangeChange);
-
-    // Signal listener-binding hooks that a live chart instance now exists.
-    setChartEpoch((e) => e + 1);
 
     return () => {
       historyLoadCancelled = true;
@@ -1841,6 +1864,14 @@ export function ChartPanel({
       axisLabelVisible: true,
       title: "TP (preview)",
     });
+    upsertPriceLine(previewLiqLineRef, series, !!preview, {
+      price: preview?.liquidation ?? 0,
+      color: colors.liqLine,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "liq (preview)",
+    });
   }, [positionBuilderPreview, colors]);
 
   return (
@@ -2019,6 +2050,12 @@ export function ChartPanel({
         onCycleMagnet={onCycleMagnet}
         stayInDrawingMode={stayInDrawingMode}
         onToggleStayInDrawingMode={onToggleStayInDrawingMode}
+        allLocked={allDrawingsLocked}
+        onToggleLockAll={onUpdateDrawing ? handleToggleLockAll : undefined}
+        drawingsHidden={hideAllDrawings}
+        onToggleHideAll={() => setHideAllDrawings((v) => !v)}
+        onClearDrawings={onClearDrawings}
+        hasDrawings={drawings.length > 0}
       />
     </div>
   );
