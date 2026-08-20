@@ -1060,6 +1060,8 @@ export function ChartPanel({
   const [showDrawingSettings, setShowDrawingSettings] = useState(false);
   const [showObjectTree, setShowObjectTree] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  // Session-only: hide every drawing from the chart without mutating per-object `hidden`.
+  const [hideAllDrawings, setHideAllDrawings] = useState(false);
 
   // ── Chart-wide context menu + settings dialog ──
   // When a right-click lands on a drawing the DrawingToolsManager opens the
@@ -1080,11 +1082,24 @@ export function ChartPanel({
   );
 
   // Drawings actually shown on this chart: not hidden, and either visible on
-  // all timeframes or scoped to the current one.
+  // all timeframes or scoped to the current one. Session hide-all overrides.
   const visibleDrawings = useMemo(
-    () => drawings.filter((d) => !d.hidden && (d.visibility !== "tf" || d.createdTf === timeframe)),
-    [drawings, timeframe],
+    () =>
+      hideAllDrawings
+        ? []
+        : drawings.filter((d) => !d.hidden && (d.visibility !== "tf" || d.createdTf === timeframe)),
+    [drawings, timeframe, hideAllDrawings],
   );
+
+  const allDrawingsLocked = drawings.length > 0 && drawings.every((d) => d.locked);
+
+  const handleToggleLockAll = useCallback(() => {
+    if (!onUpdateDrawing || drawings.length === 0) return;
+    const nextLocked = !allDrawingsLocked;
+    for (const d of drawings) {
+      if (Boolean(d.locked) !== nextLocked) onUpdateDrawing({ ...d, locked: nextLocked });
+    }
+  }, [allDrawingsLocked, drawings, onUpdateDrawing]);
 
   // Stable refs so the chart-create effect doesn't re-run on every parent render
   // when these props are unstable (e.g. inline onAddDrawing).
@@ -2035,6 +2050,12 @@ export function ChartPanel({
         onCycleMagnet={onCycleMagnet}
         stayInDrawingMode={stayInDrawingMode}
         onToggleStayInDrawingMode={onToggleStayInDrawingMode}
+        allLocked={allDrawingsLocked}
+        onToggleLockAll={onUpdateDrawing ? handleToggleLockAll : undefined}
+        drawingsHidden={hideAllDrawings}
+        onToggleHideAll={() => setHideAllDrawings((v) => !v)}
+        onClearDrawings={onClearDrawings}
+        hasDrawings={drawings.length > 0}
       />
     </div>
   );
