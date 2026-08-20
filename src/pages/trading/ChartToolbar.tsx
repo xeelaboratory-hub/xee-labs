@@ -2,6 +2,7 @@ import {
   ArrowUpDown,
   BarChart3,
   Bot,
+  Calculator,
   ChevronDown,
   Layers,
   type LucideIcon,
@@ -38,7 +39,7 @@ export interface ChartToolbarProps {
   showIndicatorMenu: boolean;
   onToggleIndicatorMenu: () => void;
   rightPanel: string;
-  onRightPanel: (p: "order" | "dom" | "watchlist" | "ai-trader") => void;
+  onRightPanel: (p: "order" | "dom" | "watchlist" | "ai-trader" | "position-builder") => void;
   aiTraderEnabled?: boolean;
   showRightPanel: boolean;
   tick?: { bid: number; ask: number; timestamp: number };
@@ -324,6 +325,12 @@ export function ChartToolbar({
           tooltip="Watchlist"
           active={showRightPanel && rightPanel === "watchlist"}
           onClick={() => onRightPanel("watchlist")}
+        />
+        <ToolButton
+          icon={Calculator}
+          tooltip="Position Builder"
+          active={showRightPanel && rightPanel === "position-builder"}
+          onClick={() => onRightPanel("position-builder")}
         />
         {aiTraderEnabled && (
           <ToolButton

@@ -243,6 +243,10 @@ export interface ChartPanelProps {
   onClearDrawings?: () => void;
   /** Context-menu "Remove N indicators". */
   onClearIndicators?: () => void;
+  /** Position Builder's synthetic preview lines — entry/stop/TP, distinct
+   * from real position overlays (see addPositionOverlay). null clears all
+   * three. */
+  positionBuilderPreview?: { entry: number; stop: number; takeProfit: number; side: "long" | "short" } | null;
 }
 
 // ── Chart plugin overlays ─────────────────────────────────────────────────────
@@ -962,6 +966,7 @@ export function ChartPanel({
   onQuickOrder,
   onClearDrawings,
   onClearIndicators,
+  positionBuilderPreview,
 }: ChartPanelProps) {
   const queryClient = useQueryClient();
   const lastGapRefetchAtRef = useRef<number>(0);
@@ -988,6 +993,9 @@ export function ChartPanel({
   const timeframeRef = useRef(timeframe);
   const chartPluginsRef = useRef<ISeriesPrimitive<Time>[]>([]);
   const midLineRef = useRef<IPriceLine | null>(null);
+  const previewEntryLineRef = useRef<IPriceLine | null>(null);
+  const previewStopLineRef = useRef<IPriceLine | null>(null);
+  const previewTpLineRef = useRef<IPriceLine | null>(null);
 
   // ── SL/TP drag-to-edit state ──
   const slTpLinesRef = useRef<SlTpMap>(new Map());
@@ -1800,6 +1808,40 @@ export function ChartPanel({
     colors,
     chartPrefs.overlayPositionsOnChart,
   ]);
+
+  // ── Position Builder preview lines ──────────────────────────
+  // A single synthetic {entry, stop, takeProfit} triple — not backed by a
+  // real Position/Order, so it reuses the single-line upsert/remove helpers
+  // directly rather than the array-based addPositionOverlay/addSlTpLine.
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    if (!series) return;
+    const preview = positionBuilderPreview;
+    upsertPriceLine(previewEntryLineRef, series, !!preview, {
+      price: preview?.entry ?? 0,
+      color: colors.orderLine,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: "entry (preview)",
+    });
+    upsertPriceLine(previewStopLineRef, series, !!preview, {
+      price: preview?.stop ?? 0,
+      color: colors.slLine,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "SL (preview)",
+    });
+    upsertPriceLine(previewTpLineRef, series, !!preview, {
+      price: preview?.takeProfit ?? 0,
+      color: colors.tpLine,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "TP (preview)",
+    });
+  }, [positionBuilderPreview, colors]);
 
   return (
     <div className="relative w-full h-full">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Minus, Plus, TrendingUp, TrendingDown, Zap, Volume2, VolumeX } from "lucide-react";
 import { usePlaceOrder } from "../../services/queries.ts";
 import { readTraderPrefs } from "../../hooks/useTraderPreferences.ts";
@@ -85,6 +85,11 @@ export interface OrderPanelProps {
   soundMuted?: boolean;
   onToggleMute?: () => void;
   onOrderSuccess?: () => void;
+  /** One-shot seed from Position Builder's "Apply to Order" — side/quantity/
+   * price only, never leverage/TP/SL (see AGENTS.md's OKX algo-order
+   * constraint). The user can freely edit the form afterward. */
+  applyDraft?: { side: "BUY" | "SELL"; quantity: number; price?: number } | null;
+  onApplyDraftConsumed?: () => void;
 }
 
 interface MarginInfoProps {
@@ -129,6 +134,8 @@ export function OrderPanel({
   soundMuted,
   onToggleMute,
   onOrderSuccess,
+  applyDraft,
+  onApplyDraftConsumed,
 }: OrderPanelProps) {
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [orderType, setOrderType] = useState<"MARKET" | "LIMIT">("MARKET");
@@ -142,6 +149,24 @@ export function OrderPanel({
     return "0.1";
   });
   const [price, setPrice] = useState("");
+
+  // One-shot seed — not a controlled prop, so the user can still freely edit
+  // afterward like a manually-typed order.
+  useEffect(() => {
+    if (!applyDraft) return;
+    setSide(applyDraft.side);
+    setQuantity(String(applyDraft.quantity));
+    if (applyDraft.price != null) {
+      setOrderType("LIMIT");
+      setPrice(String(applyDraft.price));
+    } else {
+      setOrderType("MARKET");
+      setPrice("");
+    }
+    onApplyDraftConsumed?.();
+    // Only re-seed when a new draft object arrives, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyDraft]);
 
   const placeOrder = usePlaceOrder();
 

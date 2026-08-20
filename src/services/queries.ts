@@ -6,6 +6,7 @@ import type {
   LargeOrderSource,
   LargeOrderThreshold,
   MarketDataCandlesPayload,
+  MarketDataInstrumentSpec,
 } from "./api/market-data";
 import { useAuthStore } from "./store";
 
@@ -38,6 +39,7 @@ export const queryKeys = {
   },
   market: {
     symbols: ["symbols"] as const,
+    instrument: (symbol: string) => ["instrument", symbol] as const,
     candles: (symbol: string, tf: string) => ["candles", symbol, tf] as const,
     sessionVolumeProfile: (symbol: string, market: string, date: string) =>
       ["session-volume-profile", symbol, market, date] as const,
@@ -121,6 +123,19 @@ export function useSymbols() {
     queryKey: queryKeys.market.symbols,
     queryFn: () => api.getSymbols(),
     staleTime: 5 * 60_000, // 5min
+  });
+}
+
+// Real OKX instrument specs (ctVal/lotSz/minSz/tickSz/maxLever) for Position
+// Builder's sizing math — 400s server-side for non-OKX symbols, so don't
+// retry that expected failure.
+export function useInstrument(symbol: string | undefined) {
+  return useQuery<MarketDataInstrumentSpec>({
+    queryKey: queryKeys.market.instrument(symbol!),
+    queryFn: () => api.getInstrument(symbol!),
+    enabled: !!symbol,
+    staleTime: 30 * 60_000, // 30min — instrument specs change rarely
+    retry: 1,
   });
 }
 
