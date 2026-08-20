@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.4] - 2026-08-21
+
+### Added
+- ESLint flat config (`eslint.config.js`) and the toolchain it needs
+  (`eslint@9`, `typescript-eslint@8`, `eslint-plugin-react-hooks@5`,
+  `eslint-plugin-react-refresh`, `globals`, `@eslint/js@9`). `npm run lint`
+  had been defined as `eslint src/` all along, but ESLint was never a
+  dependency and no config existed, so the script failed on a missing
+  binary.
+
+  The config is scoped to what `tsc` can't catch — React hook dependency
+  arrays, Fast Refresh-unsafe exports, unreachable code — since
+  `npm run typecheck` already owns type correctness and is clean repo-wide.
+  typescript-eslint runs non-type-checked on purpose: the type-aware rules
+  need a second full program build per run and would largely duplicate
+  `typecheck`. `no-explicit-any` is set to `warn` as a ratchet — `src/`
+  currently contains zero `any`.
+
+  Baseline is 0 errors, 5 warnings across all 104 files in `src/` (4 hook
+  dependency arrays, 1 Fast Refresh export). All 5 predate the config and
+  were left untouched; fixing them changes runtime behavior and belongs in
+  its own change.
+
+### Changed
+- `AGENTS.md` no longer documents `npm run lint` as unusable, and records
+  the warning baseline so the count can't grow unnoticed.
+- `package-lock.json` version fields are back in sync with `package.json`;
+  they had drifted at 1.6.0 through the 1.6.1–1.6.3 releases.
+
 ## [1.6.3] - 2026-08-21
 
 ### Removed
