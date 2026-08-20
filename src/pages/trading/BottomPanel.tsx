@@ -188,7 +188,7 @@ export function BottomPanel({
             className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card px-1.5 py-0.5 text-muted-foreground shadow-sm hover:text-foreground"
           >
             <ChevronDown
-              className={cn("h-3.5 w-3.5 transition-transform", collapsed && "rotate-180")}
+              className={cn("h-7 w-7 transition-transform", collapsed && "rotate-180")}
             />
           </button>
         )}

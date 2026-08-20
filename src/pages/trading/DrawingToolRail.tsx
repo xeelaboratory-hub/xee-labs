@@ -108,7 +108,7 @@ function RailButton({
         active ? "bg-primary/20 text-primary" : "text-muted-foreground",
       )}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-8 w-8" />
     </button>
   );
 }
@@ -151,7 +151,7 @@ function RailGroup({
             onClick={onActivate}
             className="py-1.5 pl-1.5 pr-0.5"
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-8 w-8" />
           </button>
           <button
             type="button"
@@ -175,7 +175,7 @@ function RailGroup({
                 activeTool === t.tool && "bg-secondary text-primary",
               )}
             >
-              <t.icon className="h-3.5 w-3.5 shrink-0" />
+              <t.icon className="h-7 w-7 shrink-0" />
               {t.label}
             </button>
           ))}
@@ -308,9 +308,9 @@ export function DrawingToolRail({
         )}
       >
         {hidden ? (
-          <ChevronRight className="h-3.5 w-3.5" />
+          <ChevronRight className="h-7 w-7" />
         ) : (
-          <ChevronLeft className="h-3.5 w-3.5" />
+          <ChevronLeft className="h-7 w-7" />
         )}
       </button>
     </div>

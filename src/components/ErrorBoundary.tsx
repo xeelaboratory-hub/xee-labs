@@ -73,7 +73,7 @@ export class ErrorBoundary extends Component<Props, State> {
               </p>
               <div className="flex gap-2 justify-center">
                 <Button variant="outline" onClick={this.handleReset}>
-                  <RefreshCw className="h-4 w-4 mr-1" />
+                  <RefreshCw className="h-8 w-8 mr-1" />
                   Try Again
                 </Button>
                 <Button onClick={this.handleReload}>Reload Page</Button>

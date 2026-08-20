@@ -234,7 +234,7 @@ export function TradeJournalPanel({
                     r <= rating ? "text-yellow-400" : "text-muted-foreground/30",
                   )}
                 >
-                  <Star className="h-3.5 w-3.5" fill={r <= rating ? "currentColor" : "none"} />
+                  <Star className="h-7 w-7" fill={r <= rating ? "currentColor" : "none"} />
                 </button>
               ))}
             </div>

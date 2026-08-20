@@ -152,7 +152,7 @@ export function ObjectTreePanel({
             onClick={onClose}
             className="p-1 rounded hover:bg-secondary text-muted-foreground"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-7 w-7" />
           </button>
         }
       />

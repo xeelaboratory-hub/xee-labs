@@ -32,7 +32,6 @@ import { useTradingStore } from "../services/store.tsx";
 import { useThemeStore } from "../services/themeStore.ts";
 import { toast } from "../services/toast.ts";
 import { AiTraderPanel } from "./AiTraderPage.tsx";
-import { AccountPanel } from "./trading/AccountPanel.tsx";
 import { BottomPanel } from "./trading/BottomPanel.tsx";
 import { ChartPanel } from "./trading/ChartPanel.tsx";
 import { ChartToolbar } from "./trading/ChartToolbar.tsx";
@@ -583,9 +582,9 @@ export function TradingPage() {
             )}
           >
             {showRightPanel ? (
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-7 w-7" />
             ) : (
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-7 w-7" />
             )}
           </button>
           {showRightPanel && (
@@ -600,12 +599,6 @@ export function TradingPage() {
               className="flex h-full flex-col overflow-hidden border-l border-border bg-card"
               style={{ width: rightPanelWidth }}
             >
-            <AccountPanel
-              oneClick={oneClick}
-              onToggleOneClick={toggleOneClick}
-              soundMuted={soundMuted}
-              onToggleMute={toggleSoundMute}
-            />
             {rightPanel === "dom" && <DOMPanel symbol={selectedSymbol} tick={tick} />}
             {rightPanel === "position-builder" && (
               <PositionBuilderPanel
@@ -616,8 +609,11 @@ export function TradingPage() {
                 accountEquity={account?.equity ?? account?.balance ?? 0}
                 onPreviewChange={setPositionBuilderPreview}
                 oneClick={oneClick}
+                onToggleOneClick={toggleOneClick}
                 onConfirmOrder={setConfirmOrder}
                 isFeedConnected={isFeedConnected}
+                soundMuted={soundMuted}
+                onToggleMute={toggleSoundMute}
                 onOrderSuccess={() => {
                   playTradeSound();
                   handleFirstTrade();

@@ -911,7 +911,7 @@ function ObjectTreeOverlay({
           open ? "text-primary" : "text-muted-foreground hover:text-foreground",
         )}
       >
-        <ListTree className="h-3.5 w-3.5" />
+        <ListTree className="h-7 w-7" />
       </button>
       {open && (
         <ObjectTreePanel
@@ -1288,6 +1288,14 @@ export function ChartPanel({
     return () => clearInterval(id);
   }, [timeframe]);
 
+  // Signal listener-binding hooks that a live chart instance was created.
+  // Separate effect to avoid React's strict mode warning about setState during render.
+  useEffect(() => {
+    if (chartRef.current) {
+      setChartEpoch((e) => e + 1);
+    }
+  }, [isDark, pipDigits, colors.background, colors.text, colors.grid, colors.crosshair, colors.watermark, colors.up, colors.down, selectedSymbol]);
+
   // ── Create / destroy the chart instance ────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
@@ -1519,9 +1527,6 @@ export function ChartPanel({
       },
     );
     chart.timeScale().subscribeVisibleLogicalRangeChange(handleRangeChange);
-
-    // Signal listener-binding hooks that a live chart instance now exists.
-    setChartEpoch((e) => e + 1);
 
     return () => {
       historyLoadCancelled = true;

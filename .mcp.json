@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "sonarqube": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--network=host",
+        "-e",
+        "SONARQUBE_URL=http://localhost:9000",
+        "-e",
+        "SONARQUBE_TOKEN",
+        "-e",
+        "SONARQUBE_PROJECT_KEY=opencharts",
+        "-e",
+        "SONARQUBE_READ_ONLY=true",
+        "mcp/sonarqube"
+      ]
+    }
+  }
+}

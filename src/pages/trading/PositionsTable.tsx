@@ -133,7 +133,7 @@ export function PositionsTable({
                     }}
                     className="px-1 py-0.5 text-[11px] rounded bg-secondary text-muted-foreground hover:bg-secondary/80"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="h-7 w-7" />
                   </button>
                 </div>
               ) : (

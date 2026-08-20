@@ -7,17 +7,20 @@ interface PanelHeaderProps {
   /** Extra content below the title row (search input, filter dropdowns). */
   children?: React.ReactNode;
   className?: string;
+  /** Override the title's default text-label size — e.g. a panel that wants
+   * a more prominent heading than the standard small uppercase eyebrow. */
+  titleClassName?: string;
 }
 
 /**
  * Shared panel-header chrome — one implementation instead of the five
  * near-identical ones each panel used to hand-roll (see design-system audit).
  */
-export function PanelHeader({ title, right, children, className }: PanelHeaderProps) {
+export function PanelHeader({ title, right, children, className, titleClassName }: PanelHeaderProps) {
   return (
     <div className={cn("border-b border-border bg-secondary px-3 py-2", className)}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-label uppercase text-muted-foreground truncate">{title}</h3>
+        <h3 className={cn("text-label uppercase text-muted-foreground truncate", titleClassName)}>{title}</h3>
         {right}
       </div>
       {children}

@@ -84,7 +84,7 @@ export function PriceAlertManager({ symbol }: { symbol: string }) {
       <CardHeader className="p-3 pb-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Bell className="h-4 w-4 text-accent" /> Price Alerts
+            <Bell className="h-8 w-8 text-accent" /> Price Alerts
           </CardTitle>
           <Button size="sm" variant="ghost" className="h-7" onClick={() => setIsOpen(!isOpen)}>
             <Plus className="h-3 w-3" />
@@ -142,7 +142,7 @@ export function PriceAlertManager({ symbol }: { symbol: string }) {
                   )}
                 </button>
                 <button onClick={() => removeAlert(a.id)} className="p-0.5 hover:text-sell">
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-7 w-7" />
                 </button>
               </div>
             </div>
@@ -177,7 +177,7 @@ export function MarketSentimentGauge({ symbol }: { symbol: string }) {
     <Card>
       <CardHeader className="p-3 pb-0">
         <CardTitle className="text-sm flex items-center gap-2">
-          <Activity className="h-4 w-4 text-accent" /> Sentiment
+          <Activity className="h-8 w-8 text-accent" /> Sentiment
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 pt-2">
@@ -249,7 +249,7 @@ export function MultiSymbolComparison({
     <Card>
       <CardHeader className="p-3 pb-0">
         <CardTitle className="text-sm flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-accent" /> Symbol Comparison
+          <BarChart3 className="h-8 w-8 text-accent" /> Symbol Comparison
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 pt-2 space-y-2">
@@ -317,7 +317,7 @@ export function TradeSignals({ symbol }: { symbol: string }) {
     <Card>
       <CardHeader className="p-3 pb-0">
         <CardTitle className="text-sm flex items-center gap-2">
-          <Target className="h-4 w-4 text-accent" /> Signals
+          <Target className="h-8 w-8 text-accent" /> Signals
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 pt-2">
@@ -391,7 +391,7 @@ export function RiskOverlay({
       <CardHeader className="p-3 pb-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Shield className="h-4 w-4 text-accent" /> Risk Status
+            <Shield className="h-8 w-8 text-accent" /> Risk Status
           </CardTitle>
           <span
             className={cn(
@@ -516,7 +516,7 @@ export function PnlHeatmap({ data = [] }: { data?: { hour: number; day: number; 
     <Card>
       <CardHeader className="p-3 pb-0">
         <CardTitle className="text-sm flex items-center gap-2">
-          <Flame className="h-4 w-4 text-accent" /> P&L Heatmap
+          <Flame className="h-8 w-8 text-accent" /> P&L Heatmap
         </CardTitle>
       </CardHeader>
       <CardContent className="p-3 pt-2">

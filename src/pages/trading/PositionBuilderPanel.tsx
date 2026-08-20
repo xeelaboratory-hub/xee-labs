@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { TrendingUp, TrendingDown, Zap, Volume2, VolumeX } from "lucide-react";
 import { Button } from "../../components/ui/button.tsx";
 import { PanelHeader } from "../../components/PanelHeader.tsx";
 import { DisconnectedTradingBanner } from "../../components/ConnectionIndicator.tsx";
@@ -32,8 +32,11 @@ export interface PositionBuilderPanelProps {
   accountEquity?: number;
   onPreviewChange: (preview: PositionBuilderPreview | null) => void;
   oneClick?: boolean;
+  onToggleOneClick?: () => void;
   onConfirmOrder?: (order: ConfirmableOrder) => void;
   isFeedConnected?: boolean;
+  soundMuted?: boolean;
+  onToggleMute?: () => void;
   onOrderSuccess?: () => void;
 }
 
@@ -105,8 +108,11 @@ export function PositionBuilderPanel({
   accountEquity = 0,
   onPreviewChange,
   oneClick,
+  onToggleOneClick,
   onConfirmOrder,
   isFeedConnected = true,
+  soundMuted,
+  onToggleMute,
   onOrderSuccess,
 }: PositionBuilderPanelProps) {
   const isOkx = symbolInfo?.exchange === "okx";
@@ -128,7 +134,6 @@ export function PositionBuilderPanel({
     onPreviewChange(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol]);
-  useEffect(() => onPreviewChange(null), [onPreviewChange]);
 
   const { data: realInstrument, isLoading: isLoadingInstrument } = useInstrument(
     isOkx ? symbol : undefined,
@@ -177,6 +182,8 @@ export function PositionBuilderPanel({
 
   const canApply = isOkx && plan.ok;
   const placeOrder = usePlaceOrder();
+  const handleToggleMute = useCallback(() => onToggleMute?.(), [onToggleMute]);
+  const handleToggleOneClick = useCallback(() => onToggleOneClick?.(), [onToggleOneClick]);
 
   const handleApply = () => {
     if (!plan.ok) return;
@@ -236,8 +243,42 @@ export function PositionBuilderPanel({
     <div className="flex flex-col h-full" data-testid="position-builder">
       <PanelHeader
         title="Position Builder"
-        right={<span className="text-xs font-semibold">{symbol}</span>}
-      />
+        titleClassName="text-heading normal-case font-semibold text-foreground"
+        right={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleMute}
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-medium border transition-colors",
+                !soundMuted
+                  ? "bg-accent/15 text-accent border-accent/30"
+                  : "text-muted-foreground border-border hover:bg-secondary",
+              )}
+              title={soundMuted ? "Unmute trade sounds" : "Mute trade sounds"}
+            >
+              {soundMuted ? <VolumeX className="h-7 w-7" /> : <Volume2 className="h-7 w-7" />}
+            </button>
+            <button
+              onClick={handleToggleOneClick}
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-medium border transition-colors",
+                oneClick
+                  ? "bg-buy/15 text-buy border-buy/30"
+                  : "text-muted-foreground border-border hover:bg-secondary",
+              )}
+              title="One-click trading: skip confirmation for market orders"
+            >
+              <Zap className="h-7 w-7" />
+              1-Click
+            </button>
+            <span className="text-xs font-semibold">{symbol}</span>
+          </div>
+        }
+      >
+        <div className="mt-1 text-meta text-muted-foreground">
+          Balance <span className="font-mono text-foreground">{formatCurrency(accountEquity)}</span>
+        </div>
+      </PanelHeader>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         <div className="grid grid-cols-2 gap-1">

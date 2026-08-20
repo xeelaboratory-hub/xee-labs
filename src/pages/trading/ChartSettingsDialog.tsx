@@ -31,10 +31,10 @@ export interface ChartSettingsDialogProps {
 type TabId = "appearance" | "colors" | "trading" | "events";
 
 const TABS: Array<{ id: TabId; label: string; icon: ReactNode }> = [
-  { id: "appearance", label: "Appearance", icon: <CandlestickChart className="h-3.5 w-3.5" /> },
-  { id: "colors", label: "Colors", icon: <Palette className="h-3.5 w-3.5" /> },
-  { id: "trading", label: "Trading", icon: <Crosshair className="h-3.5 w-3.5" /> },
-  { id: "events", label: "Events", icon: <CalendarDays className="h-3.5 w-3.5" /> },
+  { id: "appearance", label: "Appearance", icon: <CandlestickChart className="h-7 w-7" /> },
+  { id: "colors", label: "Colors", icon: <Palette className="h-7 w-7" /> },
+  { id: "trading", label: "Trading", icon: <Crosshair className="h-7 w-7" /> },
+  { id: "events", label: "Events", icon: <CalendarDays className="h-7 w-7" /> },
 ];
 
 /** Per-tab "Reset to defaults" payloads. Events tab has none (plugin-driven). */
@@ -402,11 +402,11 @@ export function ChartSettingsDialog(props: ChartSettingsDialogProps) {
           className="flex cursor-grab select-none items-center justify-between border-b border-border px-3 py-2.5 active:cursor-grabbing"
         >
           <div className="flex items-center gap-1.5">
-            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/60" />
+            <GripVertical className="h-7 w-7 text-muted-foreground/60" />
             <h2 className="text-sm font-semibold text-foreground">Chart Settings</h2>
           </div>
           <button onClick={close} className="text-muted-foreground hover:text-foreground">
-            <X className="h-4 w-4" />
+            <X className="h-8 w-8" />
           </button>
         </div>
         <div className="flex min-h-0 flex-1">

@@ -180,7 +180,7 @@ export function DisconnectedTradingBanner({ className }: { className?: string })
       )}
     >
       <div className="flex items-center justify-center gap-1.5 text-destructive text-xs font-semibold">
-        <WifiOff className="h-3.5 w-3.5" />
+        <WifiOff className="h-7 w-7" />
         Data Feed Disconnected
       </div>
       <p className="text-xs text-muted-foreground mt-0.5">

@@ -87,9 +87,9 @@ export function OrderConfirmDialog({
           >
             <h3 className="text-sm font-semibold flex items-center gap-2">
               {order.side === "BUY" ? (
-                <TrendingUp className="h-4 w-4 text-buy" />
+                <TrendingUp className="h-8 w-8 text-buy" />
               ) : (
-                <TrendingDown className="h-4 w-4 text-sell" />
+                <TrendingDown className="h-8 w-8 text-sell" />
               )}
               Confirm {order.side} Order
             </h3>
