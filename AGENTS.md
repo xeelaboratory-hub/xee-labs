@@ -7,6 +7,54 @@ project is*, see [docs/PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md). For
 [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md). For
 *decisions you should not casually reverse*, see [docs/decisions/](docs/decisions/).
 
+## Stable Development Baseline
+
+- `v1.6.0` is the current verified stable baseline on `main`.
+- All new work starts from a fully synced `main`
+  (`git checkout main && git pull --ff-only origin main`).
+- Do not develop directly on `main` — every change goes on a dedicated branch.
+- Do not change stable behavior outside the agreed scope of the current task.
+
+## Development Workflow
+
+Follow this sequence for any non-trivial change:
+
+1. **Inspect before changing** — understand the existing code, architecture,
+   and patterns first. Don't invent a new abstraction before checking whether
+   the project already has a suitable one.
+2. **Define scope** — before implementing, write down what changes, what
+   doesn't, and how you'll know the task is done.
+3. **Dedicated branch** — new work happens on its own branch, never directly
+   on `main`.
+4. **Smallest correct change** — prefer the smallest correct fix. Don't do
+   general cleanup/refactor/modernization "while you're in there." If you
+   spot an unrelated problem, report it separately instead of fixing it
+   inline.
+5. **Verification proportional to risk** — match verification depth to the
+   kind of change:
+   - UI/styling: relevant tests, build, visual verification.
+   - Backend/API: relevant tests, API smoke test.
+   - Trading logic: tests, input/behavior validation — verification must
+     never place an unintended real trade.
+   - Data/persistence: tests, migration/data-integrity verification where
+     relevant.
+   - Infrastructure/Docker: build, health check, smoke test.
+   - Refactor: prove behavior preservation, relevant tests, Sonar/static
+     analysis where useful.
+   - Security/auth: deeper verification proportional to the risk.
+
+   Rule of thumb: **don't run a full release audit for a small UI change** —
+   but don't settle for a shallow check on a high-risk change either.
+6. **Diff review before commit** — check the full diff for unrelated
+   changes, secrets, generated/temp files, accidental regressions, and files
+   outside the agreed scope.
+7. **Commit only after verification** — commit/push only once the relevant
+   checks pass. If verification fails, don't hide it or work around it.
+8. **Pull request** — push the branch and open a PR into `main`. Never merge
+   directly into `main`.
+9. **After merge** — run a short verification on `main`, scaled to the kind
+   and risk of the change.
+
 ## Development commands
 
 ```bash
