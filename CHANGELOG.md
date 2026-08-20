@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.3] - 2026-08-21
+
+### Removed
+- 67 dead PropSim-era hooks from `src/services/queries.ts` (741 lines) —
+  leaderboards, competitions, certificates, support tickets, coupons, bot
+  integrations, push notifications, profile/scaling/profit-split,
+  account-merge, journal, payouts, analytics, announcements, and the
+  AI-trader stubs. All had zero call sites and called methods that
+  `services/api.ts` deliberately does not implement.
+- The payout/journal/PnL response types and the firm-branding
+  `localStorage` cache, orphaned by the above — the cache was read and
+  written only by the deleted `useMyFirm`.
+
+### Fixed
+- `npm run typecheck` is clean repo-wide (was 117 errors, all in
+  `queries.ts`). The dead hooks resolved through the `api` Proxy's
+  `Record<string, (...args: never[]) => Promise<unknown>>` fallback, which
+  under `noUncheckedIndexedAccess` yields `| undefined` (67× TS2722) and
+  rejects every passed argument (42× TS2345). Removing the callers fixes
+  this at the source instead of declaring a type for an API surface that
+  does not exist.
+
+The 14 hooks with real consumers are untouched, as are `useEconomicCalendar`,
+`useModifyOrder`, and `useModifyPosition` — also unused, but they type-check.
+
 ## [1.6.2] - 2026-08-21
 
 ### Added
