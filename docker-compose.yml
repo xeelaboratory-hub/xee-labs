@@ -11,14 +11,18 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://xee_labs:xee_labs@postgres:5432/xee_labs
+      DATABASE_URL: postgresql+asyncpg://xee_labs:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/xee_labs
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?set CREDENTIAL_ENCRYPTION_KEY in .env}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/', timeout=3)"]
+      # /api/health checks DB reachability (SELECT 1) and returns 503 if it
+      # fails — unlike "/", which returns 200 unconditionally regardless of
+      # whether the backend is actually usable. urlopen raises on a non-2xx
+      # status, so a 503 here correctly fails the healthcheck.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/api/health', timeout=3)"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -27,7 +31,7 @@ services:
   etf-scraper:
     build: ./scraper
     environment:
-      DATABASE_URL: postgresql+asyncpg://xee_labs:xee_labs@postgres:5432/xee_labs
+      DATABASE_URL: postgresql+asyncpg://xee_labs:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/xee_labs
     depends_on:
       backend:
         condition: service_healthy
@@ -37,7 +41,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: xee_labs
-      POSTGRES_PASSWORD: xee_labs
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: xee_labs
     volumes:
       - postgres-data:/var/lib/postgresql/data

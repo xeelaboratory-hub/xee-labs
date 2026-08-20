@@ -10,6 +10,59 @@ import { formatCurrency, formatNumber, cn } from "../../lib/utils.ts";
 
 type ConfirmableOrder = PlaceOrderInput & { _submit: () => Promise<unknown> };
 
+interface OrderValidationInput {
+  isFeedConnected: boolean;
+  quantity: string;
+  orderType: "MARKET" | "LIMIT";
+  price: string;
+}
+
+type OrderValidationResult =
+  | { ok: true; quantity: number; price?: number }
+  | { ok: false; title: string; message: string };
+
+/** Validates and parses the order form fields, matching the rules the submit button previously ran inline. */
+export function validateOrderInput({
+  isFeedConnected,
+  quantity,
+  orderType,
+  price,
+}: OrderValidationInput): OrderValidationResult {
+  if (!isFeedConnected) {
+    return {
+      ok: false,
+      title: "No Data Feed",
+      message: "Cannot place orders while disconnected from the data feed",
+    };
+  }
+  const qty = Number.parseFloat(quantity);
+  if (isNaN(qty) || qty <= 0) {
+    return { ok: false, title: "Invalid Quantity", message: "Quantity must be a positive number" };
+  }
+  if (qty > 1000) {
+    return { ok: false, title: "Invalid Quantity", message: "Maximum quantity is 1000 lots" };
+  }
+  if (orderType === "LIMIT" && (!price || isNaN(Number.parseFloat(price)) || Number.parseFloat(price) <= 0)) {
+    return { ok: false, title: "Missing Price", message: "Limit orders require a valid price" };
+  }
+  const parsedPrice = orderType === "LIMIT" && price ? Number.parseFloat(price) : undefined;
+  return parsedPrice === undefined ? { ok: true, quantity: qty } : { ok: true, quantity: qty, price: parsedPrice };
+}
+
+/** Label for the submit button, reflecting connection/pending/side state. */
+export function submitButtonLabel(
+  isFeedConnected: boolean,
+  isPending: boolean,
+  side: "BUY" | "SELL",
+  quantity: string,
+  symbol: string,
+  mode: TradingMode,
+): string {
+  if (!isFeedConnected) return "Disconnected — Trading Disabled";
+  if (isPending) return "Placing…";
+  return `${side === "BUY" ? "Buy" : "Sell"} ${quantity} ${symbol} (${mode})`;
+}
+
 export interface OrderPanelProps {
   symbol: string;
   symbolInfo?: {
@@ -34,6 +87,36 @@ export interface OrderPanelProps {
   onOrderSuccess?: () => void;
 }
 
+interface MarginInfoProps {
+  readonly symbolInfo: OrderPanelProps["symbolInfo"];
+  readonly tick: NonNullable<OrderPanelProps["tick"]>;
+  readonly side: "BUY" | "SELL";
+  readonly quantity: string;
+}
+
+function MarginInfo({ symbolInfo, tick, side, quantity }: MarginInfoProps) {
+  const qty = Number.parseFloat(quantity) || 0;
+  const price = side === "BUY" ? tick.ask : tick.bid;
+  const margin = qty * (symbolInfo?.contractSize ?? 0) * price * ((symbolInfo?.marginPercent ?? 0) / 100);
+  const commission = (symbolInfo?.commission ?? 0) * qty;
+  return (
+    <div className="bg-secondary rounded p-2 text-[10px] space-y-1">
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Contract Size</span>
+        <span>{symbolInfo?.contractSize?.toLocaleString()}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Margin Required</span>
+        <span>{formatCurrency(margin)}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Commission</span>
+        <span>{formatCurrency(commission)}</span>
+      </div>
+    </div>
+  );
+}
+
 export function OrderPanel({
   symbol,
   symbolInfo,
@@ -53,7 +136,7 @@ export function OrderPanel({
     const prefs = readTraderPrefs();
     const raw = prefs.defaultQty;
     if (raw) {
-      const n = parseFloat(raw);
+      const n = Number.parseFloat(raw);
       if (Number.isFinite(n) && n > 0) return String(Math.round(n * 100) / 100);
     }
     return "0.1";
@@ -63,21 +146,9 @@ export function OrderPanel({
   const placeOrder = usePlaceOrder();
 
   const handleSubmit = () => {
-    if (!isFeedConnected) {
-      toast.warning("No Data Feed", "Cannot place orders while disconnected from the data feed");
-      return;
-    }
-    const qty = parseFloat(quantity);
-    if (isNaN(qty) || qty <= 0) {
-      toast.warning("Invalid Quantity", "Quantity must be a positive number");
-      return;
-    }
-    if (qty > 1000) {
-      toast.warning("Invalid Quantity", "Maximum quantity is 1000 lots");
-      return;
-    }
-    if (orderType === "LIMIT" && (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0)) {
-      toast.warning("Missing Price", "Limit orders require a valid price");
+    const validation = validateOrderInput({ isFeedConnected, quantity, orderType, price });
+    if (!validation.ok) {
+      toast.warning(validation.title, validation.message);
       return;
     }
 
@@ -86,15 +157,14 @@ export function OrderPanel({
       symbol,
       side,
       type: orderType,
-      quantity: qty,
+      quantity: validation.quantity,
     };
-
-    if (orderType === "LIMIT" && price) input.price = parseFloat(price);
+    if (validation.price !== undefined) input.price = validation.price;
 
     const doSubmit = () =>
       placeOrder.mutateAsync(input, {
         onSuccess: () => {
-          toast.success("Order Sent", `${side} ${qty} ${symbol} (${orderType})`);
+          toast.success("Order Sent", `${side} ${validation.quantity} ${symbol} (${orderType})`);
           onOrderSuccess?.();
         },
         onError: (err: unknown) => {
@@ -223,7 +293,7 @@ export function OrderPanel({
           <div className="flex items-center gap-1 mt-1">
             <button
               onClick={() =>
-                setQuantity((v) => String(Math.max(0.01, parseFloat(v) - 0.01).toFixed(2)))
+                setQuantity((v) => String(Math.max(0.01, Number.parseFloat(v) - 0.01).toFixed(2)))
               }
               className="px-2 py-1 rounded bg-secondary hover:bg-border"
             >
@@ -238,7 +308,7 @@ export function OrderPanel({
               min="0.01"
             />
             <button
-              onClick={() => setQuantity((v) => String((parseFloat(v) + 0.01).toFixed(2)))}
+              onClick={() => setQuantity((v) => String((Number.parseFloat(v) + 0.01).toFixed(2)))}
               className="px-2 py-1 rounded bg-secondary hover:bg-border"
             >
               <Plus className="h-3 w-3" />
@@ -251,7 +321,7 @@ export function OrderPanel({
                 onClick={() => setQuantity(String(q))}
                 className={cn(
                   "flex-1 text-[10px] py-0.5 rounded border border-border",
-                  parseFloat(quantity) === q ? "bg-secondary" : "hover:bg-secondary/50",
+                  Number.parseFloat(quantity) === q ? "bg-secondary" : "hover:bg-secondary/50",
                 )}
               >
                 {q}
@@ -282,29 +352,7 @@ export function OrderPanel({
 
         {/* Margin info */}
         {symbolInfo && tick && (
-          <div className="bg-secondary rounded p-2 text-[10px] space-y-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Contract Size</span>
-              <span>{symbolInfo.contractSize?.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Margin Required</span>
-              <span>
-                {formatCurrency(
-                  (parseFloat(quantity) || 0) *
-                    (symbolInfo.contractSize ?? 0) *
-                    (side === "BUY" ? tick.ask : tick.bid) *
-                    ((symbolInfo.marginPercent ?? 0) / 100),
-                )}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Commission</span>
-              <span>
-                {formatCurrency((symbolInfo.commission ?? 0) * (parseFloat(quantity) || 0))}
-              </span>
-            </div>
-          </div>
+          <MarginInfo symbolInfo={symbolInfo} tick={tick} side={side} quantity={quantity} />
         )}
 
         {!isFeedConnected && <DisconnectedTradingBanner />}
@@ -315,11 +363,7 @@ export function OrderPanel({
           loading={placeOrder.isPending}
           disabled={placeOrder.isPending || !isFeedConnected}
         >
-          {!isFeedConnected
-            ? "Disconnected — Trading Disabled"
-            : placeOrder.isPending
-              ? "Placing…"
-              : `${side === "BUY" ? "Buy" : "Sell"} ${quantity} ${symbol} (${mode})`}
+          {submitButtonLabel(isFeedConnected, placeOrder.isPending, side, quantity, symbol, mode)}
         </Button>
 
         {placeOrder.isError && (

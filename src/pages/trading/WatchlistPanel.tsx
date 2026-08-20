@@ -49,7 +49,7 @@ export function WatchlistPanel({
 
   const categories = useMemo(() => {
     const cats = new Set(symbols.map((s) => s.category || "Other"));
-    return Array.from(cats).sort();
+    return Array.from(cats).sort((a, b) => a.localeCompare(b));
   }, [symbols]);
 
   const [selectedCat, setSelectedCat] = useState<string | null>(null);

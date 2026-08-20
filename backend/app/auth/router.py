@@ -1,10 +1,12 @@
+import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import get_current_user
+from app.auth.rate_limit import client_ip, enforce_login_rate_limit, enforce_register_rate_limit, normalize_email
 from app.auth.schemas import (
     AuthResponse,
     LoginRequest,
@@ -23,6 +25,8 @@ from app.auth.security import (
 )
 from app.db.models import RefreshToken, User
 from app.db.session import get_db
+
+LOG = logging.getLogger("auth")
 
 router = APIRouter(prefix="/api/auth")
 
@@ -47,7 +51,7 @@ async def _issue_tokens(db: AsyncSession, user: User) -> tuple[str, str]:
     return access_token, raw_refresh
 
 
-@router.post("/register", response_model=AuthResponse)
+@router.post("/register", dependencies=[Depends(enforce_register_rate_limit)])
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:
     existing = await db.scalar(select(User).where(User.email == body.email))
     if existing is not None:
@@ -65,12 +69,23 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
     return AuthResponse(accessToken=access_token, refreshToken=refresh_token, user=_user_out(user))
 
 
-@router.post("/login", response_model=AuthResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:
+@router.post("/login", dependencies=[Depends(enforce_login_rate_limit)])
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:
     user = await db.scalar(select(User).where(User.email == body.email))
     if user is None or not verify_password(body.password, user.password_hash):
+        # Never distinguish "no such user" from "wrong password" here, in the
+        # log or the response — same 401 either way (see rate_limit.py's
+        # account-existence-leak note for why).
+        LOG.warning(
+            "login_failed reason=invalid_credentials email=%s ip=%s",
+            normalize_email(body.email),
+            client_ip(request),
+        )
         raise HTTPException(status_code=401, detail="invalid email or password")
     if user.status != "active":
+        LOG.warning(
+            "login_failed reason=inactive_account user_id=%s ip=%s", user.id, client_ip(request)
+        )
         raise HTTPException(status_code=403, detail="account is not active")
 
     access_token, refresh_token = await _issue_tokens(db, user)

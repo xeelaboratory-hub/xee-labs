@@ -22,7 +22,7 @@ export function OrderModifyDialog({ order, onClose, tick }: OrderModifyDialogPro
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
           <div

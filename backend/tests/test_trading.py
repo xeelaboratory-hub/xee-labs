@@ -163,6 +163,89 @@ def test_place_order_rejected_by_exchange_surfaces_502(client, monkeypatch):
     assert "insufficient balance" in res.json()["detail"]
 
 
+def _patch_client_must_not_be_called(monkeypatch):
+    async def fail_if_called(mode, user, db):
+        raise AssertionError("exchange layer must not be reached for an invalid order")
+
+    monkeypatch.setattr("app.api.trading._get_okx_client", fail_if_called)
+
+
+@pytest.mark.parametrize("quantity", [0, -1, -0.001])
+def test_place_order_rejects_non_positive_quantity(client, monkeypatch, quantity):
+    _patch_client_must_not_be_called(monkeypatch)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={"symbol": "OKX:BTCUSD", "side": "BUY", "type": "MARKET", "quantity": quantity},
+    )
+    assert res.status_code == 422
+
+
+def test_place_order_rejects_nan_quantity(client, monkeypatch):
+    _patch_client_must_not_be_called(monkeypatch)
+    # Raw body: standard `json.loads` (what Starlette parses request bodies
+    # with) accepts bare NaN/Infinity tokens even though they aren't valid
+    # JSON — this exercises that exact path, not just Python-side floats.
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        content='{"symbol": "OKX:BTCUSD", "side": "BUY", "type": "MARKET", "quantity": NaN}',
+        headers={"Content-Type": "application/json"},
+    )
+    assert res.status_code == 422
+
+
+def test_place_order_rejects_infinite_quantity(client, monkeypatch):
+    _patch_client_must_not_be_called(monkeypatch)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        content='{"symbol": "OKX:BTCUSD", "side": "BUY", "type": "MARKET", "quantity": Infinity}',
+        headers={"Content-Type": "application/json"},
+    )
+    assert res.status_code == 422
+
+
+def test_place_order_rejects_non_positive_price(client, monkeypatch):
+    _patch_client_must_not_be_called(monkeypatch)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={"symbol": "OKX:BTCUSD", "side": "BUY", "type": "LIMIT", "quantity": 1, "price": 0},
+    )
+    assert res.status_code == 422
+
+
+def test_place_order_rejects_limit_order_without_price(client, monkeypatch):
+    _patch_client_must_not_be_called(monkeypatch)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={"symbol": "OKX:BTCUSD", "side": "BUY", "type": "LIMIT", "quantity": 1},
+    )
+    assert res.status_code == 422
+
+
+def test_place_order_accepts_valid_limit_order(client, monkeypatch):
+    _patch_client(monkeypatch, _FakeOKXClient())
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={"symbol": "OKX:BTCUSD", "side": "BUY", "type": "LIMIT", "quantity": 1, "price": 50000},
+    )
+    assert res.status_code == 201
+
+
+def test_close_position_rejects_non_positive_quantity(client, monkeypatch):
+    _patch_client_must_not_be_called(monkeypatch)
+    res = client.post(
+        "/api/positions/close",
+        params={"mode": "demo"},
+        json={"symbol": "OKX:BTCUSD", "posSide": "long", "side": "LONG", "quantity": -0.5},
+    )
+    assert res.status_code == 422
+
+
 def test_close_position_full(client, monkeypatch):
     _patch_client(monkeypatch, _FakeOKXClient())
     res = client.post(

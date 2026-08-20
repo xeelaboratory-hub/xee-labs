@@ -58,6 +58,18 @@ class PaneView implements ISeriesPrimitivePaneView {
   zOrder(): SeriesPrimitivePaneViewZOrder { return "bottom"; }
 }
 
+/** Line width tier for a level, thicker when hovered. */
+function widthForLevel(value: number, highlighted: boolean): number {
+  const baseWidth = value >= 10_000_000 ? 7 : value >= 5_000_000 ? 4 : value >= 3_000_000 ? 2 : 1;
+  return highlighted ? baseWidth + 3 : baseWidth;
+}
+
+/** Bid/ask color, dimmed for ended (historical) levels unless hovered. */
+function colorForLevel(level: LargeOrderLevel, highlighted: boolean): string {
+  const alpha = highlighted ? 1 : level.endedAt ? 0.25 : 0.78;
+  return level.side === "bid" ? `rgba(14, 203, 129, ${alpha})` : `rgba(246, 70, 93, ${alpha})`;
+}
+
 export class LargeOrderBookPrimitive extends PluginBase {
   private levels: LargeOrderLevel[] = [];
   private hoveredId: string | null = null;
@@ -89,34 +101,61 @@ export class LargeOrderBookPrimitive extends PluginBase {
   renderLines(): RenderLine[] {
     this.hovers.clear();
     this.hitLines.clear();
+    const ctx = this.renderContext();
+    const lines: RenderLine[] = [];
+    for (const level of this.levels) {
+      const line = this.lineForLevel(level, ctx);
+      if (!line) continue;
+      lines.push(line);
+      this.hovers.set(level.id, level);
+      this.hitLines.set(level.id, line);
+    }
+    return lines;
+  }
+
+  private renderContext() {
     const right = this.chart.timeScale().width();
     const height = this.chart.paneSize().height;
     const data = this.series.data() as readonly CandlestickData<Time>[];
     const visibleRange = this.chart.timeScale().getVisibleLogicalRange();
     const firstVisible = visibleRange ? Math.max(0, Math.ceil(visibleRange.from)) : 0;
     const lastVisible = visibleRange ? Math.min(data.length - 1, Math.floor(visibleRange.to)) : data.length - 1;
-    const lines: RenderLine[] = [];
-    for (const level of this.levels) {
-      const y = this.series.priceToCoordinate(level.price);
-      if (y === null || y < 0 || y > height) continue;
-      const encounter = level.endedAt ? undefined : findLatestCandleAtPrice(level.price, data, firstVisible, lastVisible);
-      const x1 = encounter
-        ? this.chart.timeScale().timeToCoordinate(encounter.time)
-        : level.endedAt ? this.coordinateForTime(Date.parse(level.firstSeen) / 1000, data) : null;
-      const x2 = level.endedAt ? this.coordinateForTime(Date.parse(level.endedAt) / 1000, data) : right;
-      if (x1 === null || x2 === null || x2 < 0 || x1 > right) continue;
-      const value = level.endedAt ? level.peakNotional : level.currentNotional;
-      const highlighted = level.id === this.hoveredId;
-      const baseWidth = value >= 10_000_000 ? 7 : value >= 5_000_000 ? 4 : value >= 3_000_000 ? 2 : 1;
-      const width = highlighted ? baseWidth + 3 : baseWidth;
-      const alpha = highlighted ? 1 : level.endedAt ? 0.25 : 0.78;
-      const color = level.side === "bid" ? `rgba(14, 203, 129, ${alpha})` : `rgba(246, 70, 93, ${alpha})`;
-      const line = { id: level.id, x1: Math.max(0, x1), x2: Math.min(right, x2), y, width, color, dashed: level.source === "okx" };
-      lines.push(line);
-      this.hovers.set(level.id, level);
-      this.hitLines.set(level.id, line);
-    }
-    return lines;
+    return { right, height, data, firstVisible, lastVisible };
+  }
+
+  /** The x-coordinate where a level's line should start: where price was last touched, or where it began/ended. */
+  private startXForLevel(
+    level: LargeOrderLevel,
+    ctx: ReturnType<LargeOrderBookPrimitive["renderContext"]>,
+  ): number | null {
+    if (level.endedAt) return this.coordinateForTime(Date.parse(level.firstSeen) / 1000, ctx.data);
+    const encounter = findLatestCandleAtPrice(level.price, ctx.data, ctx.firstVisible, ctx.lastVisible);
+    if (encounter) return this.chart.timeScale().timeToCoordinate(encounter.time);
+    return null;
+  }
+
+  private lineForLevel(
+    level: LargeOrderLevel,
+    ctx: ReturnType<LargeOrderBookPrimitive["renderContext"]>,
+  ): RenderLine | null {
+    const y = this.series.priceToCoordinate(level.price);
+    if (y === null || y < 0 || y > ctx.height) return null;
+
+    const x1 = this.startXForLevel(level, ctx);
+    const x2 = level.endedAt ? this.coordinateForTime(Date.parse(level.endedAt) / 1000, ctx.data) : ctx.right;
+    if (x1 === null || x2 === null || x2 < 0 || x1 > ctx.right) return null;
+
+    const value = level.endedAt ? level.peakNotional : level.currentNotional;
+    const highlighted = level.id === this.hoveredId;
+    return {
+      id: level.id,
+      x1: Math.max(0, x1),
+      x2: Math.min(ctx.right, x2),
+      y,
+      width: widthForLevel(value, highlighted),
+      color: colorForLevel(level, highlighted),
+      dashed: level.source === "okx",
+    };
   }
 
   private coordinateForTime(time: number, data: readonly { time: Time }[]): number | null {

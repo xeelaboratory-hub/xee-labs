@@ -42,6 +42,33 @@ runs standalone without a real Postgres — but running the server for real
 (`uvicorn`) needs a live Postgres reachable at `DATABASE_URL`, and needs
 migrations applied first (`alembic upgrade head`).
 
+**`CREDENTIAL_ENCRYPTION_KEY` must never change after go-live outside a
+planned key-rotation event.** It encrypts every stored exchange API
+credential (`backend/app/security/encryption.py`); there is no re-encryption
+tooling, so changing it — intentionally or via a mistaken `.env` edit — makes
+every stored credential permanently undecryptable for every user.
+
+`POST /api/auth/login` and `/register` are rate-limited (see
+`backend/app/auth/rate_limit.py`) — an in-memory sliding window, since the
+backend runs as a single uvicorn worker. `/login` is limited two ways at
+once: per client IP (5/60s) and per attempted account, keyed on the
+normalized (lowercased/trimmed) email (8/60s) — so neither one IP hammering
+many accounts nor many IPs hammering one account gets an unlimited attempt
+budget. `/register` is limited per IP only (3/60s). Over the limit returns
+`429` with a `Retry-After` header; the response never reveals whether the
+attempted email exists.
+
+**The backend is reachable two ways, and only one of them can be trusted to
+report the real client IP.** `docker-compose.yml` publishes the backend's
+port directly to the host (`3000:3000`) alongside nginx's `8080:80` — so a
+request can arrive proxied through nginx (which sets `X-Forwarded-For`, see
+`nginx.conf`) or hit the backend directly on `:3000`, bypassing nginx and
+its header entirely. The rate limiter only trusts `X-Forwarded-For` when the
+TCP peer itself is a private-network address (`_is_trusted_proxy_peer` in
+`rate_limit.py`) — i.e. the request actually came from inside the Docker
+network — and falls back to the raw socket peer otherwise, so a direct hit
+can't forge its way past the IP limiter by setting an arbitrary header.
+
 **`npm run dev` alone is not sufficient for a working terminal.** The Vite
 dev server's `/api` and `/ws` proxies target `localhost:3000` — if the
 backend isn't running (or its Postgres/migrations aren't set up), requests
@@ -59,14 +86,17 @@ Postgres + the backend + the frontend together for local dev; see
   `nginx.conf`, dependency/package files (`package*.json`,
   `backend/pyproject.toml`), migrations (`backend/alembic/versions/`), or
   build configuration (`vite.config.ts`, etc.) change.
-- `docker compose up --build` runs three services together: `postgres`
+- `docker compose up --build` runs four services together: `postgres`
   (internal only, not published to the host), `backend` (published on
   `:3000`, runs `alembic upgrade head` automatically on container start via
-  `backend/docker-entrypoint.sh` before starting uvicorn), and `frontend`
+  `backend/docker-entrypoint.sh` before starting uvicorn), `frontend`
   (nginx on `:8080`, serving the static build and reverse-proxying
-  `/api`/`/ws` to `backend` per `nginx.conf`). Needs `CREDENTIAL_ENCRYPTION_KEY`
-  and `JWT_SECRET` in a root `.env` file (see `.env.example`) — compose fails
-  fast with a clear error if either is unset. Neither the backend nor
+  `/api`/`/ws` to `backend` per `nginx.conf`), and `etf-scraper` (no
+  published port — backfills/keeps `etf_flows` current against the same
+  Postgres, see `scraper/`). Needs `CREDENTIAL_ENCRYPTION_KEY`, `JWT_SECRET`,
+  and `POSTGRES_PASSWORD` in a root `.env` file (see `.env.example`) —
+  compose fails fast with a clear error if any of the three is unset; there
+  is no built-in default for the Postgres password. Neither the backend nor
   frontend container has a volume mount — both are static builds baked in at
   image-build time, so **there is no hot-reload inside either container**;
   they can't substitute for `npm run dev` / `uvicorn --reload` during
@@ -77,6 +107,35 @@ Postgres + the backend + the frontend together for local dev; see
   installed packages plus `alembic/`, `alembic.ini`, and
   `docker-entrypoint.sh` — don't collapse this back into a single stage
   without keeping a C++ toolchain available at install time.
+- `backend/Dockerfile` and `scraper/Dockerfile` both `pip install --constraint
+  requirements-lock.txt` instead of a bare `pip install .` — pins every
+  resolved version to that file so the build doesn't quietly resolve a
+  different dependency set on a later build. Neither `pyproject.toml` changed
+  (still loose `>=` ranges — no new package-manager workflow, still plain
+  `pip install -e ".[dev]"` for local dev) — the lock file only constrains
+  what the Docker build resolves. Regenerate it after a deliberate dependency
+  bump (see the comment at the top of each `requirements-lock.txt`); it's not
+  meant to be hand-edited.
+
+## Backups & recovery
+
+`scripts/backup-postgres.sh` / `scripts/restore-postgres.sh` — `pg_dump`/
+`pg_restore` against the docker-compose `postgres` service, no credentials
+embedded in either script. See
+[docs/operations/backup-restore.md](docs/operations/backup-restore.md) for
+usage, the Postgres volume location, and why the "obvious" rollback (`git
+checkout` an older tag against a live volume) doesn't work on its own.
+
+## Frontend data freshness
+
+- `useMarketDataHealth()` polls `GET /api/market-data/health` every 5s; the
+  stale-data banner (`ConnectionIndicator.tsx`) treats a per-exchange
+  `connected: false`, or a connected exchange with no event in the last 30s,
+  as degraded — matching the backend's actual per-exchange response shape
+  (`{binance: {connected, lastEventAt}, okx: {...}}`).
+- `useAccount()` polls every 15s (`refetchInterval`, matching `usePositions`/
+  `useOrders`) — there's no WS push for balance/equity, so without polling
+  the displayed balance can go silently stale between trades.
 
 ## Process/port hygiene
 

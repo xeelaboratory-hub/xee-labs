@@ -5,6 +5,112 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-08-20
+
+Production-readiness and hardening pass ahead of the v1.0 launch — no new
+user-facing features, focused on release blockers, security, data
+integrity/recovery, observability, and code quality.
+
+### Added
+- PostgreSQL backup/restore tooling (`scripts/backup-postgres.sh`,
+  `scripts/restore-postgres.sh`) using `pg_dump`/`pg_restore` against the
+  docker-compose `postgres` service, with no credentials embedded in either
+  script. Verified end-to-end against a real database: backup produced a
+  valid archive, restore into a disposable database matched the live
+  database's row counts across every table.
+- A real `GET /api/health` endpoint — checks Postgres reachability
+  (`SELECT 1`, returns 503 if unreachable) and reports current exchange feed
+  connectivity. The Docker healthcheck now targets this instead of `/`,
+  which returned 200 unconditionally regardless of whether the backend was
+  actually usable.
+- Server-side rate limiting on `POST /api/auth/login` (5 attempts/IP/60s
+  **and** 8 attempts/account/60s) and `POST /api/auth/register` (3
+  attempts/IP/60s) — in-memory sliding windows, since the backend runs as a
+  single uvicorn worker. Over the limit returns `429` with `Retry-After`;
+  the response never reveals whether the attempted email exists.
+- Server-side validation: registration passwords require 8+ characters
+  (matching the existing client-side rule); trading order `quantity`/`price`
+  must be positive, finite numbers (rejecting non-positive values and
+  NaN/Infinity, which standard JSON parsing accepts even though neither is
+  valid JSON), and `LIMIT` orders require a `price`. Invalid requests never
+  reach the OKX exchange client.
+- Security headers on every response (`nginx.conf`): a Content-Security-Policy
+  scoped to what the production build actually loads (verified against a
+  real `npm run build`), `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, and `X-Frame-Options:
+  DENY` alongside CSP's `frame-ancestors 'none'`.
+- Sanitized operational logging: failed logins and rate-limit blocks (auth),
+  and OKX `ExchangeError`s during order placement/close/cancel (trading) —
+  never logs passwords, JWTs, refresh tokens, or exchange API secrets.
+- Pinned dependency lockfiles (`backend/requirements-lock.txt`,
+  `scraper/requirements-lock.txt`), used as `pip install --constraint` in
+  both Dockerfiles so a Docker build resolves the same dependency versions
+  every time instead of silently drifting.
+- Test coverage for all of the above (backend and frontend), plus SonarQube
+  Quality Gate integration (`sonar-project.properties`) verified passing
+  (New Coverage, New Issues, New Duplication) across every change in this
+  release.
+
+### Changed
+- `useAccount()` now polls every 15s (previously only refetched on mount),
+  matching the existing 30s polling on positions/orders — the displayed
+  balance could otherwise go silently stale between trades since there's no
+  WebSocket push for it.
+- The stale-market-data banner now reads the backend's actual
+  `GET /api/market-data/health` response shape (`{binance: {connected,
+  lastEventAt}, okx: {...}}`) instead of a field structure the backend never
+  returned.
+- `docker-compose.yml` no longer hardcodes the Postgres password — it's now
+  a required `POSTGRES_PASSWORD` environment variable with no default;
+  compose fails fast with a clear error if it's unset.
+- Corrected stale project/deployment documentation: `ETF Flow`, `Session
+  Volume Profile`, and `Large Order Book` were documented as scoped out and
+  "not started" despite having shipped in v1.3.0–v1.5.0; the Docker
+  deployment was documented as three services, missing `etf-scraper`; chart
+  preferences were documented as `localStorage`-only despite being
+  Postgres-backed for logged-in users since v1.3.1; the account polling
+  interval was documented as a blanket 30s.
+
+### Fixed
+- The stale-data banner never actually worked — the frontend and backend
+  disagreed on the market-data health response shape, so the warning
+  condition could never be satisfied.
+- Account balance could silently go out of date between trades, with
+  nothing prompting a refresh.
+- Watchlist category filters sorted with plain `Array.sort()` (UTF-16 code
+  unit order), which could put an uppercase-led category before a
+  lowercase-led one regardless of alphabetical order — now uses
+  locale-aware comparison.
+- Assorted static-analysis findings addressed as part of this release's
+  code-quality pass: extracted nested ternary/conditional expressions in the
+  Large Order Book and Session Volume Profile chart plugins and in
+  `OrderPanel.tsx` into named helper functions, and associated form labels
+  with their inputs (`MobileTradingPanel.tsx`) for accessibility.
+
+### Security
+- **Auth rate limiting and proxy-trust hardening**: login is limited both
+  per-IP and per-account (see Added, above) so neither a single IP hammering
+  many accounts nor many IPs hammering one account has an effectively
+  unlimited attempt budget. Because `docker-compose.yml` publishes the
+  backend's port directly to the host alongside nginx, `X-Forwarded-For` is
+  only trusted when the request's actual TCP peer is a private-network
+  address (i.e., proxied through nginx) — a direct hit can't forge its way
+  past the IP limiter by setting an arbitrary header.
+- **Security headers** (CSP, `X-Content-Type-Options`, `Referrer-Policy`,
+  `X-Frame-Options`) — see Added, above.
+- **Server-side password and trading input validation** — see Added, above.
+  While implementing this, found and fixed a real information leak: FastAPI's
+  default validation-error response echoed the raw password back in the
+  `422` body (`{"input": "..."}`) — a global exception handler now redacts
+  `input`/`ctx` for credential-shaped fields, and separately for any
+  non-finite float value (which would otherwise crash the error response
+  itself, since Starlette's `JSONResponse` rejects NaN/Infinity).
+- **PostgreSQL credential handling** — the hardcoded `xee_labs:xee_labs`
+  password is gone; see Changed, above.
+- **Sanitized operational logging** — see Added, above.
+- **Dependency audit**: `pip-audit` found 0 known vulnerabilities across
+  backend (84 packages) and scraper (42 packages) dependencies.
+
 ## [1.5.0] - 2026-08-18
 
 ### Added

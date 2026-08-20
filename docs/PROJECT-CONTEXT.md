@@ -64,8 +64,12 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
   or ask before assuming scope.
 - **Phase 4 (real exchange integration, replacing the demo layer) is
   complete** — see "Current implementation state" below. Order Book
-  persistence, Large Order Statistics, and ETF Flow were explicitly scoped
-  out of Phase 4 and are tracked as separate future work, not started.
+  persistence (Large Order Book), Large Order Statistics, ETF Flow, and
+  Session Volume Profile were explicitly scoped out of Phase 4 as separate
+  future work — all four have since shipped: ETF Flow in v1.3.0, Session
+  Volume Profile in v1.4.0, Large Order Book (with full Postgres-backed
+  history) in v1.5.0. See `CHANGELOG.md` for details; don't rely on this
+  file alone for current feature status without cross-checking it.
 
 ## Current implementation state (FACT)
 
@@ -83,10 +87,12 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
   history calls against OKX's REST API — both OKX **Demo Trading** and
   **Live Trading** environments, selected per-request via a `mode` param
   (`demo` | `live`), never mixed.
-- `docker-compose.yml` runs three services — `postgres` (internal only),
+- `docker-compose.yml` runs four services — `postgres` (internal only),
   `backend` (runs `alembic upgrade head` automatically on container start,
-  then serves on `:3000`), and `frontend` (nginx on `:8080`, reverse-proxying
-  `/api`/`/ws` to `backend`). See [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
+  then serves on `:3000`), `frontend` (nginx on `:8080`, reverse-proxying
+  `/api`/`/ws` to `backend`), and `etf-scraper` (no published port, keeps
+  `etf_flows` current against the same Postgres). See
+  [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
 - `services/api.ts` calls the real backend for everything the UI needs — no
   Proxy fallback, no mock data. A method with no real backend implementation
   (leaderboards, competitions, AI-trader, bot integrations, trade journal,
@@ -95,9 +101,13 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
 - There is **no paper-trading engine anymore** — `services/demo/*` was
   deleted in Phase 4, along with the session-replay feature and the dead
   `services/api/{auth,journal,accounts}.ts` REST wrappers.
-- Chart drawings, chart templates, and chart preferences persist to
-  `localStorage` only — no backend involved even in concept. (This was true
-  before Phase 4 too and didn't change.)
+- Chart drawings and chart templates persist to `localStorage` only — no
+  backend involved even in concept (unchanged since before Phase 4). Chart
+  **preferences** are different: they're backend-synced for logged-in users
+  (`backend/app/api/preferences.py`, a real `user_preferences` Postgres
+  table) — `App.tsx` loads them from the server on login and debounce-saves
+  local changes back (500ms) via `PUT /api/preferences`. `localStorage` is
+  only the source of truth for logged-out/offline use.
 - `npm run typecheck` currently fails with pre-existing errors confined to
   `src/services/queries.ts` and `src/hooks/useTraderPreferences.ts` — both
   are PropSim-fork leftovers with zero UI consumers for the affected code
@@ -115,8 +125,10 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
 - **No real-time push for positions/orders/account balance.** The backend's
   `/ws` gateway only streams market data — OKX's private WS channels
   (account/positions/orders) aren't wired in. The frontend keeps these fresh
-  via REST polling (30s interval) plus an immediate refetch after each
-  trading mutation.
+  via REST polling — positions/orders every 30s, account balance every 15s
+  (`useAccount`'s tighter interval closes a gap where the displayed balance
+  could otherwise go stale between trades) — plus an immediate refetch after
+  each trading mutation.
 - Trade history comes from OKX's fills-history endpoint — a flat list of
   individual executions (symbol, side, price, fee, realized P&L, timestamp),
   not a paired open/close "closed position" record. OKX doesn't expose
@@ -149,10 +161,11 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
 - OKX conditional/algo orders (STOP, TP/SL, amend order) — see "Known
   limitations / intentional decisions" above. This is the main remaining
   piece of real trading functionality, not cleanup.
-- Order Book persistence, Large Order Statistics, ETF Flow — explicitly out
-  of Phase 4's scope from the start; separate future initiatives.
-
-Before acting on any of this, confirm scope with the project owner.
+Before acting on any of this, confirm scope with the project owner. (Order
+Book persistence, Large Order Statistics, ETF Flow, and Session Volume
+Profile used to be listed here as scoped out of Phase 4 — all four have
+since shipped, see "Current goals" above; this line intentionally removed
+rather than left stale.)
 
 ## Known documentation gaps
 

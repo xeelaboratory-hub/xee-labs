@@ -93,7 +93,7 @@ export function PositionModifyDialog({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl shadow-black/40 overflow-hidden">
           {/* Header */}
