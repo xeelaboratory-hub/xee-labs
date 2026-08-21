@@ -520,7 +520,7 @@ export function TradingPage() {
           // Both children below are desktop-or-chart-tab only. Without hiding
           // the wrapper too it keeps its flex-1 share with nothing inside it,
           // which showed up as ~250px of dead space above every other tab.
-          mobileTab !== "chart" && "max-md:hidden",
+          !isDesktop && mobileTab !== "chart" && "hidden",
         )}
       >
         {/* Chart + Bottom Panel */}
@@ -531,7 +531,7 @@ export function TradingPage() {
             // than unmounted — tearing down the lightweight-charts instance on
             // every tab switch would drop the series, the drawings and the
             // scroll position, and pay for a full re-init on the way back.
-            mobileTab !== "chart" && "max-md:hidden",
+            !isDesktop && mobileTab !== "chart" && "hidden",
           )}
         >
           {/* Chart Area */}
@@ -578,12 +578,12 @@ export function TradingPage() {
           </div>
 
           {/* ── Resize Handle ── */}
-          {!bottomCollapsed && (
+          {isDesktop && !bottomCollapsed && (
             <div
               onMouseDown={handleResizeStart}
               onTouchStart={handleResizeStart}
               onDoubleClick={toggleBottomPanel}
-              className="hidden md:flex h-1.5 cursor-row-resize items-center justify-center hover:bg-primary/20 active:bg-primary/30 transition-colors group border-t border-border bg-secondary/40 touch-none"
+              className="flex h-1.5 cursor-row-resize items-center justify-center hover:bg-primary/20 active:bg-primary/30 transition-colors group border-t border-border bg-secondary/40 touch-none"
             >
               <div className="w-8 h-0.5 rounded-full bg-border group-hover:bg-primary/50 transition-colors" />
             </div>
@@ -592,7 +592,7 @@ export function TradingPage() {
           {/* Bottom Panel (Positions / Orders / Trade History / Calendar / News).
               Desktop only — on mobile the same content is the Positions tab,
               mounted below at full height instead of in a 45vh drawer. */}
-          <div className="hidden md:contents">
+          {isDesktop && (
           <BottomPanel
             tab={bottomTab}
             onTabChange={handleBottomTabChange}
@@ -609,12 +609,13 @@ export function TradingPage() {
             height={bottomPanelHeight}
             isFeedConnected={isFeedConnected}
           />
-          </div>
+          )}
         </div>
 
         {/* Right Panel + centered collapse/resize handle */}
+        {isDesktop && (
         <div
-          className="relative hidden md:flex shrink-0"
+          className="relative flex shrink-0"
           style={{ width: showRightPanel ? rightPanelWidth : 24 }}
         >
           <button
@@ -688,6 +689,7 @@ export function TradingPage() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* ── Mobile tabs (small screens only) ─────────────
@@ -701,7 +703,7 @@ export function TradingPage() {
           1.9.0 shipped the attached bracket. `isDesktop` guarantees only one
           of the two mounts at a time. */}
       {!isDesktop && mobileTab === "trade" && (
-        <div className="flex flex-1 flex-col overflow-hidden md:hidden">
+        <div className="flex flex-1 flex-col overflow-hidden">
           <PositionBuilderPanel
             symbol={selectedSymbol}
             symbolInfo={symbolInfo}
@@ -727,8 +729,8 @@ export function TradingPage() {
         </div>
       )}
 
-      {mobileTab === "positions" && (
-        <div className="flex flex-1 flex-col overflow-hidden md:hidden">
+      {!isDesktop && mobileTab === "positions" && (
+        <div className="flex flex-1 flex-col overflow-hidden">
           {/* Aggregate unrealized P&L. It used to sit in MobileAccountBar,
               which this redesign removed as a duplicate of the footer's
               AccountPanel — but AccountPanel carries equity, not P&L, so
@@ -759,8 +761,8 @@ export function TradingPage() {
         </div>
       )}
 
-      {mobileTab === "book" && (
-        <div className="flex-1 overflow-y-auto md:hidden">
+      {!isDesktop && mobileTab === "book" && (
+        <div className="flex-1 overflow-y-auto">
           <DOMPanel symbol={selectedSymbol} tick={tick} />
         </div>
       )}
@@ -812,7 +814,9 @@ export function TradingPage() {
       {/* Last element on the page on purpose: a bottom tab bar is the anchor
           every mobile OS puts against the bottom edge, and anything rendered
           below it reads as belonging to the tab bar rather than to the app. */}
-      {!showSettings && <MobileTabBar tab={mobileTab} onTabChange={setMobileTab} />}
+      {!isDesktop && !showSettings && (
+        <MobileTabBar tab={mobileTab} onTabChange={setMobileTab} />
+      )}
     </div>
   );
 }

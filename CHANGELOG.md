@@ -26,6 +26,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hiding one with `md:` would put two controls for the same value in the tree
   and have a screen reader announce all sixteen.
 
+- **Rotating a phone into landscape loaded the desktop terminal.** The layout
+  switch asked one question — `(min-width: 768px)` — and an iPhone 13 in
+  landscape is 844px across. It cleared that, so the right panel, the bottom
+  panel and the desktop footer all mounted into 390px of height, and the tab
+  bar disappeared with them because it was hidden by the same breakpoint.
+  Measured result: a chart about 145px tall, *smaller than in portrait*, in
+  the one orientation people rotate to for the chart.
+
+  The switch now has to clear both axes (`min-height: 500px`), which separates
+  every phone in landscape from every tablet with room to spare. Landscape
+  keeps the phone layout: full-width chart, tab bar, no desktop furniture.
+
+  Two things went with it. The right-panel toggles now mount with the panel
+  they drive — on a phone they were live buttons over a panel that never
+  renders, so a tap changed state and nothing on screen. And the drawing rail
+  asks the same two-axis question, instead of unfurling a full-height tool
+  column across the chart the rotation was for.
+
+  Page structure follows this decision; leaf-level `md:` styling still keys on
+  width alone. In landscape that means desktop sizing on a touch device — a
+  smaller problem than the layout one, and not worth rewriting 64 classes to
+  chase.
+
 - **Indicators were unreachable on a phone.** Not hidden behind a gesture —
   absent: the toolbar button carried `hidden md:block`, and nothing else
   offered them. The settings dialog covers Appearance, Colors, Trading and

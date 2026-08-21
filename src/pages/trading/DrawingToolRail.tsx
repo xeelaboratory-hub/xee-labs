@@ -281,7 +281,13 @@ export function DrawingToolRail({
   // nothing. Read once at mount, so a rotation does not yank the rail open or
   // shut while a tool is selected.
   const [collapsed, setCollapsed] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
+    // Same two-axis question the layout asks (see useIsDesktop), phrased so a
+    // match still means "phone": a comma is OR in a media query, and either
+    // axis being small is enough. A phone in landscape clears 767px and would
+    // otherwise open the rail across the chart it was just rotated for.
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px), (max-height: 499.98px)").matches,
   );
   const [lastUsed, setLastUsed] = useState<Record<string, DrawingTool>>({
     lines: "trendline",

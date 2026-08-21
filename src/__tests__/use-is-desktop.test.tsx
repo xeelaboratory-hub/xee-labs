@@ -57,9 +57,20 @@ describe("useIsDesktop", () => {
     expect(read()).toBe("desktop");
   });
 
+  it("asks about height as well as width", () => {
+    // A phone in landscape is 844px across — wide enough for `md`, and 390px
+    // tall. Width alone put the full desktop terminal into that, leaving the
+    // chart ~145px and dropping the tab bar entirely.
+    mockViewport(true);
+    render(<Probe />);
+    const query = vi.mocked(window.matchMedia).mock.calls[0]?.[0] ?? "";
+    expect(query).toContain("min-width: 768px");
+    expect(query).toContain("min-height");
+  });
+
   it("follows the viewport across the breakpoint", () => {
-    // The point of the hook: this decides what gets MOUNTED, so a phone
-    // rotated into landscape has to stop rendering the mobile-only copy.
+    // The point of the hook: this decides what gets MOUNTED, so a rotation in
+    // either direction has to change which layout is in the tree.
     const viewport = mockViewport(false);
     render(<Probe />);
     expect(read()).toBe("mobile");

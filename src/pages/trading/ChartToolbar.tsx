@@ -236,7 +236,7 @@ export function ChartToolbar({
         <TimeframeMenu timeframe={timeframe} onTimeframeChange={onTimeframeChange} />
       )}
 
-      <div className="h-4 border-l border-border mx-1 hidden md:block" />
+      {isDesktop && <div className="h-4 border-l border-border mx-1" />}
 
       {/* Indicators — a dropdown under the toolbar where there is room for
           one, a sheet on a phone. Same list either way (IndicatorList), so the
@@ -338,10 +338,13 @@ export function ChartToolbar({
         </div>
       )}
 
-      <div className="flex-1 hidden md:block" />
+      {isDesktop && <div className="flex-1" />}
 
-      {/* Right Panel Toggles */}
-      <div className="hidden md:flex items-center gap-0.5">
+      {/* Right Panel Toggles — mounted with the panel they drive. Left on a
+          phone they were live buttons over a panel that never renders, so a
+          tap set state and changed nothing on screen. */}
+      {isDesktop && (
+      <div className="flex items-center gap-0.5">
         <ToolButton
           icon={Layers}
           tooltip="Depth of Market"
@@ -369,6 +372,7 @@ export function ChartToolbar({
           />
         )}
       </div>
+      )}
     </div>
   );
 }

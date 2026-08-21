@@ -18,6 +18,11 @@ const TABS = [
  * used to cover 57% of the screen from first paint and could only be dismissed
  * by hitting a 40x6px handle.
  *
+ * Visibility is the caller's call, not a `md:hidden` baked in here: the phone
+ * layout is chosen by viewport height as well as width (see `useIsDesktop`),
+ * and a CSS class keyed on width alone would hide this bar in exactly the
+ * landscape case that needs it most.
+ *
  * `min-h-[56px]` is deliberate rather than decorative: every interactive
  * element in the old mobile layout was 36px tall, carried over from the
  * desktop build where a mouse pointer picks the target. 44px is the documented
@@ -33,7 +38,7 @@ export function MobileTabBar({
   return (
     <nav
       aria-label="Main"
-      className="flex items-stretch border-t border-border bg-card safe-area-bottom md:hidden"
+      className="flex items-stretch border-t border-border bg-card safe-area-bottom"
     >
       {TABS.map(({ id, label, icon: Icon }) => {
         const active = id === tab;
