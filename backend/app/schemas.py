@@ -143,7 +143,13 @@ MarketDataEvent = Union[
 
 class ExchangeHealth(BaseModel):
     connected: bool
+    # Any traffic on the feed — ticker, candles or book. Proves the connection
+    # is alive, which is what the runner's watchdog tears a feed down over.
     lastEventAt: int | None = None  # unix ms
+    # Ticker events only, i.e. the last time a *price* actually arrived. A
+    # dead ticker channel leaves this frozen while lastEventAt stays current;
+    # that gap once mispriced a live position by $49 for 37 minutes.
+    lastTickAt: int | None = None  # unix ms
 
 
 class HealthResponse(BaseModel):
