@@ -5,6 +5,7 @@ from cryptofeed.connection import WebsocketEndpoint
 from cryptofeed.defines import CANDLES, FUNDING, L2_BOOK, LIQUIDATIONS, OPEN_INTEREST, ORDER_INFO, TICKER, TRADES
 from cryptofeed.exchanges import OKX as _UpstreamOKX
 
+from app.config import CONNECTION_RETRIES
 from app.feeds._common import make_book_callback, make_candle_callback, make_ticker_callback
 from app.symbols import symbols_for_exchange
 
@@ -67,7 +68,7 @@ def build_feed() -> OKX:
         channels=[TICKER, CANDLES, L2_BOOK],
         candle_interval="1m",
         candle_closed_only=False,
-        retries=0,  # our own supervisor in cryptofeed_runner.py owns all reconnect/backoff policy
+        retries=CONNECTION_RETRIES,  # per-connection self-heal; see config.py
         callbacks={
             TICKER: make_ticker_callback(EXCHANGE),
             CANDLES: make_candle_callback(EXCHANGE),
