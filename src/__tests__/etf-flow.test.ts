@@ -92,6 +92,15 @@ describe("computeEtfFlowMarkers", () => {
     expect(markers[0]!.time).toBe(dayCandle);
   });
 
+  it("anchors by flowDate, not observedAt, even when observedAt is a much later scrape timestamp", () => {
+    const flows: EtfFlow[] = [
+      { flowDate: "2026-08-14", totalNetFlow: 10, observedAt: "2026-08-20T21:56:44Z", updatedAt: "x" },
+    ];
+    const markers = computeEtfFlowMarkers(flows, chartData, "1d");
+    expect(markers).toHaveLength(1);
+    expect(markers[0]!.time).toBe(dayCandle);
+  });
+
   it("a revision that changes the value to 0 removes the previously-shown marker", () => {
     const before: EtfFlow[] = [
       { flowDate: "2026-08-14", totalNetFlow: 100, observedAt: "2026-08-14T04:00:00Z", updatedAt: "x" },

@@ -129,8 +129,12 @@ export function computeEtfFlowMarkers(
 
   for (const flow of etfFlowData) {
     if (flow.totalNetFlow === 0) continue;
-    const anchorMs =
-      flow.observedAt != null ? new Date(flow.observedAt).getTime() : flowDateToIsraelMorningUtcMs(flow.flowDate);
+    // `observedAt` is scrape-provenance bookkeeping (when the scraper first
+    // saw this row), not when the flow occurred — using it as the marker
+    // anchor clusters markers wherever the scraper happened to run instead
+    // of spreading them across their actual flow_date. Always anchor to the
+    // flow's own date.
+    const anchorMs = flowDateToIsraelMorningUtcMs(flow.flowDate);
     const bucketTime = getCandleBucketTime(anchorMs, timeframe);
     if (!loadedTimes.has(bucketTime)) continue;
     markers.push({
