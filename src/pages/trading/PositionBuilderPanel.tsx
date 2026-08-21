@@ -212,28 +212,40 @@ export function PositionBuilderPanel({
 
     const doSubmit = () =>
       placeOrder.mutateAsync(input, {
-        onSuccess: () => {
+        onSuccess: (result) => {
           const bracket = [
             input.stopLoss !== undefined ? `SL ${formatNumber(input.stopLoss, 2)}` : null,
             input.takeProfit !== undefined ? `TP ${formatNumber(input.takeProfit, 2)}` : null,
           ]
             .filter(Boolean)
             .join(" / ");
-          toast.success(
-            "Order Sent",
-            `${orderSide} ${formatNumber(validation.quantity, 2)} ${symbol} (${input.type})` +
-              (bracket ? ` — ${bracket}` : ""),
-          );
+          if (result?.duplicate) {
+            // The submission was interrupted and the order turned out to be
+            // live already. "Order Sent" here reads as a fresh order and is
+            // exactly what would prompt someone to place a second one.
+            toast.success(
+              "Order Already Live",
+              `This ${orderSide} order had already reached the exchange — nothing new was placed.`,
+            );
+          } else {
+            toast.success(
+              "Order Sent",
+              `${orderSide} ${formatNumber(validation.quantity, 2)} ${symbol} (${input.type})` +
+                (bracket ? ` — ${bracket}` : ""),
+            );
+          }
           onOrderSuccess?.();
         },
         onError: (err: unknown) => {
           const e = err as { message?: string; code?: string };
           const msg = e?.message || "Failed to place order";
-          if (e?.code === "REQUEST_TIMEOUT") {
-            toast.error(
-              "Order Timed Out",
-              "The server didn't respond in time. Check your connection and try again.",
-            );
+          // An interrupted submission no longer surfaces as a bare timeout:
+          // the facade resolves it against the exchange first, so these two
+          // codes are definite answers and each carries its own instruction.
+          if (e?.code === "ORDER_STATUS_UNKNOWN") {
+            toast.warning("Order Status Unknown", msg);
+          } else if (e?.code === "ORDER_NOT_PLACED") {
+            toast.error("Order Not Placed", msg);
           } else {
             toast.error("Order Failed", msg);
           }
