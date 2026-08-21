@@ -5,6 +5,46 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-08-21
+
+Closes the incident chain that ran through 1.6.5 and 1.6.6: one health signal
+was answering two different questions, and each attempt to fix it for one
+question broke the other.
+
+### Added
+- **`lastTickAt` on `/api/market-data/health`**, alongside the existing
+  `lastEventAt`. `lastEventAt` is advanced by any feed traffic and answers
+  "is the connection alive" — it feeds the runner's watchdog, and acting on
+  it destroys and rebuilds a feed, so it must stay broad. `lastTickAt` is
+  written only by the ticker callback and answers "are prices arriving" — it
+  feeds the stale-data banner, and acting on it only shows a warning, so it
+  can be strict. Both use the store's existing pass-`None`-to-preserve
+  convention, so a callback that can't vouch for a clock leaves it alone
+  rather than inventing a timestamp.
+- **The stale-data banner is now actually on screen.** `StaleDataBanner` had
+  been written and tested but was imported by nothing except its own test
+  file — `AGENTS.md` described it as active, which had drifted from reality.
+  That is why nothing warned during the 37-minute price freeze: the component
+  was never mounted. It now sits in `TradingPage` beside `MarketClosedBanner`
+  and judges staleness on `lastTickAt`.
+
+### Changed
+- The banner's staleness threshold is 60s, chosen from measurement rather
+  than intuition. OKX's ticker cadence proved bimodal: one 95-sample window
+  ran 94 gaps at 5s or under with a single 75s stall, while a later 90-sample
+  window showed 57 samples above 30s and a maximum of 83s. 60s clears the
+  fast mode's worst case and still surfaces a frozen feed within a minute;
+  firing during the slow mode is honest rather than a false positive.
+- The 30s guard in `src/lib/livePnl.ts` is deliberately left tighter — it
+  only falls back to the exchange's own authoritative value, so triggering
+  early costs nothing.
+
+### Known
+
+OKX's ticker cadence swinging between 1s and 83s is itself suspicious and may
+share a root cause with the original freeze. This release makes it visible
+rather than fixing it.
+
 ## [1.6.6] - 2026-08-21
 
 ### Fixed
