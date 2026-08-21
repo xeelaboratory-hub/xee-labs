@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.11.1] - 2026-08-21
+## [1.12.0] - 2026-08-21
 
 ### Fixed
 - **Five of the eight timeframes were unreachable on a phone.** The toolbar
@@ -25,6 +25,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same hook `TradingPage` uses to choose its panels). Rendering both and
   hiding one with `md:` would put two controls for the same value in the tree
   and have a screen reader announce all sixteen.
+
+- **Indicators were unreachable on a phone.** Not hidden behind a gesture —
+  absent: the toolbar button carried `hidden md:block`, and nothing else
+  offered them. The settings dialog covers Appearance, Colors, Trading and
+  Events; the chart's context menu can only *clear* indicators, and only once
+  some are already on. There was no way to turn one on from a phone at all.
+
+  The button now has a mobile form — an icon with the active count, opening
+  the registry in a sheet. Both form factors render the same `IndicatorList`,
+  differing only in target size, so the Session Volume Profile's own controls
+  (its four market toggles and row count) cannot exist on one and go missing
+  from the other. The sheet scrolls independently, since the registry outgrows
+  a phone screen once that profile is expanded.
 
 ## [1.11.0] - 2026-08-21
 
