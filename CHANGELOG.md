@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.1] - 2026-08-21
+
+### Fixed
+- **Five of the eight timeframes were unreachable on a phone.** The toolbar
+  lays them out as a chip strip, and on a 375px screen that strip runs past
+  the edge of an `overflow-x-auto` row: `15m` sat half-clipped and `30m`
+  through `1w` were off-screen entirely, with nothing on the toolbar
+  suggesting they existed. The only way to them was a horizontal scroll that
+  shares its axis with the chart's own pan gesture — not a gesture anyone
+  discovers by accident.
+
+  On mobile the strip is now a dropdown. The current timeframe stays visible
+  on the trigger, and the other seven sit one tap away in a sheet where each
+  is a full 44px target. Desktop keeps the chip strip unchanged — it has the
+  room, and a pointer picks a chip faster than it opens a menu.
+
+  The two are mounted by breakpoint rather than hidden by one (`useIsDesktop`,
+  the same hook `TradingPage` uses to choose its panels). Rendering both and
+  hiding one with `md:` would put two controls for the same value in the tree
+  and have a screen reader announce all sixteen.
+
 ## [1.11.0] - 2026-08-21
 
 ### Changed

@@ -9,10 +9,12 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { useIsDesktop } from "../../hooks/useIsDesktop.ts";
 import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
 import type { SessionMarket } from "../../lib/session-volume-profile.ts";
 import { cn, formatNumber } from "../../lib/utils.ts";
 import { TIMEFRAMES, type Timeframe } from "./constants.ts";
+import { TimeframeMenu } from "./TimeframeMenu.tsx";
 
 export interface ChartToolbarProps {
   selectedSymbol: string;
@@ -78,6 +80,7 @@ export function ChartToolbar({
 }: ChartToolbarProps) {
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [symbolFilter, setSymbolFilter] = useState("");
+  const isDesktop = useIsDesktop();
 
   const filteredSymbols = symbols.filter(
     (s) =>
@@ -206,27 +209,31 @@ export function ChartToolbar({
         </div>
       )}
 
-      {/* Timeframe Selector */}
-      <div className="flex items-center gap-0.5 ml-1 shrink-0">
-        {TIMEFRAMES.map((tf) => (
-          <button
-            key={tf}
-            onClick={() => onTimeframeChange(tf)}
-            className={cn(
-              // max-md sizing only: the desktop toolbar packs a lot into one
-              // row and is driven by a pointer, so it keeps its tighter chip.
-              "rounded-md text-xs font-medium transition-all",
-              "max-md:flex max-md:min-h-[44px] max-md:min-w-[44px] max-md:items-center max-md:justify-center",
-              "md:px-2 md:py-1",
-              tf === timeframe
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "hover:bg-secondary/80 text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {tf}
-          </button>
-        ))}
-      </div>
+      {/* Timeframe Selector — a chip strip where there is room for eight of
+          them, a dropdown where there is not. Mounted by breakpoint rather
+          than hidden by one, so only one of the two is ever in the tree: two
+          copies would mean two controls for the same value, and a screen
+          reader announcing all sixteen. */}
+      {isDesktop ? (
+        <div className="flex items-center gap-0.5 ml-1 shrink-0">
+          {TIMEFRAMES.map((tf) => (
+            <button
+              key={tf}
+              onClick={() => onTimeframeChange(tf)}
+              className={cn(
+                "rounded-md px-2 py-1 text-xs font-medium transition-all",
+                tf === timeframe
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "hover:bg-secondary/80 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <TimeframeMenu timeframe={timeframe} onTimeframeChange={onTimeframeChange} />
+      )}
 
       <div className="h-4 border-l border-border mx-1 hidden md:block" />
 
