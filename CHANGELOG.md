@@ -5,6 +5,61 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-08-21
+
+### Added
+- **Take-profit and stop-loss now reach OKX with the order.** The Position
+  Builder sizes a trade *from* its stop — risk % of equity and leverage decide
+  the contract count, and the stop price falls out of that model. It showed
+  that stop on screen, drew it on the chart as a preview, and then dropped it:
+  `handleApply` sent symbol, side, type, quantity and price and nothing else.
+  Every position opened from the panel was naked, while the UI said otherwise.
+
+  Both legs now ride along with the entry order as an OKX `attachAlgoOrds`
+  bracket (`POST /api/v5/trade/order`), rather than being placed as separate
+  algo orders afterwards — there is no window in which the position exists
+  unprotected. The take-profit is attached only when an R:R is set, since that
+  is what derives it; the stop is always attached, because the panel cannot
+  size a position without one.
+
+  Two details in the bracket are load-bearing. `tpOrdPx`/`slOrdPx` are `"-1"`,
+  OKX's sentinel for "execute at market when triggered" — a real limit price
+  there would let the protective exit go unfilled in exactly the fast move it
+  exists for. And `tpTriggerPxType`/`slTriggerPxType` are pinned to `"last"`
+  instead of OKX's default, so the trigger reference matches the last-price
+  feed that the chart and the stop model are both built on; mark price would
+  fire on a number the user never saw.
+
+  The order confirmation dialog already had TP/SL rows — they had simply never
+  been populated. They now show the same stop and target the panel sized from,
+  and the success toast names them.
+
+### Changed
+- Order validation now checks each bracket leg sits on the side of the entry
+  where it does its job. A stop-loss above a long's entry triggers the instant
+  the order fills, closing the position it was meant to protect; OKX rejects
+  some of these itself but not uniformly, so both sides check it and name the
+  offending field. The split is deliberate: the backend can only check `LIMIT`
+  orders, which carry their own reference price, while a `MARKET` order has no
+  server-side entry to compare against and is checked client-side against the
+  live tick. When no reference exists at all — a market order placed before
+  the first tick arrives — the bracket passes through unchecked rather than
+  being judged against a guessed price.
+
+### Fixed
+- `services/schemas.ts` no longer points at `OrderPanel.tsx`, deleted in 1.6.1
+  when `PositionBuilderPanel` absorbed order placement.
+- `docs/PROJECT-CONTEXT.md` claimed `npm run typecheck` fails and `npm run
+  lint` has no config. Both have been clean since 1.6.3 and 1.6.4
+  respectively.
+
+### Still not supported
+Three of OKX's four conditional-order surfaces remain stubbed with their
+existing "not supported yet" messages, all needing the separate `order-algo`
+endpoints rather than an attached bracket: editing TP/SL on an **existing**
+position, amending a pending order, and STOP as a standalone order type (the
+chart's right-click quick order).
+
 ## [1.8.1] - 2026-08-21
 
 ### Fixed

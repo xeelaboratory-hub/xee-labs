@@ -101,6 +101,8 @@ const realImplementation = {
         type: input.type,
         quantity: input.quantity,
         price: input.price,
+        takeProfit: input.takeProfit,
+        stopLoss: input.stopLoss,
       }),
     }),
   cancelOrder: (orderId: string, mode: TradingMode, symbol: string) =>
