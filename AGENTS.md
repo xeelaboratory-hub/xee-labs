@@ -15,6 +15,10 @@ project is*, see [docs/PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md). For
 - Do not develop directly on `main` — every change goes on a dedicated branch.
 - Do not change stable behavior outside the agreed scope of the current task.
 
+If you are picking this repo up from a previous session, read
+[docs/HANDOFF.md](docs/HANDOFF.md) as well — it records the traps that have
+already cost time here, plus current state and open items.
+
 ## Development Workflow
 
 Follow this sequence for any non-trivial change:
