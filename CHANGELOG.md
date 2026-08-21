@@ -5,6 +5,108 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-08-21
+
+### Fixed
+- **Five of the eight timeframes were unreachable on a phone.** The toolbar
+  lays them out as a chip strip, and on a 375px screen that strip runs past
+  the edge of an `overflow-x-auto` row: `15m` sat half-clipped and `30m`
+  through `1w` were off-screen entirely, with nothing on the toolbar
+  suggesting they existed. The only way to them was a horizontal scroll that
+  shares its axis with the chart's own pan gesture — not a gesture anyone
+  discovers by accident.
+
+  On mobile the strip is now a dropdown. The current timeframe stays visible
+  on the trigger, and the other seven sit one tap away in a sheet where each
+  is a full 44px target. Desktop keeps the chip strip unchanged — it has the
+  room, and a pointer picks a chip faster than it opens a menu.
+
+  The two are mounted by breakpoint rather than hidden by one (`useIsDesktop`,
+  the same hook `TradingPage` uses to choose its panels). Rendering both and
+  hiding one with `md:` would put two controls for the same value in the tree
+  and have a screen reader announce all sixteen.
+
+- **Switching to live trading took one tap and asked nothing.** The switch
+  places no order by itself — it decides which credentials the *next* order
+  uses, since `mode` selects a different credential row and a different OKX
+  host on every trading route. On a phone that control sits in the footer, in
+  the thumb's path, one tap from a Trade tab whose submit button is
+  deliberately 52px tall.
+
+  Going live now asks, and names what changes in money terms rather than in
+  mode names. Coming back to demo still does not: the asymmetry is the point,
+  since guarding the harmless direction trains people to dismiss the guard.
+
+  The active mode is also coloured by what it means. Both modes shared one
+  green, so at a glance the only thing telling real money from paper was a
+  four-letter word.
+
+- **A signed-out phone was told it had no money.** The Trade tab showed
+  `BALANCE $0.00` and a disabled submit, and the reason sat in a low-contrast
+  line reading "No Total Equity available" — which describes the symptom. The
+  cause is that nobody is signed in, and nothing said so or offered a way to
+  fix it. Signed out, the balance now reads as unavailable rather than zero,
+  and the panel says what to do and gives it a button.
+
+- **Prices rendered with more precision than the exchange has.** The entry
+  price showed `77,280.30000` — four digits past anything OKX quotes for BTC —
+  because the decimal count was a constant. It now comes from the instrument's
+  own tick size, falling back to 2 for an unknown tick: too few decimals hides
+  information, too many invent it, and the second is the worse failure on the
+  number an order is built from.
+
+- **The price scale reserved 80px of a 375px phone screen** — 21% of the
+  width — because `rightPriceScale.minimumWidth` was a constant chosen for a
+  desktop chart. It is a floor, not a width: the scale still grows to fit its
+  widest label, so lowering it on a phone costs nothing and returns pixels the
+  chart could not otherwise have. Measured on an iPhone-sized viewport: the
+  axis went 80px to 68px and the plot 294px to 306px. Desktop keeps 80, where
+  an axis that does not resize as prices change is worth more than the pixels.
+
+  The floor is applied in place on rotation rather than through the chart's
+  creation effect — rebuilding the chart would drop the drawings and the
+  scroll position, which is why the effect reads the breakpoint through a ref.
+
+  The remaining 68px is the label text itself (`79600.00`), not the floor.
+  Taking it further means fewer decimals on the axis, which is a precision
+  trade rather than a layout fix, so it was left alone.
+
+- **Rotating a phone into landscape loaded the desktop terminal.** The layout
+  switch asked one question — `(min-width: 768px)` — and an iPhone 13 in
+  landscape is 844px across. It cleared that, so the right panel, the bottom
+  panel and the desktop footer all mounted into 390px of height, and the tab
+  bar disappeared with them because it was hidden by the same breakpoint.
+  Measured result: a chart about 145px tall, *smaller than in portrait*, in
+  the one orientation people rotate to for the chart.
+
+  The switch now has to clear both axes (`min-height: 500px`), which separates
+  every phone in landscape from every tablet with room to spare. Landscape
+  keeps the phone layout: full-width chart, tab bar, no desktop furniture.
+
+  Two things went with it. The right-panel toggles now mount with the panel
+  they drive — on a phone they were live buttons over a panel that never
+  renders, so a tap changed state and nothing on screen. And the drawing rail
+  asks the same two-axis question, instead of unfurling a full-height tool
+  column across the chart the rotation was for.
+
+  Page structure follows this decision; leaf-level `md:` styling still keys on
+  width alone. In landscape that means desktop sizing on a touch device — a
+  smaller problem than the layout one, and not worth rewriting 64 classes to
+  chase.
+
+- **Indicators were unreachable on a phone.** Not hidden behind a gesture —
+  absent: the toolbar button carried `hidden md:block`, and nothing else
+  offered them. The settings dialog covers Appearance, Colors, Trading and
+  Events; the chart's context menu can only *clear* indicators, and only once
+  some are already on. There was no way to turn one on from a phone at all.
+
+  The button now has a mobile form — an icon with the active count, opening
+  the registry in a sheet. Both form factors render the same `IndicatorList`,
+  differing only in target size, so the Session Volume Profile's own controls
+  (its four market toggles and row count) cannot exist on one and go missing
+  from the other. The sheet scrolls independently, since the registry outgrows
+  a phone screen once that profile is expanded.
+
 ## [1.11.0] - 2026-08-21
 
 ### Changed

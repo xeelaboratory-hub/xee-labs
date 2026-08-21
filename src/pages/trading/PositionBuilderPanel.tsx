@@ -3,7 +3,8 @@ import { TrendingUp, TrendingDown, Zap, Volume2, VolumeX } from "lucide-react";
 import { Button } from "../../components/ui/button.tsx";
 import { PanelHeader } from "../../components/PanelHeader.tsx";
 import { DisconnectedTradingBanner } from "../../components/ConnectionIndicator.tsx";
-import { formatCurrency, formatNumber, cn } from "../../lib/utils.ts";
+import { decimalsFromTick, formatCurrency, formatNumber, cn } from "../../lib/utils.ts";
+import { useAuthStore } from "../../services/store.tsx";
 import { useInstrument, usePlaceOrder } from "../../services/queries.ts";
 import type { PlaceOrderInput, Symbol, TradingMode } from "../../services/schemas.ts";
 import { toast } from "../../services/toast.ts";
@@ -43,6 +44,8 @@ export interface PositionBuilderPanelProps {
   tick?: { bid: number; ask: number; timestamp: number };
   mode: TradingMode;
   accountEquity?: number;
+  /** Opens Settings, where signing in happens. */
+  onRequestSignIn?: () => void;
   onPreviewChange: (preview: PositionBuilderPreview | null) => void;
   /** Session volume profile levels, computed in ChartPanel. Read-only here —
    *  reference levels next to the plan, not inputs to it. */
@@ -82,6 +85,7 @@ export function PositionBuilderPanel({
   tick,
   mode,
   accountEquity = 0,
+  onRequestSignIn,
   onPreviewChange,
   volumeProfile,
   oneClick,
@@ -121,6 +125,11 @@ export function PositionBuilderPanel({
     isOkx ? symbol : undefined,
   );
   const instrument = isOkx && realInstrument ? realInstrument : fallbackInstrumentFromSymbol(symbolInfo);
+  // The instrument's own tick decides how many decimals a price has. A
+  // constant here rendered BTC as 77,280.30000 — four digits past anything
+  // the exchange can quote, on the number the order is built from.
+  const priceDigits = decimalsFromTick(instrument.tickSz);
+  const isSignedIn = useAuthStore((s) => !!s.accessToken);
   const isApproximateInstrument = !(isOkx && realInstrument);
 
   const applyProfileLevel = () => {
@@ -303,8 +312,13 @@ export function PositionBuilderPanel({
         <div className="mt-1.5 flex items-baseline justify-between gap-2">
           <div className="flex items-baseline gap-1.5">
             <span className="text-label uppercase text-muted-foreground">Balance</span>
-            <span className="text-[18px] font-extrabold leading-none text-foreground font-mono">
-              {formatCurrency(accountEquity)}
+            <span
+              className={cn(
+                "text-[18px] font-extrabold leading-none font-mono",
+                isSignedIn ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {isSignedIn ? formatCurrency(accountEquity) : "—"}
             </span>
           </div>
           <span className="text-xs font-semibold text-muted-foreground truncate">{symbol}</span>
@@ -397,12 +411,14 @@ export function PositionBuilderPanel({
               inputMode="decimal"
               value={limitPrice}
               onChange={(e) => setLimitPrice(e.target.value)}
-              placeholder={tick ? formatNumber(side === "long" ? tick.ask : tick.bid, 5) : ""}
+              placeholder={tick ? formatNumber(side === "long" ? tick.ask : tick.bid, priceDigits) : ""}
               className="w-full mt-1 text-sm font-mono max-md:min-h-[44px]"
               step="any"
             />
           ) : (
-            <div className="mt-1 text-sm font-mono">{entry > 0 ? formatNumber(entry, 5) : "—"}</div>
+            <div className="mt-1 text-sm font-mono">
+              {entry > 0 ? formatNumber(entry, priceDigits) : "—"}
+            </div>
           )}
           {volumeProfile && (
             <button
@@ -435,7 +451,24 @@ export function PositionBuilderPanel({
         </label>
 
         <div className="bg-secondary rounded p-2.5 text-[13px] space-y-1.5">
-          {!plan.ok ? (
+          {!isSignedIn ? (
+            // Signed out, every number here is a placeholder, and the reason
+            // the planner reports ("No Total Equity available") describes the
+            // symptom rather than the cause.
+            <div className="space-y-2">
+              <p className="text-muted-foreground">Sign in to size and place orders.</p>
+              {onRequestSignIn && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full max-md:min-h-[44px]"
+                  onClick={onRequestSignIn}
+                >
+                  Sign In
+                </Button>
+              )}
+            </div>
+          ) : !plan.ok ? (
             <p className="text-muted-foreground">{plan.error}</p>
           ) : (
             <>

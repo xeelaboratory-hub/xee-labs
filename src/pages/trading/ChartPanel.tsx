@@ -56,6 +56,7 @@ import {
   DrawingFloatingToolbar,
   DrawingSettingsDialog,
 } from "./DrawingToolsOverlay.tsx";
+import { useIsDesktop } from "../../hooks/useIsDesktop.ts";
 import { DrawingToolRail } from "./DrawingToolRail.tsx";
 import { DRAWING_STYLES_EVENT, getStyleDefaults } from "./drawingStyles.ts";
 import { ObjectTreePanel } from "./ObjectTreePanel.tsx";
@@ -979,6 +980,13 @@ export function ChartPanel({
   const lastGapRefetchAtRef = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  // Read through a ref inside the chart's own effect: adding it to that
+  // effect's deps would tear the chart down and rebuild it on every rotation,
+  // losing the series, the drawings and the scroll position. The effect below
+  // applies the change in place instead.
+  const isDesktop = useIsDesktop();
+  const isDesktopRef = useRef(isDesktop);
+  isDesktopRef.current = isDesktop;
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const etfFlowByIdRef = useRef<Map<string, EtfFlow>>(new Map());
 
@@ -1366,7 +1374,11 @@ export function ChartPanel({
         borderVisible: true,
         entireTextOnly: false,
         ticksVisible: false,
-        minimumWidth: 80,
+        // A floor, not a width — the scale still grows to fit its widest
+        // label. 80 was picked for a desktop chart and costs 21% of a 375px
+        // phone screen, permanently, for labels that need about 55. Kept on
+        // desktop, where a steady axis width is worth more than the pixels.
+        minimumWidth: isDesktopRef.current ? 80 : 56,
       },
       timeScale: {
         borderColor: colors.grid,
@@ -1598,6 +1610,15 @@ export function ChartPanel({
   ]); // Re-create on theme / precision / symbol change — NOT timeframe (the
   // chart persists across TF switches so drawings never blink out; the
   // TF-change effect below updates the live state in place, TradingView-style).
+
+  // Rotation changes which floor the price scale gets. Applied in place for
+  // the same reason it is read through a ref above: rebuilding the chart on
+  // every rotation would drop the drawings and the scroll position.
+  useEffect(() => {
+    chartRef.current?.applyOptions({
+      rightPriceScale: { minimumWidth: isDesktop ? 80 : 56 },
+    });
+  }, [isDesktop]);
 
   // Update watermark text when symbol changes (visibility comes from settings)
   useEffect(() => {

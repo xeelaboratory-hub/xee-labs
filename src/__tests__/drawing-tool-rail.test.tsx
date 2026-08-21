@@ -111,6 +111,8 @@ describe("DrawingToolRail on a phone", () => {
   function setViewport(matches: boolean) {
     // The rail reads the breakpoint once at mount, so this has to be in place
     // before render — see the collapsed initialiser in DrawingToolRail.
+    // `matches` means phone: the query is a comma-separated OR over a narrow
+    // width and a short height, so landscape counts too.
     vi.spyOn(window, "matchMedia").mockImplementation(
       (query: string) =>
         ({
@@ -130,7 +132,7 @@ describe("DrawingToolRail on a phone", () => {
     vi.restoreAllMocks();
   });
 
-  it("starts collapsed below the md breakpoint", () => {
+  it("starts collapsed on a phone, in either orientation", () => {
     setViewport(true);
     render(<RailHarness />);
 
@@ -145,6 +147,28 @@ describe("DrawingToolRail on a phone", () => {
     render(<RailHarness />);
 
     expect(screen.getByRole("button", { name: "Cursor" })).toBeInTheDocument();
+  });
+
+  it("asks about height too, so landscape does not open it over the chart", () => {
+    // The whole reason this changed: a phone in landscape is 844px across,
+    // which cleared a width-only query and unfurled a full-height tool column
+    // across the chart the rotation was for.
+    const queries: string[] = [];
+    vi.spyOn(window, "matchMedia").mockImplementation((query: string) => {
+      queries.push(query);
+      return {
+        matches: true,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      } as MediaQueryList;
+    });
+    render(<RailHarness />);
+    expect(queries.some((q) => q.includes("max-height"))).toBe(true);
   });
 
   it("opens on demand when collapsed", async () => {
