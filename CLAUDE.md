@@ -9,6 +9,8 @@ memory:
 
 - **[AGENTS.md](AGENTS.md)** — how to work in this repo: dev commands, local dev vs. Docker,
   process hygiene, release process, and constraints on what not to change without approval.
+- **[docs/HANDOFF.md](docs/HANDOFF.md)** — read when picking the repo up from a previous
+  session: traps that have already cost time, current state, and what was left open.
 - **[docs/PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md)** — what this project is, its
   provenance, current goals, implementation state, and known limitations.
 - **[docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md)** — how the codebase is
