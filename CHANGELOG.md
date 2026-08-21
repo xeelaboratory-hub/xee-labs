@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - 2026-08-21
+
+Root cause of the price freeze that 1.6.5 through 1.7.0 were treating
+symptoms of. Found by running the app's own OKX feed in an isolated probe
+with cryptofeed's logging turned on.
+
+### Fixed
+- **A dropped exchange WebSocket was never reconnected.** OKX's `/public`
+  socket drops with an abrupt EOF every few minutes. cryptofeed's
+  `ConnectionHandler` loops `while retries <= self.retries`, so the
+  `retries=0` setting meant a single drop retired that socket permanently
+  ("failed to reconnect after 1 retries - exiting").
+
+  Ticker and book ride `/public`; candles ride `/business` and survived. In
+  the probe, ticker froze at 643 events and book at 940 while candles climbed
+  from 613 to 838 — traffic never stopped, so the watchdog never fired and
+  prices stayed frozen. That is the whole mechanism behind the mispricing.
+
+  Both feeds now use `CONNECTION_RETRIES` (10), so a transient drop heals in
+  about a second while a genuinely broken feed still exhausts its retries and
+  escalates to the supervisor. Binance had the same latent failure — just
+  fewer sockets to hide behind — and gets the same treatment.
+- cryptofeed's own logging went from disabled to WARNING. Its connection
+  errors were being swallowed entirely, including an
+  `asyncio: Task exception was never retrieved`. That silence is why this
+  needed a dedicated probe rather than being readable in the logs.
+
+### Added
+- A second watchdog trigger on the price clock at 120s, alongside the
+  existing 60s traffic trigger — a feed can be busy and priceless at the same
+  time. The threshold is measured, not guessed: 80 samples over 5.5 minutes
+  of live operation showed a maximum tick age of 70s, leaving a 50s margin.
+  1.6.5 keyed the *only* watchdog to ticks at an unmeasured 60s and
+  restart-looped a healthy feed; this is an additional trigger, not a
+  replacement.
+
+### Known
+This makes a dropped socket recover; it does not stop OKX from dropping it.
+Roughly 9% of samples still show a tick age above 60s, so the stale-data
+banner added in 1.7.0 will appear during those stretches — accurate rather
+than noisy, since the displayed price really is a minute old.
+
 ## [1.7.1] - 2026-08-21
 
 ### Fixed
