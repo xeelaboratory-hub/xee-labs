@@ -21,6 +21,10 @@ def make_ticker_callback(exchange: str):
         occurred_at_ms = int((ticker.timestamp or receipt_timestamp) * 1000)
         tick = Tick(symbol=info.id, exchange=exchange, bid=float(ticker.bid), ask=float(ticker.ask), occurredAt=occurred_at_ms)
         store.set_tick(tick)
+        # The ticker is the only callback that advances the freshness clock:
+        # it is the sole writer of store.set_tick, so it alone proves prices
+        # are still flowing. The runner's watchdog and the frontend's
+        # stale-data banner both read this timestamp.
         store.set_health(exchange, connected=True, last_event_at=occurred_at_ms)
         bus.publish(MarketTickEvent(symbol=tick.symbol, exchange=exchange, bid=tick.bid, ask=tick.ask, occurredAt=tick.occurredAt))
 
@@ -45,7 +49,11 @@ def make_candle_callback(exchange: str):
             symbol=info.id,
         )
         store.set_candle(info.id, candle.interval, normalized)
-        store.set_health(exchange, connected=True, last_event_at=event_ms)
+        # Affirm the connection without advancing the freshness clock — that
+        # clock tracks *prices*, and candles kept it green while the ticker
+        # channel was dead, hiding a 37-minute-stale price behind a healthy
+        # status. See the note on the ticker callback above.
+        store.set_health(exchange, connected=True, last_event_at=None)
 
         if candle.closed:
             bus.publish(CandleClosedEvent(symbol=info.id, exchange=exchange, timeframe=candle.interval))
@@ -78,7 +86,9 @@ def make_book_callback(exchange: str):
             large_order_book_service.process_book(exchange, info, book.book, occurred_at)
         else:
             large_order_book_service.process_delta(exchange, info, book.delta, occurred_at)
-        store.set_health(exchange, connected=True, last_event_at=int(timestamp * 1000))
+        # As with candles: connection alive, but book depth is not a price
+        # quote, so it must not vouch for tick freshness.
+        store.set_health(exchange, connected=True, last_event_at=None)
 
     return _on_book
 
