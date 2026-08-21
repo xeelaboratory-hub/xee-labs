@@ -5,6 +5,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.6] - 2026-08-21
+
+### Fixed
+- **Regression from 1.6.5: OKX's feed was restarting every 115 seconds.**
+  1.6.5 narrowed the feed health timestamp to ticker events only so that a
+  dead ticker channel would be detected. That coupled the runner's
+  *connection liveness* watchdog to *price freshness*, which are not the
+  same signal. OKX's ticker arrives roughly once every 55–60s, just under
+  the watchdog's 60s threshold, so a perfectly healthy feed was torn down
+  and rebuilt on a fixed cycle.
+
+  Candle and book callbacks advance the clock again; the timestamp means
+  "the connection is alive", which is what the watchdog reads it for.
+
+  The $49 mispricing fixed in 1.6.5 is unaffected. That guard lives in
+  `src/lib/livePnl.ts`, reads each tick's own exchange timestamp, and never
+  consulted the health field — reverting the backend half does not bring the
+  bug back.
+
+  A complete fix needs a separate `lastTickAt` so liveness and price
+  freshness get their own clocks and thresholds. That changes the health
+  response shape, which `AGENTS.md` treats as a protected contract, so it is
+  left for a deliberate change rather than folded into a hotfix.
+
+### Changed
+- `backend/tests/test_feed_freshness.py` now pins both failure directions —
+  that a fresh clock does not imply a fresh tick, and that non-ticker
+  traffic must keep advancing the clock — so neither can be reintroduced by
+  fixing the other.
+
 ## [1.6.5] - 2026-08-21
 
 ### Fixed
