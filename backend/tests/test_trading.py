@@ -29,6 +29,7 @@ class _FakeOKXClient:
         self._close_result = close_result if close_result is not None else [{"instId": "BTC-USDT-SWAP"}]
         self._fills = fills or []
         self._raise_on = raise_on or set()
+        self.place_order_kwargs: dict | None = None
 
     async def get_balance(self):
         if "balance" in self._raise_on:
@@ -42,6 +43,7 @@ class _FakeOKXClient:
         return self._orders
 
     async def place_order(self, **kwargs):
+        self.place_order_kwargs = kwargs
         return self._place_result
 
     async def cancel_order(self, **kwargs):
@@ -335,3 +337,158 @@ def test_missing_credentials_returns_404(client, monkeypatch):
     monkeypatch.setattr("app.api.trading._get_okx_client", fake_get_client)
     res = client.get("/api/account", params={"mode": "live"})
     assert res.status_code == 404
+
+
+# ── Attached take-profit / stop-loss bracket ───────────────────────────────
+
+
+def test_place_order_without_bracket_sends_no_trigger_prices(client, monkeypatch):
+    fake = _FakeOKXClient()
+    _patch_client(monkeypatch, fake)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={"symbol": "OKX:BTCUSD", "side": "BUY", "type": "MARKET", "quantity": 1},
+    )
+    assert res.status_code == 201
+    assert fake.place_order_kwargs["tp_trigger_px"] is None
+    assert fake.place_order_kwargs["sl_trigger_px"] is None
+
+
+def test_place_order_forwards_bracket_as_strings(client, monkeypatch):
+    fake = _FakeOKXClient()
+    _patch_client(monkeypatch, fake)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={
+            "symbol": "OKX:BTCUSD",
+            "side": "BUY",
+            "type": "LIMIT",
+            "quantity": 1,
+            "price": 50000,
+            "stopLoss": 49000,
+            "takeProfit": 52000,
+        },
+    )
+    assert res.status_code == 201
+    # OKX takes prices as strings, never numbers.
+    assert fake.place_order_kwargs["sl_trigger_px"] == "49000.0"
+    assert fake.place_order_kwargs["tp_trigger_px"] == "52000.0"
+
+
+def test_place_order_accepts_a_single_bracket_leg(client, monkeypatch):
+    fake = _FakeOKXClient()
+    _patch_client(monkeypatch, fake)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={
+            "symbol": "OKX:BTCUSD",
+            "side": "BUY",
+            "type": "LIMIT",
+            "quantity": 1,
+            "price": 50000,
+            "stopLoss": 49000,
+        },
+    )
+    assert res.status_code == 201
+    assert fake.place_order_kwargs["sl_trigger_px"] == "49000.0"
+    assert fake.place_order_kwargs["tp_trigger_px"] is None
+
+
+@pytest.mark.parametrize("field", ["stopLoss", "takeProfit"])
+@pytest.mark.parametrize("value", [0, -1])
+def test_place_order_rejects_non_positive_bracket(client, monkeypatch, field, value):
+    _patch_client_must_not_be_called(monkeypatch)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={"symbol": "OKX:BTCUSD", "side": "BUY", "type": "MARKET", "quantity": 1, field: value},
+    )
+    assert res.status_code == 422
+
+
+@pytest.mark.parametrize("field", ["stopLoss", "takeProfit"])
+@pytest.mark.parametrize("token", ["NaN", "Infinity"])
+def test_place_order_rejects_nan_or_infinite_bracket(client, monkeypatch, field, token):
+    _patch_client_must_not_be_called(monkeypatch)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        content=(
+            '{"symbol": "OKX:BTCUSD", "side": "BUY", "type": "MARKET", "quantity": 1, '
+            f'"{field}": {token}}}'
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+    assert res.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "side,stop_loss,take_profit",
+    [
+        # A BUY's stop below and TP above the entry; inverted here so each leg
+        # would fire the moment the order filled.
+        ("BUY", 51000, 52000),
+        ("BUY", 49000, 49500),
+        ("SELL", 49000, 48000),
+        ("SELL", 51000, 50500),
+    ],
+)
+def test_place_order_rejects_bracket_on_the_wrong_side_of_a_limit(
+    client, monkeypatch, side, stop_loss, take_profit
+):
+    _patch_client_must_not_be_called(monkeypatch)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={
+            "symbol": "OKX:BTCUSD",
+            "side": side,
+            "type": "LIMIT",
+            "quantity": 1,
+            "price": 50000,
+            "stopLoss": stop_loss,
+            "takeProfit": take_profit,
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_place_order_rejects_bracket_equal_to_the_limit_price(client, monkeypatch):
+    _patch_client_must_not_be_called(monkeypatch)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={
+            "symbol": "OKX:BTCUSD",
+            "side": "BUY",
+            "type": "LIMIT",
+            "quantity": 1,
+            "price": 50000,
+            "stopLoss": 50000,
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_market_order_bracket_is_not_direction_checked_server_side(client, monkeypatch):
+    """A MARKET order has no server-side entry price to compare against — the
+    client checks it against the live tick. Accepting it here is deliberate,
+    not an oversight."""
+    fake = _FakeOKXClient()
+    _patch_client(monkeypatch, fake)
+    res = client.post(
+        "/api/orders",
+        params={"mode": "demo"},
+        json={
+            "symbol": "OKX:BTCUSD",
+            "side": "BUY",
+            "type": "MARKET",
+            "quantity": 1,
+            "stopLoss": 99000,
+        },
+    )
+    assert res.status_code == 201
+    assert fake.place_order_kwargs["sl_trigger_px"] == "99000.0"

@@ -52,28 +52,42 @@ field. Reading the DOM, not the screenshot, is what caught it.
 
 ## State at handoff
 
-*Volatile — verify rather than trust. Accurate as of 2026-08-21, `v1.8.1`.*
+*Volatile — verify rather than trust. Accurate as of 2026-08-21, `v1.9.0`.*
 
 `main` is green on every gate:
 
 ```bash
 npm run typecheck                 # 0 errors
 npm run lint                      # 0 problems
-npm run test                      # 143 passed
-cd backend && pytest              # 136 passed, 4 skipped
+npm run test                      # 155 passed
+cd backend && pytest              # 162 passed, 4 skipped, 1 failed
 ```
 
-The environment is already running — check before starting anything, per the
-port hygiene rules in AGENTS.md:
+That one backend failure is open item 5 below — a test that makes a live call
+to `www.okx.com` and cannot pass without outbound network access. It fails
+identically on a clean checkout.
+
+Whether the environment is already running depends on where you picked this
+up. On the author's machine it usually is; a fresh cloud container has
+nothing running and no Docker daemon, and needs `npm ci` before the frontend
+gates will even start. Check before starting anything, per the port hygiene
+rules in AGENTS.md:
 
 - `docker compose`: `postgres`, `backend` (127.0.0.1:3000), `frontend` (:8080),
   `etf-scraper`
 - Vite dev server on :5173
 
-`v1.6.2` through `v1.8.1` all shipped on 2026-08-21. The chain worth reading
+`v1.6.2` through `v1.9.0` all shipped on 2026-08-21. The chain worth reading
 before touching the feed layer is **`v1.6.5` → `v1.7.2`**: four releases
 chasing one mispricing bug to its root, a WebSocket that dropped and was never
 reconnected. Two of those releases were corrections of the previous one.
+
+**`v1.9.0` was verified against tests only.** No live OKX demo round-trip was
+run — the container it was built in has no backend, no Postgres and no
+outbound access to OKX. Before trusting the attached bracket in the terminal,
+place one `mode=demo` order from the Position Builder and confirm the stop and
+target appear on the OKX side. Per the first trap above, rebuild the backend
+image (`docker compose up -d --build backend`) rather than restarting it.
 
 ---
 
@@ -88,11 +102,28 @@ reconnected. Two of those releases were corrections of the previous one.
    `useEconomicCalendar`, `useModifyOrder`, `useModifyPosition`. They
    type-check, so they were left out of the `v1.6.3` cleanup that removed 67
    others. Deletion needs owner approval (see AGENTS.md constraints).
-3. **`src/services/schemas.ts:128` references `OrderPanel.tsx`**, deleted when
-   `PositionBuilderPanel` absorbed order placement.
-4. **`AiTraderPage.tsx` and `useTraderPreferences.ts`** are still dead.
-5. **`.codex/`** sits untracked in the working tree. It was not created by the
-   previous session and was deliberately left alone.
+3. **`AiTraderPage.tsx` is unreachable** — `TradingPage.tsx` hard-codes
+   `aiTraderEnabled = false`, so neither the bottom-panel tab nor the
+   right-panel entry can be selected. It is still imported and bundled.
+   Deletion needs owner approval (see AGENTS.md constraints). Its former
+   companion in this item, `useTraderPreferences.ts`, is **not** dead —
+   `readTraderPrefs`/`writeTraderPrefs` back `useChartPreferences` and
+   `drawingStyles`, both of which `ChartPanel`, `TradingPage` and
+   `DrawingToolsOverlay` use. Only the `useTraderPreferences()` hook itself is
+   uncalled.
+4. **Three of OKX's conditional-order surfaces are still stubbed** —
+   TP/SL on an existing position, amending a pending order, and STOP as an
+   order type. `v1.9.0` wired up only the fourth (TP/SL attached at
+   placement); the other three need OKX's separate `order-algo` endpoints.
+5. **`backend/tests/test_large_order_book.py` makes a live network call.**
+   `test_okx_subscribes_only_to_the_connections_filtered_channels` reaches
+   `https://www.okx.com/api/v5/public/instruments` and fails with a proxy 403
+   in any sandboxed environment. It is not a regression — it fails identically
+   on a clean checkout — but it means `pytest` is not green offline.
+
+(Item 3's old entry — a stale `OrderPanel.tsx` reference in
+`services/schemas.ts` — was fixed in `v1.9.0`, which rewrote that comment.
+`.codex/` no longer exists in the working tree.)
 
 ---
 

@@ -180,11 +180,19 @@ export function PositionBuilderPanel({
   const handleApply = () => {
     if (!plan.ok) return;
     const orderSide = side === "long" ? "BUY" : "SELL";
+    // The stop this panel sized the position from — and the take-profit it
+    // derived from the R:R — go out attached to the entry order rather than
+    // being displayed and discarded. Without this the panel promises a
+    // bracketed trade on screen and opens a naked position at OKX.
     const validation = validateOrderInput({
       isFeedConnected,
       quantity: String(plan.contracts),
       orderType: entryMode === "limit" ? "LIMIT" : "MARKET",
       price: entryMode === "limit" ? String(entry) : "",
+      side: orderSide,
+      stopLoss: plan.stop,
+      ...(tpPlan ? { takeProfit: tpPlan.takeProfit } : {}),
+      referencePrice: entry,
     });
     if (!validation.ok) {
       toast.warning(validation.title, validation.message);
@@ -199,11 +207,23 @@ export function PositionBuilderPanel({
       quantity: validation.quantity,
     };
     if (validation.price !== undefined) input.price = validation.price;
+    if (validation.stopLoss !== undefined) input.stopLoss = validation.stopLoss;
+    if (validation.takeProfit !== undefined) input.takeProfit = validation.takeProfit;
 
     const doSubmit = () =>
       placeOrder.mutateAsync(input, {
         onSuccess: () => {
-          toast.success("Order Sent", `${orderSide} ${formatNumber(validation.quantity, 2)} ${symbol} (${input.type})`);
+          const bracket = [
+            input.stopLoss !== undefined ? `SL ${formatNumber(input.stopLoss, 2)}` : null,
+            input.takeProfit !== undefined ? `TP ${formatNumber(input.takeProfit, 2)}` : null,
+          ]
+            .filter(Boolean)
+            .join(" / ");
+          toast.success(
+            "Order Sent",
+            `${orderSide} ${formatNumber(validation.quantity, 2)} ${symbol} (${input.type})` +
+              (bracket ? ` — ${bracket}` : ""),
+          );
           onOrderSuccess?.();
         },
         onError: (err: unknown) => {
