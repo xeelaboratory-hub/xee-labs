@@ -12,6 +12,28 @@ REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
 
 CREDENTIAL_ENCRYPTION_KEY = os.environ["CREDENTIAL_ENCRYPTION_KEY"]
 
+
+def _env_flag(name: str) -> bool:
+    """Reads a boolean env var, treating only explicit affirmatives as true.
+
+    An unset, empty, or misspelled value fails closed rather than open — which
+    matters for the one flag that uses this: a typo must not be the thing that
+    opens self-service registration.
+    """
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Self-service registration, off unless asked for. The frontend container
+# publishes :8080 on every interface, so anything reachable on the local
+# network can reach `/api/auth/register` through nginx — and this instance
+# serves a single operator account, not customers. An open registration
+# endpoint is a path from "someone on the network" to "authenticated user"
+# that nothing here needs yet.
+#
+# Turn it on (`REGISTRATION_OPEN=true`) when the product actually sells
+# accounts; the signup half of a paid release cannot work without it.
+REGISTRATION_OPEN = _env_flag("REGISTRATION_OPEN")
+
 EXCHANGES = ["binance", "okx"]
 SYMBOL_BASES = ["BTC", "ETH"]
 QUOTE = "USDT"

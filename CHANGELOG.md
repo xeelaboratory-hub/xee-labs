@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-08-21
+
+### Changed
+- **Self-service registration is now closed by default.** `POST
+  /api/auth/register` answers 403 unless `REGISTRATION_OPEN` is set to an
+  explicit affirmative. The reason is exposure rather than policy: the
+  `frontend` container publishes `:8080` on every interface and nginx proxies
+  `/api` to the backend, so signup was reachable from anything on the local
+  network — while this instance serves a single operator account. That made an
+  open endpoint a path from "someone on the network" to "authenticated user"
+  that nothing here needed.
+
+  The flag fails closed on anything it does not recognise, an unset variable
+  and a misspelled value included: a typo must not be the thing that opens
+  signup. The check runs ahead of the rate limiter, so hammering a closed
+  endpoint cannot exhaust the budget that protects an open one, and it refuses
+  before touching the database — a 403 that still wrote a user row would be
+  worse than no check at all.
+
+  Turn it on when the product sells accounts; the signup half of a paid
+  release cannot work without it.
+
 ## [1.10.0] - 2026-08-21
 
 ### Added
