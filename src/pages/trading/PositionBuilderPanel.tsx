@@ -262,6 +262,7 @@ export function PositionBuilderPanel({
               onClick={handleToggleMute}
               className={cn(
                 "flex items-center gap-1 px-1.5 py-1 rounded text-meta font-medium border transition-colors",
+                "max-md:min-h-[44px] max-md:min-w-[44px] max-md:justify-center",
                 !soundMuted
                   ? "bg-accent/15 text-accent border-accent/30"
                   : "text-muted-foreground border-border hover:bg-secondary",
@@ -274,6 +275,7 @@ export function PositionBuilderPanel({
               onClick={handleToggleOneClick}
               className={cn(
                 "flex items-center gap-1 px-1.5 py-1 rounded text-meta font-medium border transition-colors",
+                "max-md:min-h-[44px] max-md:min-w-[44px] max-md:justify-center",
                 oneClick
                   ? "bg-buy/15 text-buy border-buy/30"
                   : "text-muted-foreground border-border hover:bg-secondary",
@@ -303,7 +305,7 @@ export function PositionBuilderPanel({
             variant={side === "long" ? "buy" : "outline"}
             size="sm"
             onClick={() => setSide("long")}
-            className="text-xs"
+            className="text-xs max-md:min-h-[48px]"
           >
             <TrendingUp className="h-3 w-3 mr-1" />
             Long
@@ -312,7 +314,7 @@ export function PositionBuilderPanel({
             variant={side === "short" ? "sell" : "outline"}
             size="sm"
             onClick={() => setSide("short")}
-            className="text-xs"
+            className="text-xs max-md:min-h-[48px]"
           >
             <TrendingDown className="h-3 w-3 mr-1" />
             Short
@@ -327,7 +329,7 @@ export function PositionBuilderPanel({
               inputMode="decimal"
               value={riskPercent}
               onChange={(e) => setRiskPercent(e.target.value)}
-              className="w-full mt-1 text-sm font-mono"
+              className="w-full mt-1 text-sm font-mono max-md:min-h-[44px]"
               step="0.1"
               min="0"
             />
@@ -339,7 +341,7 @@ export function PositionBuilderPanel({
               inputMode="decimal"
               value={leverage}
               onChange={(e) => setLeverage(e.target.value)}
-              className="w-full mt-1 text-sm font-mono"
+              className="w-full mt-1 text-sm font-mono max-md:min-h-[44px]"
               step="1"
               min="0"
             />
@@ -357,7 +359,7 @@ export function PositionBuilderPanel({
             <button
               onClick={() => setEntryMode("market")}
               className={cn(
-                "px-1 py-1.5 text-xs rounded border border-border",
+                "px-1 py-1.5 text-xs rounded border border-border max-md:min-h-[44px]",
                 entryMode === "market"
                   ? "bg-primary text-primary-foreground border-primary"
                   : "hover:bg-secondary",
@@ -368,7 +370,7 @@ export function PositionBuilderPanel({
             <button
               onClick={() => setEntryMode("limit")}
               className={cn(
-                "px-1 py-1.5 text-xs rounded border border-border",
+                "px-1 py-1.5 text-xs rounded border border-border max-md:min-h-[44px]",
                 entryMode === "limit"
                   ? "bg-primary text-primary-foreground border-primary"
                   : "hover:bg-secondary",
@@ -384,7 +386,7 @@ export function PositionBuilderPanel({
               value={limitPrice}
               onChange={(e) => setLimitPrice(e.target.value)}
               placeholder={tick ? formatNumber(side === "long" ? tick.ask : tick.bid, 5) : ""}
-              className="w-full mt-1 text-sm font-mono"
+              className="w-full mt-1 text-sm font-mono max-md:min-h-[44px]"
               step="any"
             />
           ) : (
@@ -414,7 +416,7 @@ export function PositionBuilderPanel({
             inputMode="decimal"
             value={rr}
             onChange={(e) => setRr(e.target.value)}
-            className="w-full mt-1 text-sm font-mono"
+            className="w-full mt-1 text-sm font-mono max-md:min-h-[44px]"
             step="0.1"
             min="0"
           />
@@ -498,10 +500,18 @@ export function PositionBuilderPanel({
           )}
         </div>
 
+        {/* Pinned to the bottom of the scroll area on a phone. The panel is
+            taller than a phone screen once a plan is showing, and the control
+            that sends the order should not be something you have to scroll to
+            find. Desktop keeps it in normal flow — the right panel fits. */}
+        <div className="max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-3 max-md:-mb-3 max-md:space-y-2 max-md:border-t max-md:border-border max-md:bg-card max-md:px-3 max-md:pb-3 max-md:pt-2">
         {!isFeedConnected && <DisconnectedTradingBanner />}
         <Button
           variant={side === "long" ? "buy" : "sell"}
-          className="w-full"
+          // Taller on a phone than the 44px floor on purpose: this is the
+          // control that sends a real order to a real exchange, and it sits
+          // directly above the tab bar where a thumb rests.
+          className="w-full max-md:min-h-[52px] max-md:text-sm"
           onClick={handleApply}
           loading={placeOrder.isPending}
           disabled={!canApply || !isFeedConnected || placeOrder.isPending}
@@ -515,6 +525,7 @@ export function PositionBuilderPanel({
         >
           {placeOrder.isPending ? "Placing…" : "Apply to Order"}
         </Button>
+        </div>
 
         {placeOrder.isError && (
           <p className="text-destructive text-xs mt-1 p-1.5 bg-destructive/10 rounded">
