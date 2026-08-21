@@ -9,7 +9,7 @@ project is*, see [docs/PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md). For
 
 ## Stable Development Baseline
 
-- `v1.6.0` is the current verified stable baseline on `main`.
+- `v1.8.1` is the current verified stable baseline on `main`.
 - All new work starts from a fully synced `main`
   (`git checkout main && git pull --ff-only origin main`).
 - Do not develop directly on `main` — every change goes on a dedicated branch.
@@ -75,12 +75,11 @@ typescript-eslint runs in its non-type-checked mode on purpose: the
 type-aware rules need a second full program build per run and would largely
 duplicate `typecheck`.
 
-The baseline is **0 errors, 5 warnings** (hook dependency arrays in
-`App.tsx`, `ChartPanel.tsx`, `useLargeOrderBookPrimitive.ts`,
-`useSessionVolumeProfile.ts`, and one Fast Refresh export in
-`PositionBuilderPanel.tsx`). Those 5 predate the config and were left
-untouched when it was added — don't treat them as newly introduced, and
-don't let the count grow.
+The baseline is **0 problems**. It was 0 errors / 5 warnings when the config
+landed; those 5 were fixed in `v1.7.0`, and one of them was a real defect (two
+chart primitives detached from the replacement series instead of the one they
+were attached to). Keep the count at zero — a warning here has already proven
+to be worth reading rather than tolerating.
 
 ### Backend (`backend/`)
 
@@ -160,7 +159,12 @@ Postgres + the backend + the frontend together for local dev; see
   frontend container has a volume mount — both are static builds baked in at
   image-build time, so **there is no hot-reload inside either container**;
   they can't substitute for `npm run dev` / `uvicorn --reload` during
-  iteration.
+  iteration. A consequence worth stating outright: **`docker compose restart
+  backend` keeps running the old image.** Source edits reach a container only
+  through `docker compose up -d --build backend`. Verifying a backend change
+  against a merely restarted container measures the code you did not write,
+  and reads as a passing check — this has already produced a "verified"
+  claim in a release that was measuring pre-change behaviour.
 - `backend/Dockerfile` is a multi-stage build: a `builder` stage installs
   `build-essential` (needed to compile `cryptofeed`'s `yapic.json` C++
   extension) and the Python package, and the runtime stage copies only the
@@ -188,14 +192,31 @@ checkout` an older tag against a live volume) doesn't work on its own.
 
 ## Frontend data freshness
 
-- `useMarketDataHealth()` polls `GET /api/market-data/health` every 5s; the
-  stale-data banner (`ConnectionIndicator.tsx`) treats a per-exchange
-  `connected: false`, or a connected exchange with no event in the last 30s,
-  as degraded — matching the backend's actual per-exchange response shape
-  (`{binance: {connected, lastEventAt}, okx: {...}}`).
-- `useAccount()` polls every 15s (`refetchInterval`, matching `usePositions`/
-  `useOrders`) — there's no WS push for balance/equity, so without polling
-  the displayed balance can go silently stale between trades.
+- `useMarketDataHealth()` polls `GET /api/market-data/health` every 5s. The
+  response carries **two clocks** per exchange:
+  `{binance: {connected, lastEventAt, lastTickAt}, okx: {...}}`.
+  `lastEventAt` advances on any feed traffic and answers "is the connection
+  alive" — the runner's watchdog reads it, and acting on it destroys and
+  rebuilds a feed. `lastTickAt` advances only on ticker events and answers
+  "are prices arriving". They are deliberately separate; see the comment at
+  the top of `backend/app/feeds/_common.py` for the two incidents that
+  produced the split.
+- The stale-data banner (`StaleDataBanner` in `ConnectionIndicator.tsx`,
+  mounted in `TradingPage`) treats a per-exchange `connected: false`, or a
+  connected exchange whose **`lastTickAt`** is older than 60s, as degraded.
+  Judge price staleness on `lastTickAt` only: a dead ticker channel leaves
+  prices frozen while candle and book traffic keep `lastEventAt` current,
+  which once mispriced a live position for 37 minutes without a warning.
+  The 60s threshold is measured, not chosen — OKX's ticker cadence is
+  bimodal, and 60s clears its fast mode while still catching a frozen feed.
+- `src/lib/livePnl.ts` independently ignores any tick older than 30s and
+  falls back to the exchange's own value. That guard reads each tick's
+  exchange timestamp and never consults the health endpoint, so it holds even
+  if the health signal is wrong.
+- `useAccount()` polls every 15s; `usePositions()` and `useOrders()` poll
+  every 30s (`refetchInterval` in `services/queries.ts`). There's no WS push
+  for balance/equity or position state, so without polling the displayed
+  numbers go silently stale between trades.
 
 ## Process/port hygiene
 
@@ -238,10 +259,13 @@ a **new** annotated git tag (tags are never moved or deleted), and a
   to any of these in an older doc or comment, the doc is stale — file/fix it,
   don't assume the code still exists.
 - The remaining PropSim-leftover cleanup candidates in
-  [docs/PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md) (dead `queries.ts`
-  hooks, `AiTraderPage.tsx`, `useTraderPreferences.ts`'s dead
-  `getPreferences`/`savePreferences` calls) are pre-approved in principle but
-  **unscheduled** — confirm scope with the project owner before acting on it.
+  [docs/PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md) are pre-approved in
+  principle but **unscheduled** — confirm scope with the project owner before
+  acting on it. `v1.6.3` removed 67 dead `queries.ts` hooks (741 lines); what
+  is left there is `useEconomicCalendar`, `useModifyOrder` and
+  `useModifyPosition`, which have no call sites but do type-check.
+  `AiTraderPage.tsx` and `useTraderPreferences.ts`'s dead
+  `getPreferences`/`savePreferences` calls are still untouched.
 - Never move or force-delete an existing git tag (see release process
   above).
 - `README.md`, `package.json`'s `name` field, and `LICENSE` are known to be
@@ -251,8 +275,12 @@ a **new** annotated git tag (tags are never moved or deleted), and a
   unrelated task.
 - OKX conditional/algo orders (STOP orders, take-profit/stop-loss, amending a
   pending order) are **intentionally disabled** in the UI, not just
-  unimplemented — see `OrderPanel.tsx`/`MobileTradingPanel.tsx`/
-  `OrderModifyDialog.tsx`/`PositionModifyDialog.tsx`. Don't silently "finish"
+  unimplemented — see `MobileTradingPanel.tsx`,
+  `trading-dialogs/OrderModifyDialog.tsx`,
+  `trading-dialogs/PositionModifyDialog.tsx`, and the chart drag-to-edit
+  handler in `TradingPage.tsx`. (`OrderPanel.tsx` no longer exists —
+  `PositionBuilderPanel.tsx` absorbed order placement. A stale reference to
+  it survives in a `services/schemas.ts` comment.) Don't silently "finish"
   these without discussing the OKX algo-order integration first; a
   half-wired TP/SL that doesn't actually protect a position is a real safety
   issue, not a cosmetic gap.
