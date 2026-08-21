@@ -12,6 +12,7 @@
  */
 import { request } from "./api/request.ts";
 import { marketdataApi } from "./api/market-data.ts";
+import { newClientOrderId, withInterruptionRecovery } from "./api/order-recovery.ts";
 import type { UserPreferences } from "./preferences.ts";
 import type {
   Account,
@@ -92,19 +93,33 @@ const realImplementation = {
   getAccount: (mode: TradingMode) => request<Account>(`/account?mode=${mode}`),
   getPositions: (mode: TradingMode) => request<Position[]>(`/positions?mode=${mode}`),
   getOrders: (mode: TradingMode) => request<Order[]>(`/orders?mode=${mode}`),
-  placeOrder: (input: PlaceOrderInput) =>
-    request<{ orderId: string }>(`/orders?mode=${input.mode}`, {
-      method: "POST",
-      body: JSON.stringify({
-        symbol: input.symbol,
-        side: input.side,
-        type: input.type,
-        quantity: input.quantity,
-        price: input.price,
-        takeProfit: input.takeProfit,
-        stopLoss: input.stopLoss,
-      }),
-    }),
+  /**
+   * Places an order under an idempotency key, so a submission cut off before
+   * its answer arrives can be resolved instead of re-sent. A `duplicate` in
+   * the result means the order was already at OKX and nothing new was placed —
+   * the caller should treat it as success, not as a second order.
+   */
+  placeOrder: (input: PlaceOrderInput) => {
+    const clientOrderId = input.clientOrderId ?? newClientOrderId();
+    return withInterruptionRecovery<{ orderId: string; duplicate?: boolean }>(
+      { symbol: input.symbol, mode: input.mode, clientOrderId },
+      () =>
+        request<{ orderId: string; duplicate?: boolean }>(`/orders?mode=${input.mode}`, {
+          method: "POST",
+          body: JSON.stringify({
+            symbol: input.symbol,
+            side: input.side,
+            type: input.type,
+            quantity: input.quantity,
+            price: input.price,
+            takeProfit: input.takeProfit,
+            stopLoss: input.stopLoss,
+            clientOrderId,
+          }),
+        }),
+      (order) => ({ orderId: order.id, duplicate: true }),
+    );
+  },
   cancelOrder: (orderId: string, mode: TradingMode, symbol: string) =>
     request<{ success: boolean }>(
       `/orders/${orderId}?mode=${mode}&symbol=${encodeURIComponent(symbol)}`,
@@ -121,10 +136,18 @@ const realImplementation = {
     const side = (parts.pop() === "short" ? "SHORT" : "LONG") as "LONG" | "SHORT";
     const posSide = parts.pop() as "long" | "short" | "net";
     const symbol = parts.join(":");
-    return request<{ success: boolean }>(`/positions/close?mode=${mode}`, {
-      method: "POST",
-      body: JSON.stringify({ symbol, posSide, side, quantity }),
-    });
+    // A close is an order too, and a duplicate one either exits a position
+    // twice or opens the opposite side — so it carries a key like an entry.
+    const clientOrderId = newClientOrderId();
+    return withInterruptionRecovery<{ success: boolean; duplicate?: boolean }>(
+      { symbol, mode, clientOrderId },
+      () =>
+        request<{ success: boolean; duplicate?: boolean }>(`/positions/close?mode=${mode}`, {
+          method: "POST",
+          body: JSON.stringify({ symbol, posSide, side, quantity, clientOrderId }),
+        }),
+      () => ({ success: true, duplicate: true }),
+    );
   },
   getTradeHistory: (mode: TradingMode) => request<TradeHistoryEntry[]>(`/trades/history?mode=${mode}`),
 };

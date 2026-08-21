@@ -14,6 +14,13 @@ from app.exchange.errors import ExchangeError
 
 OKX_BASE_URL = "https://www.okx.com"
 
+# OKX's per-order rejection codes that callers act on rather than just report.
+# `clOrdId` is checked for uniqueness against pending orders only, so a
+# duplicate is a definitive "this exact order is already working" — not a
+# transient failure to retry.
+DUPLICATE_CLIENT_ORDER_ID = "51016"
+ORDER_DOES_NOT_EXIST = "51603"
+
 
 def _attach_algo_ords(*, tp_trigger_px: str | None, sl_trigger_px: str | None) -> dict[str, Any] | None:
     """Builds OKX's `attachAlgoOrds` entry — the take-profit/stop-loss bracket
@@ -91,6 +98,17 @@ class OKXClient:
 
         payload = res.json()
         if payload.get("code") != "0":
+            # OKX reports a rejected order twice: a generic top-level
+            # code/msg ("1" / "Operation failed."), and the reason itself in
+            # data[0].sCode/sMsg ("51016" / "Duplicated client order ID").
+            # Prefer the specific one — the top-level pair names no cause, and
+            # callers key on sCode to tell a duplicate apart from a real
+            # rejection.
+            data = payload.get("data") or []
+            first = data[0] if data and isinstance(data[0], dict) else {}
+            s_code = first.get("sCode")
+            if s_code and s_code != "0":
+                raise ExchangeError(first.get("sMsg") or payload.get("msg") or "OKX rejected the order", code=s_code)
             raise ExchangeError(payload.get("msg") or "OKX returned an error", code=payload.get("code"))
         return payload.get("data", [])
 
@@ -114,6 +132,7 @@ class OKXClient:
         td_mode: str = "cross",
         tp_trigger_px: str | None = None,
         sl_trigger_px: str | None = None,
+        cl_ord_id: str | None = None,
     ) -> list[dict[str, Any]]:
         body: dict[str, Any] = {
             "instId": inst_id,
@@ -122,6 +141,8 @@ class OKXClient:
             "ordType": ord_type,
             "sz": size,
         }
+        if cl_ord_id is not None:
+            body["clOrdId"] = cl_ord_id
         if price is not None:
             body["px"] = price
         attached = _attach_algo_ords(tp_trigger_px=tp_trigger_px, sl_trigger_px=sl_trigger_px)
@@ -135,32 +156,51 @@ class OKXClient:
         )
 
     async def close_position(
-        self, *, inst_id: str, pos_side: str = "net", td_mode: str = "cross"
+        self, *, inst_id: str, pos_side: str = "net", td_mode: str = "cross", cl_ord_id: str | None = None
     ) -> list[dict[str, Any]]:
         """Fully closes an open position. For partial closes, place an opposite-side
         reduce-only market order via place_order instead — OKX's close-position
         endpoint only supports closing a position in full."""
-        return await self._request(
-            "POST",
-            "/api/v5/trade/close-position",
-            body={"instId": inst_id, "mgnMode": td_mode, "posSide": pos_side},
-        )
+        body: dict[str, Any] = {"instId": inst_id, "mgnMode": td_mode, "posSide": pos_side}
+        if cl_ord_id is not None:
+            body["clOrdId"] = cl_ord_id
+        return await self._request("POST", "/api/v5/trade/close-position", body=body)
 
     async def place_reduce_only_order(
-        self, *, inst_id: str, side: str, size: str, td_mode: str = "cross"
+        self, *, inst_id: str, side: str, size: str, td_mode: str = "cross", cl_ord_id: str | None = None
     ) -> list[dict[str, Any]]:
-        return await self._request(
-            "POST",
-            "/api/v5/trade/order",
-            body={
-                "instId": inst_id,
-                "tdMode": td_mode,
-                "side": side,
-                "ordType": "market",
-                "sz": size,
-                "reduceOnly": True,
-            },
-        )
+        body: dict[str, Any] = {
+            "instId": inst_id,
+            "tdMode": td_mode,
+            "side": side,
+            "ordType": "market",
+            "sz": size,
+            "reduceOnly": True,
+        }
+        if cl_ord_id is not None:
+            body["clOrdId"] = cl_ord_id
+        return await self._request("POST", "/api/v5/trade/order", body=body)
+
+    async def get_order_by_client_id(self, *, inst_id: str, cl_ord_id: str) -> dict[str, Any] | None:
+        """Looks an order up by the id *we* minted for it, returning None when OKX
+        has never seen it.
+
+        This is what makes an interrupted placement answerable. A client-side
+        timeout, a dropped connection, or a read timeout between us and OKX all
+        leave the same question — did the order land? — and asking by `clOrdId`
+        answers it without needing the `ordId` that never made it back. Order
+        details cover filled orders too, so a market order that filled during
+        the timeout is still found here.
+        """
+        try:
+            data = await self._request(
+                "GET", "/api/v5/trade/order", params={"instId": inst_id, "clOrdId": cl_ord_id}
+            )
+        except ExchangeError as exc:
+            if exc.code == ORDER_DOES_NOT_EXIST:
+                return None
+            raise
+        return data[0] if data else None
 
     async def get_fills_history(self, inst_type: str = "SWAP") -> list[dict[str, Any]]:
         return await self._request(

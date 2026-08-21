@@ -137,6 +137,14 @@ export const PlaceOrderInputSchema = z.object({
   price: z.number().positive().optional(),
   takeProfit: z.number().positive().optional(),
   stopLoss: z.number().positive().optional(),
+  // Idempotency key, forwarded to OKX as clOrdId. Optional here because the
+  // API facade mints one when the caller doesn't supply it; a caller that
+  // wants a retried intent recognised as the same order passes its own.
+  // The charset is OKX's, not ours: alphanumerics, at most 32 characters.
+  clientOrderId: z
+    .string()
+    .regex(/^[A-Za-z0-9]{1,32}$/)
+    .optional(),
 });
 export type PlaceOrderInput = z.infer<typeof PlaceOrderInputSchema>;
 

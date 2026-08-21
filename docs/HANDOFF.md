@@ -44,6 +44,14 @@ window showed 57 of 90 samples above 30s with a maximum of 83s. A threshold
 picked from a single window shipped a regression that restart-looped a healthy
 feed every 115 seconds.
 
+**There is no OKX demo credential on this instance.** `exchange_credentials`
+holds one row and it is `is_demo = false`. Every `mode=demo` call therefore
+404s with "no OKX demo credentials configured" — which looks like a code fault
+and is not one. Since live order placement is off limits here, the practical
+consequence is that **no order round-trip can be verified on this box at all**
+until demo API keys are added. Read paths (`/account`, `/orders`, the
+`by-client-id` lookup) work fine against `mode=live` and place nothing.
+
 **A number that renders correctly can still be wrong.** A volume profile level
 displayed as `76,451.67` while writing `76451.67166666666` into the order
 field. Reading the DOM, not the screenshot, is what caught it.
@@ -52,20 +60,21 @@ field. Reading the DOM, not the screenshot, is what caught it.
 
 ## State at handoff
 
-*Volatile — verify rather than trust. Accurate as of 2026-08-21, `v1.9.0`.*
+*Volatile — verify rather than trust. Accurate as of 2026-08-21, `v1.10.0`.*
 
 `main` is green on every gate:
 
 ```bash
 npm run typecheck                 # 0 errors
 npm run lint                      # 0 problems
-npm run test                      # 155 passed
-cd backend && pytest              # 162 passed, 4 skipped, 1 failed
+npm run test                      # 184 passed
+cd backend && pytest              # 192 passed, 4 skipped
 ```
 
-That one backend failure is open item 5 below — a test that makes a live call
-to `www.okx.com` and cannot pass without outbound network access. It fails
-identically on a clean checkout.
+`pytest` shows one extra failure in any environment without outbound network
+access — open item 7 below, a test that makes a live call to `www.okx.com`.
+On a machine with egress (the author's) the suite is fully green; it fails
+identically on a clean checkout everywhere else.
 
 Whether the environment is already running depends on where you picked this
 up. On the author's machine it usually is; a fresh cloud container has
@@ -82,12 +91,14 @@ before touching the feed layer is **`v1.6.5` → `v1.7.2`**: four releases
 chasing one mispricing bug to its root, a WebSocket that dropped and was never
 reconnected. Two of those releases were corrections of the previous one.
 
-**`v1.9.0` was verified against tests only.** No live OKX demo round-trip was
-run — the container it was built in has no backend, no Postgres and no
-outbound access to OKX. Before trusting the attached bracket in the terminal,
-place one `mode=demo` order from the Position Builder and confirm the stop and
-target appear on the OKX side. Per the first trap above, rebuild the backend
-image (`docker compose up -d --build backend`) rather than restarting it.
+**`v1.9.0` and `v1.10.0` were both verified against tests only** as far as
+order *placement* goes. Before trusting the attached bracket or the client
+order id in the terminal, place one `mode=demo` order from the Position
+Builder and confirm the stop, the target, and the `clOrdId` appear on the OKX
+side. That is currently blocked: there is no demo credential on this instance
+(see the trap above), so it needs demo API keys first. Per the first trap,
+rebuild the backend image (`docker compose up -d --build backend`) rather
+than restarting it.
 
 ---
 
@@ -115,7 +126,15 @@ image (`docker compose up -d --build backend`) rather than restarting it.
    TP/SL on an existing position, amending a pending order, and STOP as an
    order type. `v1.9.0` wired up only the fourth (TP/SL attached at
    placement); the other three need OKX's separate `order-algo` endpoints.
-5. **`backend/tests/test_large_order_book.py` makes a live network call.**
+5. **`v1.9.0` was never tagged or released.** `package.json` moved to 1.9.0 and
+   the changelog entry is there, but `git tag` and `gh release list` both stop
+   at `v1.8.1`. The release process in AGENTS.md expects a tag per version;
+   1.9.0 is the gap.
+6. **The write half of order idempotency is untested against an exchange.**
+   `v1.10.0` sends `clOrdId` and recovers a duplicate, but with no demo
+   credential here (see the trap above) neither path has been through OKX.
+   The read half — the `by-client-id` lookup and its 404 — was verified live.
+7. **`backend/tests/test_large_order_book.py` makes a live network call.**
    `test_okx_subscribes_only_to_the_connections_filtered_channels` reaches
    `https://www.okx.com/api/v5/public/instruments` and fails with a proxy 403
    in any sandboxed environment. It is not a regression — it fails identically

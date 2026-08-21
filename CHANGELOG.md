@@ -5,6 +5,59 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-08-21
+
+### Added
+- **Every order now carries an idempotency key, and an interrupted submission
+  is resolved instead of re-sent.** `request()` gives up on a call after 20
+  seconds and reported a timeout — but a client-side abort does not cancel
+  anything: the backend may already have placed the order, and OKX may already
+  have filled it. The UI then told the user, in as many words, that the server
+  had not responded and to *try again*. That is an instruction to place a
+  second order on top of a first one they cannot see.
+
+  Order placement and position closing now mint a client order id (OKX's
+  `clOrdId`, alphanumeric and at most 32 characters) and send it with the
+  order. Because the caller names the order before the exchange does, an
+  interrupted submission has a question that can be asked afterwards, without
+  the `ordId` that never came back: `GET /api/orders/by-client-id` looks the
+  order up by that key. A 404 there is a real answer — nothing was placed.
+
+  Three outcomes are now kept apart, and each says something different to the
+  user: the order is live (reported as success, "Order Already Live"), nothing
+  was placed (`ORDER_NOT_PLACED` — safe to retry, and the copy says so), or the
+  lookup itself could not reach the exchange (`ORDER_STATUS_UNKNOWN` — check
+  before retrying). The old copy collapsed all three into "try again."
+
+  The lookup is attempted twice. An order that reached OKX moments before our
+  own deadline expired can miss the first attempt, and of the two possible
+  wrong answers, a false "nothing was placed" is the one that costs money.
+
+### Changed
+- The backend resolves its own ambiguity before answering. Two failures are
+  worth a second question rather than a 502: OKX rejecting a duplicate
+  `clOrdId` (`51016`), which means the order is already working, and an error
+  carrying no OKX code at all, which is a transport failure where the request
+  may well have completed. Both are answered by looking the order up. Every
+  other code is OKX naming a rejection — definitive, and not re-asked.
+- OKX's per-order rejection reason now surfaces instead of its generic
+  envelope. A rejected order is reported twice by the exchange: `"1"` /
+  `"Operation failed."` at the top level, and the actual cause in
+  `data[0].sCode`/`sMsg`. The client kept the first pair, so every rejection
+  reached the user as "Operation failed" with no cause named — and a duplicate
+  id was indistinguishable from a real rejection.
+
+### Verification
+- 192 backend tests (29 new), 184 frontend tests (16 new), typecheck and lint
+  clean. The new lookup route was exercised against live OKX read-only: an id
+  the exchange has never seen returns 404 through the full path, which is
+  OKX's `51603` mapped to "no such order".
+- **No order round-trip was run.** This instance has OKX *live* credentials
+  only — there is no `is_demo` credential row — and placing a live order to
+  test order placement is not something this repo does. The paths that write
+  (`clOrdId` on the wire, `51016` recovery) are covered by tests against a
+  recording client, not by an exchange.
+
 ## [1.9.0] - 2026-08-21
 
 ### Added

@@ -1,5 +1,5 @@
 import logging
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -16,7 +16,7 @@ from app.exchange.mapping import (
     okx_order_to_order,
     okx_position_to_position,
 )
-from app.exchange.okx_client import OKXClient
+from app.exchange.okx_client import DUPLICATE_CLIENT_ORDER_ID, OKXClient
 from app.security.encryption import decrypt_json
 from app.symbols import get_symbol
 
@@ -25,6 +25,22 @@ LOG = logging.getLogger("trading")
 router = APIRouter(prefix="/api")
 
 Mode = Literal["demo", "live"]
+
+# OKX's own constraint on clOrdId: case-sensitive alphanumerics, 1-32 chars.
+# Rejecting a malformed one here means the caller learns its idempotency key
+# was never usable, rather than finding out from a rejected order.
+_CLIENT_ORDER_ID_PATTERN = r"^[A-Za-z0-9]{1,32}$"
+
+
+def _client_order_id_field() -> Any:
+    return Field(
+        default=None,
+        pattern=_CLIENT_ORDER_ID_PATTERN,
+        description=(
+            "Caller-minted idempotency key, forwarded to OKX as clOrdId. Lets an "
+            "interrupted submission be resolved by lookup instead of re-sent blindly."
+        ),
+    )
 
 
 def _log_exchange_error(operation: str, *, exchange: str, user: User, mode: Mode, exc: ExchangeError) -> None:
@@ -81,6 +97,7 @@ class PlaceOrderRequest(BaseModel):
     # exchange, so a NaN reaching OKX is not a theoretical concern.
     takeProfit: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     stopLoss: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    clientOrderId: str | None = _client_order_id_field()
 
     @model_validator(mode="after")
     def _limit_orders_require_a_price(self) -> "PlaceOrderRequest":
@@ -123,9 +140,36 @@ class ClosePositionRequest(BaseModel):
     posSide: Literal["long", "short", "net"]  # OKX's raw posSide — used verbatim for a full close
     side: Literal["LONG", "SHORT"]  # our derived side — picks the reduce-only order direction
     quantity: float | None = Field(default=None, gt=0, allow_inf_nan=False)  # omit for a full close
+    clientOrderId: str | None = _client_order_id_field()
 
 
 _CLOSING_ORDER_SIDE = {"LONG": "sell", "SHORT": "buy"}
+
+
+async def _order_already_at_okx(
+    client: OKXClient, *, inst_id: str, cl_ord_id: str | None, exc: ExchangeError
+) -> dict[str, Any] | None:
+    """Answers "did this order land anyway?" after a failed submission.
+
+    Only two failures are worth asking about. A duplicate `clOrdId` means the
+    order is already working at OKX — the caller re-sent something that had in
+    fact succeeded. An error with no OKX code at all is a transport failure
+    (`ExchangeError` carries `code=None` only when httpx never got a reply), so
+    the outcome is genuinely unknown and the submission may have completed.
+
+    Every other code is OKX naming a rejection: no order exists and asking
+    again will not change that. Returns None when there is nothing to report,
+    including when the lookup itself fails — the caller then surfaces the
+    original error rather than inventing a better one.
+    """
+    if cl_ord_id is None:
+        return None
+    if exc.code is not None and exc.code != DUPLICATE_CLIENT_ORDER_ID:
+        return None
+    try:
+        return await client.get_order_by_client_id(inst_id=inst_id, cl_ord_id=cl_ord_id)
+    except ExchangeError:
+        return None
 
 
 def _okx_native_symbol(symbol: str) -> str:
@@ -172,6 +216,33 @@ async def get_orders(
     return [okx_order_to_order(o) for o in orders]
 
 
+@router.get("/orders/by-client-id")
+async def get_order_by_client_id(
+    symbol: str = Query(..., description="Our symbol id the order belongs to, e.g. 'OKX:BTCUSD'"),
+    clientOrderId: str = Query(..., pattern=_CLIENT_ORDER_ID_PATTERN),
+    mode: Mode = Query(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Looks up an order by the caller's own idempotency key.
+
+    This is how a client that lost its answer — a request it timed out on, a
+    connection that dropped — finds out whether the order landed, without an
+    `ordId` it never received. A 404 here is a real answer: OKX has no such
+    order, so nothing was placed and re-sending is safe.
+    """
+    client = await _get_okx_client(mode, user, db)
+    inst_id = _okx_native_symbol(symbol)
+    try:
+        found = await client.get_order_by_client_id(inst_id=inst_id, cl_ord_id=clientOrderId)
+    except ExchangeError as exc:
+        _log_exchange_error("get_order_by_client_id", exchange="okx", user=user, mode=mode, exc=exc)
+        raise HTTPException(status_code=502, detail=str(exc))
+    if found is None:
+        raise HTTPException(status_code=404, detail="no order with that client order id")
+    return okx_order_to_order(found)
+
+
 @router.post("/orders", status_code=201)
 async def place_order(
     body: PlaceOrderRequest,
@@ -190,9 +261,17 @@ async def place_order(
             price=str(body.price) if body.price is not None else None,
             tp_trigger_px=str(body.takeProfit) if body.takeProfit is not None else None,
             sl_trigger_px=str(body.stopLoss) if body.stopLoss is not None else None,
+            cl_ord_id=body.clientOrderId,
         )
     except ExchangeError as exc:
         _log_exchange_error("place_order", exchange="okx", user=user, mode=mode, exc=exc)
+        existing = await _order_already_at_okx(
+            client, inst_id=inst_id, cl_ord_id=body.clientOrderId, exc=exc
+        )
+        if existing is not None:
+            # The order is at OKX despite the error. Reporting a failure here
+            # is what makes a caller re-send a live order.
+            return {"orderId": existing.get("ordId", ""), "duplicate": True}
         raise HTTPException(status_code=502, detail=str(exc))
     if not result or result[0].get("sCode") != "0":
         msg = result[0].get("sMsg") if result else "order placement failed"
@@ -211,15 +290,26 @@ async def close_position(
     inst_id = _okx_native_symbol(body.symbol)
     try:
         if body.quantity is None:
-            result = await client.close_position(inst_id=inst_id, pos_side=body.posSide)
+            result = await client.close_position(
+                inst_id=inst_id, pos_side=body.posSide, cl_ord_id=body.clientOrderId
+            )
         else:
             result = await client.place_reduce_only_order(
                 inst_id=inst_id,
                 side=_CLOSING_ORDER_SIDE[body.side],
                 size=str(body.quantity),
+                cl_ord_id=body.clientOrderId,
             )
     except ExchangeError as exc:
         _log_exchange_error("close_position", exchange="okx", user=user, mode=mode, exc=exc)
+        existing = await _order_already_at_okx(
+            client, inst_id=inst_id, cl_ord_id=body.clientOrderId, exc=exc
+        )
+        if existing is not None:
+            # A partial close is an ordinary order and doubles just as badly as
+            # an entry does — the closing order already exists, so report the
+            # close as done rather than inviting a second one.
+            return {"success": True, "duplicate": True}
         raise HTTPException(status_code=502, detail=str(exc))
     if not result or result[0].get("sCode") not in ("0", None):
         msg = result[0].get("sMsg") if result else "position close failed"

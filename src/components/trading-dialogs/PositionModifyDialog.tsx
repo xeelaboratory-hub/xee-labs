@@ -72,17 +72,23 @@ export function PositionModifyDialog({
     }
     setSaving(true);
     try {
-      await api.closePosition(position.id, mode, qty);
-      toast.success("Partial Close", `Closed ${formatQty(qty)} of ${formatQty(position.quantity)}`);
+      const result = await api.closePosition(position.id, mode, qty);
+      toast.success(
+        "Partial Close",
+        result?.duplicate
+          ? "This close had already reached the exchange — nothing new was sent."
+          : `Closed ${formatQty(qty)} of ${formatQty(position.quantity)}`,
+      );
       onSaved();
       onClose();
     } catch (err: unknown) {
       const e = err as { code?: string; message?: string };
-      if (e?.code === "REQUEST_TIMEOUT") {
-        toast.error(
-          "Request Timed Out",
-          "The server didn't respond in time. Check your connection and try again.",
-        );
+      // Resolved against the exchange by the facade before it gets here, so
+      // neither branch is a guess about whether the close went through.
+      if (e?.code === "ORDER_STATUS_UNKNOWN") {
+        toast.warning("Close Status Unknown", e.message || "Could not confirm the close");
+      } else if (e?.code === "ORDER_NOT_PLACED") {
+        toast.error("Close Not Sent", e.message || "The close never reached the exchange");
       } else {
         toast.error("Close Failed", e.message || "Could not partially close position");
       }
