@@ -104,6 +104,17 @@ runs standalone without a real Postgres — but running the server for real
 (`uvicorn`) needs a live Postgres reachable at `DATABASE_URL`, and needs
 migrations applied first (`alembic upgrade head`).
 
+**Self-service registration is closed unless `REGISTRATION_OPEN` is set** to
+one of `true`/`1`/`yes`/`on` (see `backend/app/config.py`); anything else,
+including an unset variable or a typo, leaves `POST /api/auth/register`
+answering 403. This is about exposure rather than policy: the `frontend`
+container publishes `:8080` on every interface and nginx proxies `/api` to the
+backend, so signup is reachable from the whole local network, and this
+instance serves a single operator account. Turn it on when the product
+actually sells accounts — the signup half of a paid release needs it. Backend
+tests that exercise registration opt in via the `open_registration` fixture in
+`backend/tests/conftest.py`.
+
 **`CREDENTIAL_ENCRYPTION_KEY` must never change after go-live outside a
 planned key-rotation event.** It encrypts every stored exchange API
 credential (`backend/app/security/encryption.py`); there is no re-encryption

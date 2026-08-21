@@ -194,7 +194,7 @@ async def testclient_ip_ignores_forwarded_header_from_a_public_peer():
     assert client_ip(proxied_request) == "1.1.1.1"  # header trusted from a docker-internal peer
 
 
-async def test_register_allows_up_to_the_limit_then_429s(auth_client):
+async def test_register_allows_up_to_the_limit_then_429s(auth_client, open_registration):
     for i in range(3):
         response = await auth_client.post(
             "/api/auth/register",

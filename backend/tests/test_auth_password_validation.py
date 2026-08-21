@@ -42,7 +42,7 @@ async def auth_client():
     await engine.dispose()
 
 
-async def test_register_rejects_a_password_shorter_than_8_chars(auth_client):
+async def test_register_rejects_a_password_shorter_than_8_chars(auth_client, open_registration):
     response = await auth_client.post(
         "/api/auth/register",
         json={"email": "a@example.com", "password": "short1", "firstName": "A", "lastName": "B"},
@@ -50,7 +50,7 @@ async def test_register_rejects_a_password_shorter_than_8_chars(auth_client):
     assert response.status_code == 422
 
 
-async def test_register_accepts_an_8_char_password(auth_client):
+async def test_register_accepts_an_8_char_password(auth_client, open_registration):
     response = await auth_client.post(
         "/api/auth/register",
         json={"email": "a@example.com", "password": "exactly8", "firstName": "A", "lastName": "B"},
@@ -58,7 +58,7 @@ async def test_register_accepts_an_8_char_password(auth_client):
     assert response.status_code == 200
 
 
-async def test_register_password_validation_error_never_echoes_the_password(auth_client):
+async def test_register_password_validation_error_never_echoes_the_password(auth_client, open_registration):
     response = await auth_client.post(
         "/api/auth/register",
         json={"email": "a@example.com", "password": "sup3r-s3cr3t-guess", "firstName": "A", "lastName": "B"},
@@ -80,7 +80,7 @@ async def test_register_password_validation_error_never_echoes_the_password(auth
     assert "nope42" not in too_short.text
 
 
-async def test_validation_redaction_does_not_hide_non_sensitive_fields(auth_client):
+async def test_validation_redaction_does_not_hide_non_sensitive_fields(auth_client, open_registration):
     # Missing/invalid non-sensitive fields should still report normally —
     # the redaction is targeted at credential-shaped fields only.
     response = await auth_client.post(

@@ -14,6 +14,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://xee_labs:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/xee_labs
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?set CREDENTIAL_ENCRYPTION_KEY in .env}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      # Absent from .env means absent here means signup stays closed — the
+      # default is deliberate, so this passes through without a fallback that
+      # would quietly re-open it.
+      REGISTRATION_OPEN: ${REGISTRATION_OPEN:-}
     depends_on:
       postgres:
         condition: service_healthy

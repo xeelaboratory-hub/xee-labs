@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.deps import get_current_user
+from app.auth.deps import get_current_user, require_registration_open
 from app.auth.rate_limit import client_ip, enforce_login_rate_limit, enforce_register_rate_limit, normalize_email
 from app.auth.schemas import (
     AuthResponse,
@@ -51,7 +51,12 @@ async def _issue_tokens(db: AsyncSession, user: User) -> tuple[str, str]:
     return access_token, raw_refresh
 
 
-@router.post("/register", dependencies=[Depends(enforce_register_rate_limit)])
+# Order matters: the closed-registration check runs before the rate limiter,
+# so a rejected signup on a closed instance doesn't consume anyone's budget.
+@router.post(
+    "/register",
+    dependencies=[Depends(require_registration_open), Depends(enforce_register_rate_limit)],
+)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) -> AuthResponse:
     existing = await db.scalar(select(User).where(User.email == body.email))
     if existing is not None:
