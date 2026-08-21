@@ -29,6 +29,21 @@ TIMEFRAME_MAP: dict[str, dict[str, str]] = {
 }
 
 # Reconnect backoff for each exchange's CryptoFeed connection.
+# Per-connection reconnect attempts inside cryptofeed before it gives up on a
+# socket and leaves recovery to the supervisor in feeds/cryptofeed_runner.py.
+#
+# Must stay > 0. cryptofeed's ConnectionHandler loops `while retries <=
+# self.retries`, so at 0 a single abrupt EOF retires that connection for good
+# ("failed to reconnect after 1 retries - exiting"). OKX's /public socket does
+# exactly that every few minutes, and because candles ride a separate
+# /business socket that survives, the feed kept looking alive while ticker and
+# book were dead — the 37-minute price freeze that mispriced a live position.
+#
+# A finite count keeps the layering intact: cryptofeed absorbs transient drops
+# in about a second, while a genuinely broken feed still exhausts its retries
+# and escalates to the supervisor, which owns backoff and full-feed rebuilds.
+CONNECTION_RETRIES = 10
+
 RECONNECT_BASE_DELAY_SECONDS = 1
 RECONNECT_MAX_DELAY_SECONDS = 30
 
