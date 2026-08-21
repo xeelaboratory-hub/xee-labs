@@ -178,12 +178,17 @@ export function useSessionVolumeProfile({
   }, [queries]);
 
   useEffect(() => {
-    if (!active || !candleSeriesRef.current) return;
+    // Capture the series rather than re-reading the ref in cleanup: chartEpoch
+    // only bumps *after* ChartPanel has already written the new series into
+    // the ref, so cleanup would otherwise detach from the replacement series
+    // instead of the one this primitive was attached to.
+    const series = candleSeriesRef.current;
+    if (!active || !series) return;
     const primitive = new SessionVolumeProfilePrimitive();
     primitiveRef.current = primitive;
-    candleSeriesRef.current.attachPrimitive(primitive);
+    series.attachPrimitive(primitive);
     return () => {
-      candleSeriesRef.current?.detachPrimitive(primitive);
+      series.detachPrimitive(primitive);
       if (primitiveRef.current === primitive) primitiveRef.current = null;
     };
   }, [active, candleSeriesRef, chartEpoch]);

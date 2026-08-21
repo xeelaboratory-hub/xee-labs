@@ -20,6 +20,10 @@ export function App() {
   const restoreSession = useAuthStore((s) => s.restoreSession);
   const user = useAuthStore((s) => s.user);
   const loadSymbols = useTradingStore((s) => s.loadSymbols);
+  // The preference-load effect below keys off identity, not the user object:
+  // a new object for the same account (session refresh) must not re-run it
+  // and flash preferencesReady back to false.
+  const userId = user?.id;
 
   useEffect(() => {
     restoreSession().finally(() => setRestoring(false));
@@ -33,17 +37,17 @@ export function App() {
     if (restoring) return;
     let cancelled = false;
     setPreferencesReady(false);
-    const local = readLocalPreferences(user?.id);
+    const local = readLocalPreferences(userId);
 
     const apply = (preferences: typeof local) => {
-      writeLocalPreferences(preferences, user?.id, false);
+      writeLocalPreferences(preferences, userId, false);
       useTradingStore.setState({
         mode: preferences.tradingMode ?? "demo",
         selectedSymbol: preferences.selectedSymbol ?? "BINANCE:BTCUSD",
       });
     };
 
-    if (!user) {
+    if (!userId) {
       apply(local);
       setPreferencesReady(true);
       return;
@@ -68,7 +72,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [restoring, user?.id]);
+  }, [restoring, userId]);
 
   useEffect(() => {
     if (!user || !preferencesReady) return;
