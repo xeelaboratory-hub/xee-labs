@@ -165,7 +165,9 @@ than restarting it.
    `test_okx_subscribes_only_to_the_connections_filtered_channels` reaches
    `https://www.okx.com/api/v5/public/instruments` and fails with a proxy 403
    in any sandboxed environment. It is not a regression — it fails identically
-   on a clean checkout — but it means `pytest` is not green offline.
+   on a clean checkout. It now carries a `network` marker, so CI deselects it
+   and a plain `pytest` still runs it; offline, expect that one failure and
+   nothing else.
 
 (Item 3's old entry — a stale `OrderPanel.tsx` reference in
 `services/schemas.ts` — was fixed in `v1.9.0`, which rewrote that comment.
