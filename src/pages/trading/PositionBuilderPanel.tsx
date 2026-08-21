@@ -14,6 +14,16 @@ import {
   type Side,
 } from "./positionBuilder.ts";
 import { validateOrderInput } from "./order-validation.ts";
+import type { SessionVolumeProfileSummary } from "./useSessionVolumeProfile.ts";
+
+// Same abbreviations the indicator's own session picker uses in ChartToolbar,
+// so one session never carries two different names across the screen.
+const MARKET_LABELS: Record<string, string> = {
+  ASX: "ASX",
+  TOKYO: "TKY",
+  LONDON: "LONDON",
+  NEW_YORK: "NY",
+};
 
 export interface PositionBuilderPreview {
   entry: number;
@@ -32,6 +42,9 @@ export interface PositionBuilderPanelProps {
   mode: TradingMode;
   accountEquity?: number;
   onPreviewChange: (preview: PositionBuilderPreview | null) => void;
+  /** Session volume profile levels, computed in ChartPanel. Read-only here —
+   *  reference levels next to the plan, not inputs to it. */
+  volumeProfile?: SessionVolumeProfileSummary | null;
   oneClick?: boolean;
   onToggleOneClick?: () => void;
   onConfirmOrder?: (order: ConfirmableOrder) => void;
@@ -68,6 +81,7 @@ export function PositionBuilderPanel({
   mode,
   accountEquity = 0,
   onPreviewChange,
+  volumeProfile,
   oneClick,
   onToggleOneClick,
   onConfirmOrder,
@@ -385,6 +399,33 @@ export function PositionBuilderPanel({
                 <span className="text-muted-foreground">Liquidation ≈</span>
                 <span className="font-mono text-orange-500">{formatNumber(plan.approxLiq, 2)}</span>
               </div>
+              {volumeProfile && (
+                <div className="border-t border-border/60 mt-1.5 pt-1.5 space-y-1.5">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-muted-foreground uppercase text-label">
+                      Volume Profile
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {MARKET_LABELS[volumeProfile.market] ?? volumeProfile.market}
+                      {volumeProfile.isDeveloping && " · developing"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Value Area High</span>
+                    <span className="font-mono">{formatNumber(volumeProfile.vah, 2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Point of Control</span>
+                    <span className="font-mono text-warning">
+                      {formatNumber(volumeProfile.poc, 2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Value Area Low</span>
+                    <span className="font-mono">{formatNumber(volumeProfile.val, 2)}</span>
+                  </div>
+                </div>
+              )}
               <p className="text-muted-foreground text-xs pt-1">
                 Liquidation is a rough isolated-margin estimate — it ignores fees and
                 maintenance margin.

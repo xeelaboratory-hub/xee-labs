@@ -61,7 +61,7 @@ import { DRAWING_STYLES_EVENT, getStyleDefaults } from "./drawingStyles.ts";
 import { ObjectTreePanel } from "./ObjectTreePanel.tsx";
 import { useIndicators } from "./useIndicators.ts";
 import { useLargeOrderBookPrimitive } from "./useLargeOrderBookPrimitive.ts";
-import { useSessionVolumeProfile } from "./useSessionVolumeProfile.ts";
+import { useSessionVolumeProfile, type SessionVolumeProfileSummary } from "./useSessionVolumeProfile.ts";
 import { useSlTpDrag } from "./useSlTpDrag.ts";
 import {
   formatCountdown,
@@ -249,6 +249,10 @@ export interface ChartPanelProps {
   positionBuilderPreview?:
     | { entry: number; stop: number; takeProfit: number; liquidation: number; side: "long" | "short" }
     | null;
+  /** Lifts the session volume profile's POC/VAH/VAL to the trade panel, which
+   *  is a sibling of this component. The profile is computed here because it
+   *  needs the chart's visible range. */
+  onVolumeProfileChange?: (summary: SessionVolumeProfileSummary | null) => void;
 }
 
 // ── Chart plugin overlays ─────────────────────────────────────────────────────
@@ -969,6 +973,7 @@ export function ChartPanel({
   onClearDrawings,
   onClearIndicators,
   positionBuilderPreview,
+  onVolumeProfileChange,
 }: ChartPanelProps) {
   const queryClient = useQueryClient();
   const lastGapRefetchAtRef = useRef<number>(0);
@@ -1254,7 +1259,7 @@ export function ChartPanel({
 
   const { data: etfFlowData } = useEtfFlows();
   useIndicators(candleSeriesRef, chartData, activeIndicators, etfFlowData, timeframe);
-  const sessionVolumeProfileRef = useSessionVolumeProfile({
+  const { primitiveRef: sessionVolumeProfileRef, summary: volumeProfileSummary } = useSessionVolumeProfile({
     chartRef,
     candleSeriesRef,
     chartEpoch,
@@ -1265,6 +1270,10 @@ export function ChartPanel({
     markets: sessionVolumeProfileMarkets,
     rows: sessionVolumeProfileRows,
   });
+  useEffect(() => {
+    onVolumeProfileChange?.(volumeProfileSummary);
+  }, [onVolumeProfileChange, volumeProfileSummary]);
+
   const { primitiveRef: largeOrderBookRef, historyUnavailable: largeOrderHistoryUnavailable } =
     useLargeOrderBookPrimitive({
       chartRef,
