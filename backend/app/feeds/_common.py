@@ -12,6 +12,18 @@ from app.large_order_book import service as large_order_book_service
 from app.store import store
 from app.symbols import resolve_from_feed
 
+# NOTE: every callback here advances the same health timestamp, and the
+# runner's watchdog treats that timestamp as "the connection is alive".
+# v1.6.5 narrowed it to ticker events only, so that a dead ticker channel
+# would be detected. That coupling is wrong in the other direction: OKX's
+# ticker arrives roughly once every 55-60s here, just under the watchdog's
+# 60s threshold, which put a perfectly healthy OKX feed into a restart loop
+# every 115s. Connection liveness and price freshness are separate signals
+# and need separate clocks; until a dedicated lastTickAt exists, this one
+# means "the connection is alive" and nothing more. Staleness of *prices* is
+# caught client-side in src/lib/livePnl.ts, which reads each tick's own
+# exchange timestamp and is independent of this signal.
+
 
 def make_ticker_callback(exchange: str):
     async def _on_ticker(ticker, receipt_timestamp: float) -> None:
@@ -21,10 +33,6 @@ def make_ticker_callback(exchange: str):
         occurred_at_ms = int((ticker.timestamp or receipt_timestamp) * 1000)
         tick = Tick(symbol=info.id, exchange=exchange, bid=float(ticker.bid), ask=float(ticker.ask), occurredAt=occurred_at_ms)
         store.set_tick(tick)
-        # The ticker is the only callback that advances the freshness clock:
-        # it is the sole writer of store.set_tick, so it alone proves prices
-        # are still flowing. The runner's watchdog and the frontend's
-        # stale-data banner both read this timestamp.
         store.set_health(exchange, connected=True, last_event_at=occurred_at_ms)
         bus.publish(MarketTickEvent(symbol=tick.symbol, exchange=exchange, bid=tick.bid, ask=tick.ask, occurredAt=tick.occurredAt))
 
@@ -49,11 +57,7 @@ def make_candle_callback(exchange: str):
             symbol=info.id,
         )
         store.set_candle(info.id, candle.interval, normalized)
-        # Affirm the connection without advancing the freshness clock — that
-        # clock tracks *prices*, and candles kept it green while the ticker
-        # channel was dead, hiding a 37-minute-stale price behind a healthy
-        # status. See the note on the ticker callback above.
-        store.set_health(exchange, connected=True, last_event_at=None)
+        store.set_health(exchange, connected=True, last_event_at=event_ms)
 
         if candle.closed:
             bus.publish(CandleClosedEvent(symbol=info.id, exchange=exchange, timeframe=candle.interval))
@@ -86,9 +90,7 @@ def make_book_callback(exchange: str):
             large_order_book_service.process_book(exchange, info, book.book, occurred_at)
         else:
             large_order_book_service.process_delta(exchange, info, book.delta, occurred_at)
-        # As with candles: connection alive, but book depth is not a price
-        # quote, so it must not vouch for tick freshness.
-        store.set_health(exchange, connected=True, last_event_at=None)
+        store.set_health(exchange, connected=True, last_event_at=int(timestamp * 1000))
 
     return _on_book
 
