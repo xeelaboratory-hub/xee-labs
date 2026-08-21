@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-08-21
+
+### Added
+- **Session volume profile levels in the trade panel.** The indicator already
+  computed POC, VAH and VAL, but `useSessionVolumeProfile` returned only its
+  `primitiveRef` — the numbers went into the chart overlay and nothing else
+  could reach them. The hook now also returns a summary, travelling the same
+  route `positionBuilderPreview` takes in the opposite direction: computed in
+  `ChartPanel` (which owns the visible range the profile depends on), lifted
+  to `TradingPage`, handed down to `PositionBuilderPanel`.
+
+  Only scalars leave the hook. The full profile carries every histogram row
+  and is recomputed on each visible-range change; pushing it up the tree
+  would re-render the whole trading screen on every scroll.
+
+  With several markets selected, the panel shows the most recent session —
+  the developing one while a market is open — since that is the profile
+  describing where price is now.
+- **A button that applies a profile level as the limit entry**, alternating
+  between POC and VAH. It shows the level it will apply next and the price it
+  will use.
+
+  It forces the order to Limit: `entry` only reads `limitPrice` in limit mode,
+  so applying a level without that switch would set a value the order
+  silently ignores. Applying is a one-shot snapshot rather than a
+  subscription — the developing session's POC drifts, and a limit price that
+  moves under the trader while they read the plan is worse than one a few
+  points stale.
+
+### Fixed
+- The entry button initially wrote a raw profile value such as
+  `76451.67166666666` into the price field. The panel displayed `76,451.67`
+  either way, so it looked correct — a profile level is a histogram bucket
+  boundary, not a tradeable price, and the exchange rejects it. Levels now go
+  through the existing `roundToTick`, the same helper the stop and
+  take-profit already use.
+
+### Changed
+- `resolveProfileEntry` and `summarizeLatestProfile` extracted from inline
+  component code into `positionBuilder.ts` and `session-volume-profile.ts`
+  respectively, so both are testable. Behaviour unchanged; 10 tests added.
+
 ## [1.7.2] - 2026-08-21
 
 Root cause of the price freeze that 1.6.5 through 1.7.0 were treating
