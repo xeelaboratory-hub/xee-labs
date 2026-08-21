@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.5] - 2026-08-21
+
+### Fixed
+- **A dead ticker channel could silently misprice open positions.** OKX's
+  ticker channel died while its candle and book channels kept flowing. Both
+  OKX symbols froze at the same instant and stayed frozen for 37 minutes,
+  during which the UI showed −$6.93 on a live position the exchange valued
+  at +$42.49 — a $49 error with the sign inverted, and no warning anywhere
+  in the app.
+
+  Nothing caught it because every callback in `backend/app/feeds/_common.py`
+  advanced the same health timestamp, while only the ticker callback writes
+  `store.set_tick`. Candle and book events kept `lastEventAt` fresh, so the
+  runner's 60s watchdog never restarted the feed and the frontend's
+  stale-data banner never fired.
+
+  Only the ticker callback advances that clock now; candle and book
+  callbacks affirm `connected=True` but pass `last_event_at=None`, which
+  `store.set_health` already treated as "keep the existing timestamp". The
+  clock now means *prices are flowing*, which is what both the watchdog and
+  the banner were always asking it.
+- `computeLivePnl`/`computeLivePrice` ignore a tick older than 30s and
+  return the server snapshot instead. The scaling math was never wrong — it
+  faithfully turned the exchange's correct value into a wrong one because
+  its input was stale. The exchange's mark price is authoritative.
+- Chart primitives detached from the wrong series. `useLargeOrderBookPrimitive`
+  and `useSessionVolumeProfile` read `candleSeriesRef.current` in effect
+  cleanup, but `chartEpoch` is incremented only *after* `ChartPanel` has
+  written the new series into that ref — so on a theme or symbol change,
+  cleanup ran against the replacement series rather than the one the
+  primitive was attached to. Both now capture the series in a local.
+- The preference-load effect in `App.tsx` keys off a stable `userId` rather
+  than referencing `user` while listing `user?.id`, so a session refresh for
+  the same account no longer risks reloading preferences and flashing
+  `preferencesReady` back to false.
+
+### Changed
+- `validateOrderInput` moved out of `PositionBuilderPanel.tsx` into
+  `src/pages/trading/order-validation.ts` — a non-component export degraded
+  Fast Refresh for the whole module.
+- Lint baseline is now **0 problems**, down from 0 errors / 5 warnings.
+
 ## [1.6.4] - 2026-08-21
 
 ### Added
