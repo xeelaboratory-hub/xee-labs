@@ -26,6 +26,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hiding one with `md:` would put two controls for the same value in the tree
   and have a screen reader announce all sixteen.
 
+- **The price scale reserved 80px of a 375px phone screen** — 21% of the
+  width — because `rightPriceScale.minimumWidth` was a constant chosen for a
+  desktop chart. It is a floor, not a width: the scale still grows to fit its
+  widest label, so lowering it on a phone costs nothing and returns pixels the
+  chart could not otherwise have. Measured on an iPhone-sized viewport: the
+  axis went 80px to 68px and the plot 294px to 306px. Desktop keeps 80, where
+  an axis that does not resize as prices change is worth more than the pixels.
+
+  The floor is applied in place on rotation rather than through the chart's
+  creation effect — rebuilding the chart would drop the drawings and the
+  scroll position, which is why the effect reads the breakpoint through a ref.
+
+  The remaining 68px is the label text itself (`79600.00`), not the floor.
+  Taking it further means fewer decimals on the axis, which is a precision
+  trade rather than a layout fix, so it was left alone.
+
 - **Rotating a phone into landscape loaded the desktop terminal.** The layout
   switch asked one question — `(min-width: 768px)` — and an iPhone 13 in
   landscape is 844px across. It cleared that, so the right panel, the bottom
