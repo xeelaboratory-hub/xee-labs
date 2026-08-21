@@ -7,7 +7,9 @@ import {
   isInSession,
   type OhlcvBar,
   type SessionMarket,
+  type SessionVolumeProfileSummary,
   sessionWindowsInRange,
+  summarizeLatestProfile,
 } from "../../lib/session-volume-profile.ts";
 import { api } from "../../services/api.ts";
 import { queryKeys } from "../../services/queries.ts";
@@ -16,6 +18,8 @@ import { toast } from "../../services/toast.ts";
 import { TF_INTERVAL_MS, type Timeframe } from "./constants.ts";
 
 type VisibleTimeRange = { from: number; to: number };
+
+export type { SessionVolumeProfileSummary } from "../../lib/session-volume-profile.ts";
 
 function toOhlcv(bar: OhlcvBar): OhlcvBar {
   return {
@@ -79,7 +83,10 @@ export function useSessionVolumeProfile({
   timeframe,
   markets,
   rows,
-}: UseSessionVolumeProfileArgs): React.RefObject<SessionVolumeProfilePrimitive | null> {
+}: UseSessionVolumeProfileArgs): {
+  primitiveRef: React.RefObject<SessionVolumeProfilePrimitive | null>;
+  summary: SessionVolumeProfileSummary | null;
+} {
   const queryClient = useQueryClient();
   const primitiveRef = useRef<SessionVolumeProfilePrimitive | null>(null);
   const errorRef = useRef<string | null>(null);
@@ -197,5 +204,10 @@ export function useSessionVolumeProfile({
     primitiveRef.current?.setProfiles(active ? profiles : []);
   }, [active, profiles]);
 
-  return primitiveRef;
+  const summary = useMemo(
+    () => (active ? summarizeLatestProfile(profiles) : null),
+    [active, profiles],
+  );
+
+  return { primitiveRef, summary };
 }

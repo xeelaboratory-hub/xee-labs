@@ -38,6 +38,41 @@ export interface SessionVolumeProfile {
   isDeveloping: boolean;
 }
 
+/** The compact slice of a profile that panels outside the chart consume.
+ *  Excludes `rows`: the full profile is recomputed on every visible-range
+ *  change, so sending it up the component tree would re-render the trading
+ *  screen on each scroll. */
+export interface SessionVolumeProfileSummary {
+  market: SessionMarket;
+  date: string;
+  poc: number;
+  vah: number;
+  val: number;
+  totalVolume: number;
+  isDeveloping: boolean;
+}
+
+/**
+ * Picks the session to describe in the trade panel when several markets are
+ * selected at once: the most recent one, which is the developing session while
+ * a market is open. That is the profile describing where price is now.
+ */
+export function summarizeLatestProfile(
+  profiles: readonly SessionVolumeProfile[],
+): SessionVolumeProfileSummary | null {
+  if (profiles.length === 0) return null;
+  const latest = profiles.reduce((newest, p) => (p.start > newest.start ? p : newest));
+  return {
+    market: latest.market,
+    date: latest.date,
+    poc: latest.poc,
+    vah: latest.vah,
+    val: latest.val,
+    totalVolume: latest.totalVolume,
+    isDeveloping: latest.isDeveloping,
+  };
+}
+
 type MarketDefinition = {
   timeZone: string;
   ranges: ReadonlyArray<readonly [number, number]>;

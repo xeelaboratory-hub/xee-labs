@@ -39,6 +39,7 @@ import { type DrawingTool, type MagnetMode, TIMEFRAMES, type Timeframe } from ".
 import { DOMPanel } from "./trading/DOMPanel.tsx";
 import { MarketClosedBanner } from "./trading/MarketClosedBanner.tsx";
 import { PositionBuilderPanel, type PositionBuilderPreview } from "./trading/PositionBuilderPanel.tsx";
+import type { SessionVolumeProfileSummary } from "./trading/useSessionVolumeProfile.ts";
 import { getPipDigits } from "./trading/utils.ts";
 import { WatchlistPanel } from "./trading/WatchlistPanel.tsx";
 import { SettingsPage } from "./SettingsPage.tsx";
@@ -162,6 +163,10 @@ export function TradingPage() {
   const [positionBuilderPreview, setPositionBuilderPreview] = useState<PositionBuilderPreview | null>(
     null,
   );
+  // Computed inside ChartPanel (it needs the chart's visible range) and shown
+  // in the trade panel, which is a sibling — so TradingPage holds it, matching
+  // how positionBuilderPreview travels in the opposite direction.
+  const [volumeProfile, setVolumeProfile] = useState<SessionVolumeProfileSummary | null>(null);
 
   const toggleBottomPanel = useCallback(() => {
     setBottomCollapsed((current) => {
@@ -545,6 +550,7 @@ export function TradingPage() {
               onClearDrawings={clearDrawings}
               onClearIndicators={handleClearIndicators}
               positionBuilderPreview={rightPanel === "position-builder" ? positionBuilderPreview : null}
+              onVolumeProfileChange={setVolumeProfile}
             />
           </div>
 
@@ -623,6 +629,7 @@ export function TradingPage() {
                 mode={mode}
                 accountEquity={account?.equity ?? account?.balance ?? 0}
                 onPreviewChange={setPositionBuilderPreview}
+                volumeProfile={volumeProfile}
                 oneClick={oneClick}
                 onToggleOneClick={toggleOneClick}
                 onConfirmOrder={setConfirmOrder}

@@ -11,9 +11,21 @@ import {
   calcStopFromMargin,
   calcTakeProfitFromRr,
   type InstrumentSpec,
+  type ProfileEntryLevel,
+  resolveProfileEntry,
   type Side,
 } from "./positionBuilder.ts";
 import { validateOrderInput } from "./order-validation.ts";
+import type { SessionVolumeProfileSummary } from "./useSessionVolumeProfile.ts";
+
+// Same abbreviations the indicator's own session picker uses in ChartToolbar,
+// so one session never carries two different names across the screen.
+const MARKET_LABELS: Record<string, string> = {
+  ASX: "ASX",
+  TOKYO: "TKY",
+  LONDON: "LONDON",
+  NEW_YORK: "NY",
+};
 
 export interface PositionBuilderPreview {
   entry: number;
@@ -32,6 +44,9 @@ export interface PositionBuilderPanelProps {
   mode: TradingMode;
   accountEquity?: number;
   onPreviewChange: (preview: PositionBuilderPreview | null) => void;
+  /** Session volume profile levels, computed in ChartPanel. Read-only here —
+   *  reference levels next to the plan, not inputs to it. */
+  volumeProfile?: SessionVolumeProfileSummary | null;
   oneClick?: boolean;
   onToggleOneClick?: () => void;
   onConfirmOrder?: (order: ConfirmableOrder) => void;
@@ -68,6 +83,7 @@ export function PositionBuilderPanel({
   mode,
   accountEquity = 0,
   onPreviewChange,
+  volumeProfile,
   oneClick,
   onToggleOneClick,
   onConfirmOrder,
@@ -87,6 +103,11 @@ export function PositionBuilderPanel({
   const margin = accountEquity * ((Number(riskPercent) || 0) / 100);
   const [entryMode, setEntryMode] = useState<"market" | "limit">("market");
   const [limitPrice, setLimitPrice] = useState("");
+  // Which profile level the button will apply next. Applying is a one-shot
+  // snapshot, not a subscription: the developing session's POC drifts, and a
+  // limit price that moves under the trader while they read the plan is worse
+  // than one that is a few points old. Clicking again takes a fresh value.
+  const [nextProfileLevel, setNextProfileLevel] = useState<ProfileEntryLevel>("poc");
   const [rr, setRr] = useState("2");
 
   // Reset the chart preview whenever the symbol changes — a stale preview
@@ -101,6 +122,16 @@ export function PositionBuilderPanel({
   );
   const instrument = isOkx && realInstrument ? realInstrument : fallbackInstrumentFromSymbol(symbolInfo);
   const isApproximateInstrument = !(isOkx && realInstrument);
+
+  const applyProfileLevel = () => {
+    if (!volumeProfile) return;
+    const { price, next } = resolveProfileEntry(nextProfileLevel, volumeProfile, instrument.tickSz);
+    // Entry only reads limitPrice in limit mode — in market mode it tracks the
+    // live tick, so setting a level without switching would silently do nothing.
+    setEntryMode("limit");
+    setLimitPrice(String(price));
+    setNextProfileLevel(next);
+  };
 
   const entry =
     entryMode === "market"
@@ -339,6 +370,21 @@ export function PositionBuilderPanel({
           ) : (
             <div className="mt-1 text-sm font-mono">{entry > 0 ? formatNumber(entry, 5) : "—"}</div>
           )}
+          {volumeProfile && (
+            <button
+              type="button"
+              onClick={applyProfileLevel}
+              title="Set the entry to this session's volume profile level. Switches the order to Limit, since a market entry follows the live price."
+              className="w-full mt-1 px-2 py-1 text-xs rounded border border-border hover:bg-secondary flex items-center justify-between"
+            >
+              <span className="text-muted-foreground">
+                Use {nextProfileLevel === "poc" ? "POC" : "VAH"}
+              </span>
+              <span className="font-mono">
+                {formatNumber(nextProfileLevel === "poc" ? volumeProfile.poc : volumeProfile.vah, 2)}
+              </span>
+            </button>
+          )}
         </div>
 
         <label className="block text-xs text-muted-foreground uppercase tracking-wider">
@@ -385,6 +431,33 @@ export function PositionBuilderPanel({
                 <span className="text-muted-foreground">Liquidation ≈</span>
                 <span className="font-mono text-orange-500">{formatNumber(plan.approxLiq, 2)}</span>
               </div>
+              {volumeProfile && (
+                <div className="border-t border-border/60 mt-1.5 pt-1.5 space-y-1.5">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-muted-foreground uppercase text-label">
+                      Volume Profile
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {MARKET_LABELS[volumeProfile.market] ?? volumeProfile.market}
+                      {volumeProfile.isDeveloping && " · developing"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Value Area High</span>
+                    <span className="font-mono">{formatNumber(volumeProfile.vah, 2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Point of Control</span>
+                    <span className="font-mono text-warning">
+                      {formatNumber(volumeProfile.poc, 2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Value Area Low</span>
+                    <span className="font-mono">{formatNumber(volumeProfile.val, 2)}</span>
+                  </div>
+                </div>
+              )}
               <p className="text-muted-foreground text-xs pt-1">
                 Liquidation is a rough isolated-margin estimate — it ignores fees and
                 maintenance margin.
