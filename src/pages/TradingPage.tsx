@@ -3,7 +3,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StaleDataBanner, useIsFeedConnected } from "../components/ConnectionIndicator.tsx";
 import { Footer } from "../components/Footer.tsx";
-import { MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import {
   OrderConfirmDialog,
   OrderModifyDialog,
@@ -15,6 +14,7 @@ import {
   updateChartPreferences,
   useChartPreferences,
 } from "../hooks/useChartPreferences.ts";
+import { useIsDesktop } from "../hooks/useIsDesktop.ts";
 import { useTradeSound } from "../hooks/useTradeSound";
 import type { IndicatorType } from "../lib/indicators.ts";
 import type { SessionMarket } from "../lib/session-volume-profile.ts";
@@ -466,6 +466,12 @@ export function TradingPage() {
   // only. The chart is the right place to land anyway.
   const [mobileTab, setMobileTab] = useState<MobileTab>("chart");
 
+  // The right panel is `hidden md:flex` — hidden on a phone but still mounted.
+  // Now that Position Builder has a mobile home too, mounting both would run
+  // two copies pushing into the same chart-preview state. This decides which
+  // one exists, rather than which one is visible.
+  const isDesktop = useIsDesktop();
+
   // Settings is an in-page view-swap (not a route) — see SettingsPage.tsx.
   const [showSettings, setShowSettings] = useState(false);
 
@@ -641,8 +647,8 @@ export function TradingPage() {
               className="flex h-full flex-col overflow-hidden border-l border-border bg-card"
               style={{ width: rightPanelWidth }}
             >
-            {rightPanel === "dom" && <DOMPanel symbol={selectedSymbol} tick={tick} />}
-            {rightPanel === "position-builder" && (
+            {isDesktop && rightPanel === "dom" && <DOMPanel symbol={selectedSymbol} tick={tick} />}
+            {isDesktop && rightPanel === "position-builder" && (
               <PositionBuilderPanel
                 symbol={selectedSymbol}
                 symbolInfo={symbolInfo}
@@ -663,7 +669,7 @@ export function TradingPage() {
                 }}
               />
             )}
-            {rightPanel === "watchlist" && (
+            {isDesktop && rightPanel === "watchlist" && (
               <WatchlistPanel
                 symbols={symbols}
                 ticks={ticks}
@@ -674,7 +680,7 @@ export function TradingPage() {
                 isFeedConnected={isFeedConnected}
               />
             )}
-            {rightPanel === "ai-trader" && (
+            {isDesktop && rightPanel === "ai-trader" && (
               <div className="flex-1 overflow-hidden">
                 <AiTraderPanel mode={mode} />
               </div>
@@ -688,20 +694,34 @@ export function TradingPage() {
           Trade / Positions / Book. The chart is the fourth and lives in the
           main layout above so it never unmounts. Each of these gets the full
           pane instead of the 45vh the drag sheet allowed. */}
-      {mobileTab === "trade" && (
-        <div className="flex-1 overflow-y-auto md:hidden">
-          <MobileTradingPanel
+      {/* The same Position Builder the desktop right panel mounts — not a
+          second, simpler ticket. Before this, a phone got MobileTradingPanel:
+          fixed lot buttons, no risk sizing, and a "stop-loss/take-profit
+          aren't supported yet" note that stayed true on mobile even after
+          1.9.0 shipped the attached bracket. `isDesktop` guarantees only one
+          of the two mounts at a time. */}
+      {!isDesktop && mobileTab === "trade" && (
+        <div className="flex flex-1 flex-col overflow-hidden md:hidden">
+          <PositionBuilderPanel
             symbol={selectedSymbol}
-            bid={tick?.bid}
-            ask={tick?.ask}
-            positions={positions || []}
-            onPlaceOrder={(order) => {
-              const input = { ...order, mode } as PlaceOrderInput;
-              if (oneClick) {
-                api.placeOrder(input).catch(() => {});
-                return;
-              }
-              setConfirmOrder({ ...order, _submit: () => api.placeOrder(input) });
+            symbolInfo={symbolInfo}
+            tick={tick}
+            mode={mode}
+            accountEquity={account?.equity ?? account?.balance ?? 0}
+            onPreviewChange={setPositionBuilderPreview}
+            volumeProfile={volumeProfile}
+            oneClick={oneClick}
+            onToggleOneClick={toggleOneClick}
+            onConfirmOrder={setConfirmOrder}
+            isFeedConnected={isFeedConnected}
+            soundMuted={soundMuted}
+            onToggleMute={toggleSoundMute}
+            onOrderSuccess={() => {
+              playTradeSound();
+              handleFirstTrade();
+              // Nothing on the Trade tab reflects a filled order, so send the
+              // trader where the result actually shows up.
+              setMobileTab("positions");
             }}
           />
         </div>
