@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StaleDataBanner, useIsFeedConnected } from "../components/ConnectionIndicator.tsx";
 import { Footer } from "../components/Footer.tsx";
-import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
+import { MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import {
   OrderConfirmDialog,
   OrderModifyDialog,
@@ -19,7 +19,7 @@ import { useTradeSound } from "../hooks/useTradeSound";
 import type { IndicatorType } from "../lib/indicators.ts";
 import type { SessionMarket } from "../lib/session-volume-profile.ts";
 import { posthog } from "../lib/posthog";
-import { cn } from "../lib/utils.ts";
+import { cn, formatCurrency, pnlClass } from "../lib/utils.ts";
 import { api } from "../services/api.ts";
 import {
   normalizeSessionVolumeProfileRows,
@@ -38,6 +38,7 @@ import { ChartToolbar } from "./trading/ChartToolbar.tsx";
 import { type DrawingTool, type MagnetMode, TIMEFRAMES, type Timeframe } from "./trading/constants.ts";
 import { DOMPanel } from "./trading/DOMPanel.tsx";
 import { MarketClosedBanner } from "./trading/MarketClosedBanner.tsx";
+import { MobileTabBar, type MobileTab } from "./trading/MobileTabBar.tsx";
 import { PositionBuilderPanel, type PositionBuilderPreview } from "./trading/PositionBuilderPanel.tsx";
 import type { SessionVolumeProfileSummary } from "./trading/useSessionVolumeProfile.ts";
 import { getPipDigits } from "./trading/utils.ts";
@@ -450,11 +451,15 @@ export function TradingPage() {
 
   const isDark = useThemeStore((s) => s.mode === "dark");
 
-  // Mobile trading state
-  const [mobilePanelOpen, setMobilePanelOpen] = useState(
-    () => readLocalPreferences().rightPanel === "dom",
-  );
-  const [mobilePanelTab, setMobilePanelTab] = useState<"whales" | "trade">("whales");
+  // Mobile navigation. One destination is on screen at a time (see
+  // MobileTabBar) — the drag-up sheet this replaces opened over the chart on
+  // first paint and left 20% of the screen for it.
+  //
+  // Not persisted to preferences: PreferencesPayload declares extra="forbid",
+  // so a new key here is a backend schema change, and 1.8.1 is the release
+  // that had to go fix exactly that after four keys were added client-side
+  // only. The chart is the right place to land anyway.
+  const [mobileTab, setMobileTab] = useState<MobileTab>("chart");
 
   // Settings is an in-page view-swap (not a route) — see SettingsPage.tsx.
   const [showSettings, setShowSettings] = useState(false);
@@ -467,16 +472,6 @@ export function TradingPage() {
         </div>
       ) : (
         <>
-      {/* ── Mobile Account Bar (small screens only) ────── */}
-      <div className="md:hidden">
-        <MobileAccountBar
-          balance={account?.balance ?? 0}
-          equity={account?.equity ?? account?.balance ?? 0}
-          margin={account?.margin ?? 0}
-          pnl={positionPnl}
-        />
-      </div>
-
       {/* ── Top Toolbar ──────────────────────────────────── */}
       <ChartToolbar
         selectedSymbol={selectedSymbol}
@@ -508,9 +503,26 @@ export function TradingPage() {
       <MarketClosedBanner symbolInfo={symbolInfo} />
 
       {/* ── Main Layout ──────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+      <div
+        className={cn(
+          "flex flex-col md:flex-row flex-1 overflow-hidden",
+          // Both children below are desktop-or-chart-tab only. Without hiding
+          // the wrapper too it keeps its flex-1 share with nothing inside it,
+          // which showed up as ~250px of dead space above every other tab.
+          mobileTab !== "chart" && "max-md:hidden",
+        )}
+      >
         {/* Chart + Bottom Panel */}
-        <div className="flex flex-col flex-1 min-w-0">
+        <div
+          className={cn(
+            "flex flex-col flex-1 min-w-0",
+            // Mobile: the chart owns its tab and nothing else. Hidden rather
+            // than unmounted — tearing down the lightweight-charts instance on
+            // every tab switch would drop the series, the drawings and the
+            // scroll position, and pay for a full re-init on the way back.
+            mobileTab !== "chart" && "max-md:hidden",
+          )}
+        >
           {/* Chart Area */}
           <div className="flex-1 min-h-[200px] relative">
             <ChartPanel
@@ -566,7 +578,10 @@ export function TradingPage() {
             </div>
           )}
 
-          {/* Bottom Panel (Positions / Orders / Trade History / Calendar / News) */}
+          {/* Bottom Panel (Positions / Orders / Trade History / Calendar / News).
+              Desktop only — on mobile the same content is the Positions tab,
+              mounted below at full height instead of in a 45vh drawer. */}
+          <div className="hidden md:contents">
           <BottomPanel
             tab={bottomTab}
             onTabChange={handleBottomTabChange}
@@ -583,6 +598,7 @@ export function TradingPage() {
             height={bottomPanelHeight}
             isFeedConnected={isFeedConnected}
           />
+          </div>
         </div>
 
         {/* Right Panel + centered collapse/resize handle */}
@@ -663,57 +679,67 @@ export function TradingPage() {
         </div>
       </div>
 
-      {/* ── Mobile Trading Panel (small screens only) ──── */}
-      <div className="md:hidden">
-        {!mobilePanelOpen && (
-          <button
-            onClick={() => {
-              setMobilePanelTab("whales");
-              setMobilePanelOpen(true);
+      {/* ── Mobile tabs (small screens only) ─────────────
+          Trade / Positions / Book. The chart is the fourth and lives in the
+          main layout above so it never unmounts. Each of these gets the full
+          pane instead of the 45vh the drag sheet allowed. */}
+      {mobileTab === "trade" && (
+        <div className="flex-1 overflow-y-auto md:hidden">
+          <MobileTradingPanel
+            symbol={selectedSymbol}
+            bid={tick?.bid}
+            ask={tick?.ask}
+            positions={positions || []}
+            onPlaceOrder={(order) => {
+              const input = { ...order, mode } as PlaceOrderInput;
+              if (oneClick) {
+                api.placeOrder(input).catch(() => {});
+                return;
+              }
+              setConfirmOrder({ ...order, _submit: () => api.placeOrder(input) });
             }}
-            aria-label="Open whale orders"
-            className="fixed bottom-20 right-4 z-40 bg-primary text-primary-foreground rounded-full w-14 h-14 flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-          >
-            <span className="text-xl font-bold">◎</span>
-          </button>
-        )}
-        {mobilePanelOpen && (
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto bg-card border-t border-border rounded-t-2xl shadow-2xl safe-area-bottom">
-            <div className="flex justify-center py-1">
-              <button
-                onClick={() => setMobilePanelOpen(false)}
-                className="w-10 h-1.5 rounded-full bg-muted-foreground/30"
-              />
-            </div>
-            <div className="grid grid-cols-2 border-b border-border px-3">
-              <button onClick={() => setMobilePanelTab("whales")} className={cn("border-b-2 py-2 text-xs font-semibold", mobilePanelTab === "whales" ? "border-primary text-foreground" : "border-transparent text-muted-foreground")}>Whale Orders</button>
-              <button onClick={() => setMobilePanelTab("trade")} className={cn("border-b-2 py-2 text-xs font-semibold", mobilePanelTab === "trade" ? "border-primary text-foreground" : "border-transparent text-muted-foreground")}>Trade</button>
-            </div>
-            <div className="min-h-[45vh]">
-              {mobilePanelTab === "whales" ? (
-                <DOMPanel symbol={selectedSymbol} tick={tick} />
-              ) : (
-                <MobileTradingPanel
-                  symbol={selectedSymbol}
-                  bid={tick?.bid}
-                  ask={tick?.ask}
-                  positions={positions || []}
-                  onPlaceOrder={(order) => {
-                    const input = { ...order, mode } as PlaceOrderInput;
-                    if (oneClick) {
-                      api.placeOrder(input).catch(() => {});
-                      setMobilePanelOpen(false);
-                      return;
-                    }
-                    setConfirmOrder({ ...order, _submit: () => api.placeOrder(input) });
-                    setMobilePanelOpen(false);
-                  }}
-                />
-              )}
-            </div>
+          />
+        </div>
+      )}
+
+      {mobileTab === "positions" && (
+        <div className="flex flex-1 flex-col overflow-hidden md:hidden">
+          {/* Aggregate unrealized P&L. It used to sit in MobileAccountBar,
+              which this redesign removed as a duplicate of the footer's
+              AccountPanel — but AccountPanel carries equity, not P&L, so
+              without this the number has no home on a phone. */}
+          <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-4 py-2">
+            <span className="text-label uppercase text-muted-foreground">Unrealized P&amp;L</span>
+            <span className={cn("text-data font-semibold", pnlClass(positionPnl))}>
+              {positionPnl >= 0 ? "+" : ""}
+              {formatCurrency(positionPnl)}
+            </span>
           </div>
-        )}
-      </div>
+          <BottomPanel
+            tab={bottomTab}
+            onTabChange={handleBottomTabChange}
+            collapsed={false}
+            fill
+            onToggleCollapsed={toggleBottomPanel}
+            positions={positions}
+            orders={orders}
+            mode={mode}
+            onModifyPosition={setModifyingPosition}
+            onModifyOrder={setModifyingOrder}
+            onSelectPositionSymbol={setSelectedSymbol}
+            onSelectOrderSymbol={setSelectedSymbol}
+            aiTraderEnabled={aiTraderEnabled}
+            isFeedConnected={isFeedConnected}
+          />
+        </div>
+      )}
+
+      {mobileTab === "book" && (
+        <div className="flex-1 overflow-y-auto md:hidden">
+          <DOMPanel symbol={selectedSymbol} tick={tick} />
+        </div>
+      )}
+
         </>
       )}
 
@@ -757,6 +783,11 @@ export function TradingPage() {
 
       {/* ── Footer ──────────────────────────────────────── */}
       <Footer onOpenSettings={() => setShowSettings(true)} />
+
+      {/* Last element on the page on purpose: a bottom tab bar is the anchor
+          every mobile OS puts against the bottom edge, and anything rendered
+          below it reads as belonging to the tab bar rather than to the app. */}
+      {!showSettings && <MobileTabBar tab={mobileTab} onTabChange={setMobileTab} />}
     </div>
   );
 }

@@ -90,7 +90,7 @@ export function ChartToolbar({
       <div className="relative shrink-0">
         <button
           onClick={() => setShowSymbolSearch((v) => !v)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-secondary font-bold text-sm tracking-tight"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-secondary font-bold text-sm tracking-tight max-md:min-h-[44px]"
         >
           {selectedSymbol}
           <ChevronDown className="h-3 w-3 opacity-60" />
@@ -213,7 +213,11 @@ export function ChartToolbar({
             key={tf}
             onClick={() => onTimeframeChange(tf)}
             className={cn(
-              "px-2 py-1 rounded-md text-xs font-medium transition-all",
+              // max-md sizing only: the desktop toolbar packs a lot into one
+              // row and is driven by a pointer, so it keeps its tighter chip.
+              "rounded-md text-xs font-medium transition-all",
+              "max-md:flex max-md:min-h-[44px] max-md:min-w-[44px] max-md:items-center max-md:justify-center",
+              "md:px-2 md:py-1",
               tf === timeframe
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "hover:bg-secondary/80 text-muted-foreground hover:text-foreground",

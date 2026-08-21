@@ -50,7 +50,11 @@ export function AccountPanel({ onOpenSettings }: { onOpenSettings: () => void })
             key={m}
             onClick={() => switchMode(m)}
             className={cn(
+              // This row is the only account chrome left on a phone, so its
+              // controls carry the 44px floor there. Desktop keeps the tight
+              // status-bar sizing it was drawn for.
               "px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
+              "max-md:flex max-md:min-h-[44px] max-md:min-w-[44px] max-md:items-center max-md:justify-center",
               m === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary",
             )}
           >
@@ -77,7 +81,7 @@ export function AccountPanel({ onOpenSettings }: { onOpenSettings: () => void })
       ) : (
         <button
           onClick={onOpenSettings}
-          className="text-muted-foreground hover:text-foreground whitespace-nowrap"
+          className="text-muted-foreground hover:text-foreground whitespace-nowrap max-md:flex max-md:min-h-[44px] max-md:min-w-[44px] max-md:items-center max-md:justify-center"
         >
           Log in
         </button>
@@ -85,7 +89,12 @@ export function AccountPanel({ onOpenSettings }: { onOpenSettings: () => void })
 
       <div className="flex items-center gap-2 ml-auto shrink-0">
         <ThemeSwitcher />
-        <button onClick={onOpenSettings} title="Settings" className="text-muted-foreground hover:text-foreground">
+        <button
+          onClick={onOpenSettings}
+          title="Settings"
+          aria-label="Settings"
+          className="text-muted-foreground hover:text-foreground max-md:flex max-md:min-h-[44px] max-md:min-w-[44px] max-md:items-center max-md:justify-center"
+        >
           <Settings className="h-7 w-7" />
         </button>
       </div>

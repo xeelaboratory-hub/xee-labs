@@ -274,7 +274,15 @@ export function DrawingToolRail({
   hasDrawings?: boolean;
 }) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  // Collapsed by default on phones. Expanded, the rail is a 36px column of 12
+  // tools pinned over the full height of the chart — on a 390px screen that is
+  // a desktop drawing toolbar sitting on top of the thing it draws on. Desktop
+  // is unchanged: there the rail has its own gutter and costs the chart
+  // nothing. Read once at mount, so a rotation does not yank the rail open or
+  // shut while a tool is selected.
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
+  );
   const [lastUsed, setLastUsed] = useState<Record<string, DrawingTool>>({
     lines: "trendline",
     fib: "fibonacci",
@@ -322,7 +330,11 @@ export function DrawingToolRail({
           aria-label="Show drawing tools"
           aria-expanded={false}
           onClick={() => setCollapsed(false)}
-          className="flex h-10 w-4 items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground shadow-sm hover:text-foreground"
+          // On a phone this is now the ONLY way back to the drawing tools,
+          // since the rail starts collapsed there — so it gets a real target
+          // rather than the 40x16 sliver that was fine as a desktop affordance
+          // sitting next to an already-visible rail.
+          className="flex items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground shadow-sm hover:text-foreground h-10 w-4 max-md:h-11 max-md:w-7"
         >
           <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
         </button>

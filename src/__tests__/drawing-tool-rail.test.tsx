@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DrawingToolRail } from "@/pages/trading/DrawingToolRail";
@@ -104,5 +104,55 @@ describe("DrawingToolRail", () => {
 
     expect(screen.getByRole("button", { name: "Unlock all drawings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show drawings" })).toBeInTheDocument();
+  });
+});
+
+describe("DrawingToolRail on a phone", () => {
+  function setViewport(matches: boolean) {
+    // The rail reads the breakpoint once at mount, so this has to be in place
+    // before render — see the collapsed initialiser in DrawingToolRail.
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches,
+          media: query,
+          onchange: null,
+          addListener: () => {},
+          removeListener: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => false,
+        }) as MediaQueryList,
+    );
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("starts collapsed below the md breakpoint", () => {
+    setViewport(true);
+    render(<RailHarness />);
+
+    // Expanded, the rail is a full-height column of tools over the chart. On a
+    // phone that column costs the chart 36 of its 390 pixels, permanently.
+    expect(screen.getByRole("button", { name: /show drawing tools/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cursor" })).not.toBeInTheDocument();
+  });
+
+  it("stays expanded above it, leaving desktop untouched", () => {
+    setViewport(false);
+    render(<RailHarness />);
+
+    expect(screen.getByRole("button", { name: "Cursor" })).toBeInTheDocument();
+  });
+
+  it("opens on demand when collapsed", async () => {
+    setViewport(true);
+    render(<RailHarness />);
+
+    await userEvent.click(screen.getByRole("button", { name: /show drawing tools/i }));
+
+    expect(screen.getByRole("button", { name: "Cursor" })).toBeInTheDocument();
   });
 });
