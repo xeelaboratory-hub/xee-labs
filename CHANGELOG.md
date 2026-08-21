@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-08-21
+
+### Fixed
+- **Preference sync was broken in both directions**, and had been since
+  Position Builder and the session volume profile shipped.
+  `PreferencesPayload` declares `extra="forbid"` and never learned four keys
+  the frontend sends — `rightPanel: "position-builder"`,
+  `sessionVolumeProfileRows`, `sessionVolumeProfileMarkets` and
+  `sessionVolumeProfileMarket`.
+
+  Every `PUT` returned 422, so nothing synced. And because a stored row
+  already held those keys, `GET` returned 500 while validating it, so
+  preference loading failed outright rather than degrading. Settings only
+  ever lived in `localStorage` and never followed the user to another device
+  — including the panel choice and volume profile settings added in 1.8.0.
+
+  Row bounds are `ge=10, le=100`, matching
+  `normalizeSessionVolumeProfileRows` in `services/preferences.ts`; if the two
+  disagree, a value the UI considers valid gets rejected by the API.
+- Reading stored preferences no longer fails the request. The 500 above is
+  what a strict read gives you whenever client and server versions differ,
+  and it would recur identically the next time a field is added. Reads now
+  drop keys this version cannot parse and return the rest, falling back to
+  defaults only if nothing survives. Writes stay strict — a forgiving write
+  path would let a typo persist silently, indistinguishable from a real
+  setting.
+
 ## [1.8.0] - 2026-08-21
 
 ### Added
