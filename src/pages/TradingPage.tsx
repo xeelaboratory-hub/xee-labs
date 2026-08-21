@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useIsFeedConnected } from "../components/ConnectionIndicator.tsx";
+import { StaleDataBanner, useIsFeedConnected } from "../components/ConnectionIndicator.tsx";
 import { Footer } from "../components/Footer.tsx";
 import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import {
@@ -494,6 +494,11 @@ export function TradingPage() {
         symbolInfo={symbolInfo}
         aiTraderEnabled={aiTraderEnabled}
       />
+
+      {/* Surfaces a feed whose prices have stopped arriving. Written long ago
+          but never mounted, so a 37-minute OKX price freeze that mispriced a
+          live position went unannounced — the user spotted it, not the app. */}
+      <StaleDataBanner />
 
       <MarketClosedBanner symbolInfo={symbolInfo} />
 

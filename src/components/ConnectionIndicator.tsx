@@ -16,9 +16,22 @@ function isMarketDataHealth(health: unknown): health is MarketDataHealth {
 const EXCHANGE_LABELS: Record<string, string> = { binance: "Binance", okx: "OKX" };
 
 // An exchange feed counts as stale once it's gone this long without a live
-// event — well past normal per-tick cadence, short enough to surface a real
-// outage quickly.
-const STALE_EVENT_AGE_MS = 30_000;
+// *price*.
+//
+// This reads lastTickAt, not lastEventAt. Judging staleness on lastEventAt is
+// what let a dead ticker channel go unreported for 37 minutes while candle
+// and book traffic kept that clock current. Only the runner's watchdog, which
+// actually destroys and rebuilds a feed, needs the broader liveness signal;
+// raising a banner is harmless, so it can afford to be stricter.
+//
+// Threshold picked from measurement, not intuition — and OKX's ticker cadence
+// turned out to be wildly bimodal. One 95-sample window: 94 gaps of 5s or
+// under, one 75s stall. A later 45-sample window: 21 samples above 60s, max
+// 80s. Both are real. 60s sits above the fast mode's worst case and still
+// surfaces a genuinely frozen feed within a minute. A price a full minute old
+// on a live trading screen is worth saying out loud, so firing during OKX's
+// slow mode is the honest outcome rather than a false positive.
+const STALE_TICK_AGE_MS = 60_000;
 
 interface HealthSummary {
   disconnected: string[];
@@ -36,7 +49,7 @@ function summarizeHealth(health: MarketDataHealth): HealthSummary {
       disconnected.push(exchange);
       continue;
     }
-    if (status.lastEventAt === null || now - status.lastEventAt > STALE_EVENT_AGE_MS) {
+    if (status.lastTickAt === null || now - status.lastTickAt > STALE_TICK_AGE_MS) {
       stale.push(exchange);
     }
   }

@@ -59,7 +59,15 @@ export interface MarketDataCandleMetadata {
 // per exchange, keyed by exchange name.
 export interface MarketDataExchangeHealth {
   connected: boolean;
+  /** Any feed traffic — ticker, candles or book. Connection liveness. */
   lastEventAt: number | null; // unix ms
+  /**
+   * Ticker events only: the last time a *price* actually arrived. Judge
+   * staleness on this, never on lastEventAt — a dead ticker channel leaves
+   * prices frozen while candle and book traffic keep lastEventAt current.
+   * Null until the first tick of a feed's lifetime.
+   */
+  lastTickAt: number | null; // unix ms
 }
 
 export type MarketDataHealth = Record<string, MarketDataExchangeHealth>;

@@ -12,17 +12,15 @@ from app.large_order_book import service as large_order_book_service
 from app.store import store
 from app.symbols import resolve_from_feed
 
-# NOTE: every callback here advances the same health timestamp, and the
-# runner's watchdog treats that timestamp as "the connection is alive".
-# v1.6.5 narrowed it to ticker events only, so that a dead ticker channel
-# would be detected. That coupling is wrong in the other direction: OKX's
-# ticker arrives roughly once every 55-60s here, just under the watchdog's
-# 60s threshold, which put a perfectly healthy OKX feed into a restart loop
-# every 115s. Connection liveness and price freshness are separate signals
-# and need separate clocks; until a dedicated lastTickAt exists, this one
-# means "the connection is alive" and nothing more. Staleness of *prices* is
-# caught client-side in src/lib/livePnl.ts, which reads each tick's own
-# exchange timestamp and is independent of this signal.
+# Two clocks, deliberately separate — one incident in each direction taught
+# this. lastEventAt tracks *any* traffic and answers "is the connection
+# alive"; it is what the runner's watchdog tears a feed down over, so it must
+# stay broad (v1.6.5 narrowed it to ticks and restart-looped a healthy OKX
+# feed). lastTickAt tracks ticker events only and answers "are prices still
+# arriving"; it is what the stale-data banner reads, because a dead ticker
+# channel leaves prices frozen while other traffic keeps the connection's
+# clock current — which once mispriced a live position by $49 for 37 minutes.
+# Never collapse these back into one.
 
 
 def make_ticker_callback(exchange: str):
@@ -33,7 +31,8 @@ def make_ticker_callback(exchange: str):
         occurred_at_ms = int((ticker.timestamp or receipt_timestamp) * 1000)
         tick = Tick(symbol=info.id, exchange=exchange, bid=float(ticker.bid), ask=float(ticker.ask), occurredAt=occurred_at_ms)
         store.set_tick(tick)
-        store.set_health(exchange, connected=True, last_event_at=occurred_at_ms)
+        # The only writer of both clocks: a ticker event is traffic *and* a price.
+        store.set_health(exchange, connected=True, last_event_at=occurred_at_ms, last_tick_at=occurred_at_ms)
         bus.publish(MarketTickEvent(symbol=tick.symbol, exchange=exchange, bid=tick.bid, ask=tick.ask, occurredAt=tick.occurredAt))
 
     return _on_ticker

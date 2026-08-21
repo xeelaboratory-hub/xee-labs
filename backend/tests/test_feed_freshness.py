@@ -1,21 +1,22 @@
-"""The health timestamp means "the connection is alive" — nothing more.
+"""Two clocks, two questions, two consumers.
 
-Two incidents shaped this, in opposite directions, and both are pinned here.
+`lastEventAt` answers "is the connection alive" and is advanced by any feed
+traffic. The runner's watchdog reads it, and acting on it destroys and
+rebuilds a feed — so it must stay broad.
 
-1. OKX's ticker channel died while its candle and book channels kept flowing.
-   Ticks froze for 37 minutes while `lastEventAt` stayed fresh, and a live
-   position was mispriced by $49 with no warning. The lesson: this timestamp
-   does *not* prove prices are flowing.
+`lastTickAt` answers "are prices still arriving" and is advanced by ticker
+events only. The stale-data banner reads it, and acting on it just shows a
+warning — so it can be strict.
 
-2. v1.6.5 tried to fix that by narrowing the clock to ticker events only.
-   OKX's ticker arrives roughly once every 55-60s here — just under the
-   runner's 60s watchdog — so a perfectly healthy feed was torn down and
-   rebuilt every 115s. The lesson: this timestamp must stay broad, because
-   the watchdog depends on it meaning liveness.
+Both directions of collapsing them into one signal have already caused an
+incident, and both are pinned below:
 
-Price freshness is therefore *not* this signal's job. It is enforced
-client-side in `src/lib/livePnl.ts`, which reads each tick's own exchange
-timestamp and ignores this health field entirely.
+1. Judging price freshness on `lastEventAt`: OKX's ticker channel died while
+   its candle and book channels kept flowing, so nothing warned for 37
+   minutes and a live position was mispriced by $49.
+2. Judging connection liveness on ticks (v1.6.5): the ticker's normal cadence
+   sat close enough to the watchdog's 60s threshold that a healthy OKX feed
+   was torn down and rebuilt every 115s.
 """
 import asyncio
 import types
@@ -44,55 +45,93 @@ def _candle(symbol: str, *, ts: float):
     )
 
 
-BINANCE_SYMBOL = "BTC-USDT-PERP"
+SYMBOL = "BTC-USDT-PERP"
+SYMBOL_ID = "BINANCE:BTCUSD"
 OLD_TS = 1_787_290_000.0
 NEW_TS = OLD_TS + 3600  # an hour later
 
 
 def _send_ticker(ts: float, *, bid: float = 100.0) -> None:
-    asyncio.run(make_ticker_callback("binance")(_ticker(BINANCE_SYMBOL, bid=bid, ask=bid + 0.1, ts=ts), ts))
+    asyncio.run(make_ticker_callback("binance")(_ticker(SYMBOL, bid=bid, ask=bid + 0.1, ts=ts), ts))
 
 
-def test_ticker_events_advance_the_clock_and_store_the_tick():
+def _send_candle(ts: float) -> None:
+    asyncio.run(make_candle_callback("binance")(_candle(SYMBOL, ts=ts), ts))
+
+
+def _send_book(ts: float) -> None:
+    book = types.SimpleNamespace(symbol=SYMBOL, timestamp=ts, delta=None, book={})
+    asyncio.run(make_book_callback("binance")(book, ts))
+
+
+def test_a_ticker_event_advances_both_clocks():
+    """A price is traffic *and* a quote, so it is the only writer of both."""
     _send_ticker(OLD_TS)
 
     health = store.get_health("binance")
     assert health.connected is True
     assert health.lastEventAt == int(OLD_TS * 1000)
+    assert health.lastTickAt == int(OLD_TS * 1000)
 
-    tick = store.get_tick("BINANCE:BTCUSD")
+    tick = store.get_tick(SYMBOL_ID)
     assert tick is not None and tick.bid == 100.0
 
 
-def test_candles_advance_the_clock_because_they_prove_the_connection_is_alive():
-    # Narrowing this to ticker-only is what put OKX into a 115s restart loop
-    # (see module docstring). Candles are traffic, and traffic is liveness.
+def test_candles_advance_liveness_but_not_price_freshness():
     _send_ticker(OLD_TS)
-    asyncio.run(make_candle_callback("binance")(_candle(BINANCE_SYMBOL, ts=NEW_TS), NEW_TS))
+    _send_candle(NEW_TS)
 
-    assert store.get_health("binance").lastEventAt == int(NEW_TS * 1000)
+    health = store.get_health("binance")
+    assert health.lastEventAt == int(NEW_TS * 1000)  # connection is alive
+    assert health.lastTickAt == int(OLD_TS * 1000)  # prices are an hour old
 
 
-def test_book_events_advance_the_clock_for_the_same_reason():
+def test_book_events_advance_liveness_but_not_price_freshness():
     _send_ticker(OLD_TS)
+    _send_book(NEW_TS)
 
-    book = types.SimpleNamespace(symbol=BINANCE_SYMBOL, timestamp=NEW_TS, delta=None, book={})
-    asyncio.run(make_book_callback("binance")(book, NEW_TS))
+    health = store.get_health("binance")
+    assert health.lastEventAt == int(NEW_TS * 1000)
+    assert health.lastTickAt == int(OLD_TS * 1000)
 
-    assert store.get_health("binance").lastEventAt == int(NEW_TS * 1000)
 
+def test_the_dead_ticker_channel_is_now_visible():
+    """The exact shape of the $49 incident, and the assertion that catches it.
 
-def test_a_fresh_health_clock_does_not_imply_a_fresh_tick():
-    """The gap that cost $49 — pinned so it stays visible rather than surprising.
-
-    Non-ticker traffic keeps the connection's clock current while the stored
-    price stays exactly as old as the last real quote. Anything pricing a
-    position must read the tick's own timestamp, not this one.
+    Non-ticker traffic keeps arriving, so any watchdog keyed on liveness is
+    correctly quiet — while lastTickAt reports prices as an hour stale.
     """
     _send_ticker(OLD_TS)
-    asyncio.run(make_candle_callback("binance")(_candle(BINANCE_SYMBOL, ts=NEW_TS), NEW_TS))
+    for offset in (600, 1200, 1800, 2400, 3000, 3600):
+        _send_candle(OLD_TS + offset)
+        _send_book(OLD_TS + offset)
 
-    assert store.get_health("binance").lastEventAt == int(NEW_TS * 1000)
-    tick = store.get_tick("BINANCE:BTCUSD")
-    assert tick is not None
-    assert tick.occurredAt == int(OLD_TS * 1000)  # an hour stale, and only the tick knows it
+    health = store.get_health("binance")
+    assert health.connected is True
+    assert health.lastEventAt == int(NEW_TS * 1000)
+    assert health.lastTickAt == int(OLD_TS * 1000)
+    assert health.lastEventAt - health.lastTickAt == 3600 * 1000
+
+    # The stored price is exactly as old as lastTickAt says it is.
+    tick = store.get_tick(SYMBOL_ID)
+    assert tick is not None and tick.occurredAt == health.lastTickAt
+
+
+def test_a_later_tick_advances_both_clocks_again():
+    _send_ticker(OLD_TS)
+    _send_candle(OLD_TS + 60)
+    _send_ticker(NEW_TS, bid=200.0)
+
+    health = store.get_health("binance")
+    assert health.lastEventAt == int(NEW_TS * 1000)
+    assert health.lastTickAt == int(NEW_TS * 1000)
+    tick = store.get_tick(SYMBOL_ID)
+    assert tick is not None and tick.bid == 200.0
+
+
+def test_an_unknown_exchange_reports_both_clocks_empty():
+    health = store.get_health("kraken")
+
+    assert health.connected is False
+    assert health.lastEventAt is None
+    assert health.lastTickAt is None
