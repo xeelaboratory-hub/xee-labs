@@ -31,6 +31,25 @@ this produced a "verified against the live instance" claim in a release that
 was measuring pre-change behaviour, and the regression it missed had to be
 reverted in the next release.
 
+**`docker compose up -d --build <service>` also rebuilds that service's
+dependencies.** Naming one service does not scope the build to it: `--build
+frontend` rebuilds `backend` too, because `frontend` depends on it — and it
+rebuilds it *from the current working tree*, whatever branch that happens to
+be. This is the exact inverse of the trap above, and it is the more dangerous
+one: there the container kept code you thought you had replaced, here it
+quietly replaced code you thought was running.
+
+It has already cost real damage. The backend had been built from a branch
+carrying a security fix; a later `--build frontend` from `main` silently
+reverted it, and the next check — written expecting the fix to still be
+there — created a live account in the database rather than being refused.
+
+Two habits close it: build each service from the branch you mean
+(`up -d --build backend frontend` names both explicitly), and after any
+rebuild, ask the container what it is running rather than assuming —
+`docker compose exec backend python -c "from app import config; print(...)"`
+answers in one line and would have caught it before the write.
+
 **Console errors during editing are usually HMR artifacts.** Editing a file
 that a live page has already loaded produces hook-order errors and
 `X is not defined` for symbols mid-edit. Before concluding there is a bug,
@@ -72,7 +91,7 @@ cd backend && pytest              # 192 passed, 4 skipped
 ```
 
 `pytest` shows one extra failure in any environment without outbound network
-access — open item 7 below, a test that makes a live call to `www.okx.com`.
+access — open item 6 below, a test that makes a live call to `www.okx.com`.
 On a machine with egress (the author's) the suite is fully green; it fails
 identically on a clean checkout everywhere else.
 
@@ -86,7 +105,19 @@ rules in AGENTS.md:
   `etf-scraper`
 - Vite dev server on :5173
 
-`v1.6.2` through `v1.9.0` all shipped on 2026-08-21. The chain worth reading
+**The owner reaches the terminal from a phone over Tailscale**, which is set
+up in a way worth knowing before you debug it. Tailscale was installed
+*without root* — a static build under `~/.local/bin`, with the daemon in
+`--tun=userspace-networking` mode against `~/.tailscale/`. Two consequences
+follow. There is no systemd unit, so **nothing restarts it after a reboot**;
+it has to be launched by hand. And because userspace mode creates no network
+interface, the machine cannot reach its own tailnet address — a `curl` to it
+from here returns nothing, which looks like a broken tunnel and is not.
+Inbound traffic arrives through `tailscale serve --http=80 8080`, which
+proxies to the frontend container; the only real test is from another device
+on the tailnet.
+
+`v1.6.2` through `v1.10.0` all shipped on 2026-08-21. The chain worth reading
 before touching the feed layer is **`v1.6.5` → `v1.7.2`**: four releases
 chasing one mispricing bug to its root, a WebSocket that dropped and was never
 reconnected. Two of those releases were corrections of the previous one.
@@ -126,15 +157,11 @@ than restarting it.
    TP/SL on an existing position, amending a pending order, and STOP as an
    order type. `v1.9.0` wired up only the fourth (TP/SL attached at
    placement); the other three need OKX's separate `order-algo` endpoints.
-5. **`v1.9.0` was never tagged or released.** `package.json` moved to 1.9.0 and
-   the changelog entry is there, but `git tag` and `gh release list` both stop
-   at `v1.8.1`. The release process in AGENTS.md expects a tag per version;
-   1.9.0 is the gap.
-6. **The write half of order idempotency is untested against an exchange.**
+5. **The write half of order idempotency is untested against an exchange.**
    `v1.10.0` sends `clOrdId` and recovers a duplicate, but with no demo
    credential here (see the trap above) neither path has been through OKX.
    The read half — the `by-client-id` lookup and its 404 — was verified live.
-7. **`backend/tests/test_large_order_book.py` makes a live network call.**
+6. **`backend/tests/test_large_order_book.py` makes a live network call.**
    `test_okx_subscribes_only_to_the_connections_filtered_channels` reaches
    `https://www.okx.com/api/v5/public/instruments` and fails with a proxy 403
    in any sandboxed environment. It is not a regression — it fails identically
@@ -142,7 +169,8 @@ than restarting it.
 
 (Item 3's old entry — a stale `OrderPanel.tsx` reference in
 `services/schemas.ts` — was fixed in `v1.9.0`, which rewrote that comment.
-`.codex/` no longer exists in the working tree.)
+The tag gap that stood here is closed: `v1.9.0` and `v1.10.0` were both tagged
+and released on 2026-08-21, after sitting bumped-but-untagged.)
 
 ---
 
