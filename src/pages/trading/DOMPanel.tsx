@@ -48,7 +48,7 @@ export function DOMPanel({ symbol }: { symbol: string; tick?: { bid: number; ask
       >
         <div className="mt-2 flex items-center gap-1.5 text-meta">
           <DropdownMenu.Root>
-            <DropdownMenu.Trigger className="flex h-7 min-w-[88px] items-center justify-between gap-2 rounded border border-border bg-secondary px-2 font-semibold text-foreground outline-none hover:border-primary/50 data-[state=open]:border-primary/50">
+            <DropdownMenu.Trigger className="flex h-7 max-md:h-11 min-w-[88px] items-center justify-between gap-2 rounded border border-border bg-secondary px-2 font-semibold text-foreground outline-none hover:border-primary/50 data-[state=open]:border-primary/50">
               <span>{thresholdLabel(settings.threshold)}</span>
               <ChevronDown className="h-7 w-7 text-muted-foreground" />
             </DropdownMenu.Trigger>
@@ -65,7 +65,7 @@ export function DOMPanel({ symbol }: { symbol: string; tick?: { bid: number; ask
           </DropdownMenu.Root>
 
           <DropdownMenu.Root>
-            <DropdownMenu.Trigger className="flex h-7 min-w-[88px] items-center justify-between gap-2 rounded border border-border bg-secondary px-2 font-semibold uppercase text-foreground outline-none hover:border-primary/50 data-[state=open]:border-primary/50">
+            <DropdownMenu.Trigger className="flex h-7 max-md:h-11 min-w-[88px] items-center justify-between gap-2 rounded border border-border bg-secondary px-2 font-semibold uppercase text-foreground outline-none hover:border-primary/50 data-[state=open]:border-primary/50">
               <span>{settings.sources.length === 2 ? "Exchange" : settings.sources[0]}</span>
               <ChevronDown className="h-7 w-7 text-muted-foreground" />
             </DropdownMenu.Trigger>
@@ -91,9 +91,19 @@ export function DOMPanel({ symbol }: { symbol: string; tick?: { bid: number; ask
               aria-checked={settings.showInactive}
               aria-label="Show inactive orders"
               onClick={() => updateSettings({ showInactive: !settings.showInactive })}
-              className={cn("relative h-4 w-7 rounded-full transition-colors", settings.showInactive ? "bg-primary" : "bg-secondary")}
+              // The button is the hit target; the pill inside is the visual.
+              // On a phone the target grows to 44px while the switch itself
+              // stays the same 28x16 it is on desktop.
+              className="flex items-center justify-center h-4 w-7 max-md:h-11 max-md:w-11"
             >
-              <span className={cn("absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all", settings.showInactive ? "left-3.5" : "left-0.5")} />
+              <span
+                className={cn(
+                  "relative block h-4 w-7 rounded-full transition-colors",
+                  settings.showInactive ? "bg-primary" : "bg-secondary",
+                )}
+              >
+                <span className={cn("absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all", settings.showInactive ? "left-3.5" : "left-0.5")} />
+              </span>
             </button>
             <span>Inactive</span>
           </div>

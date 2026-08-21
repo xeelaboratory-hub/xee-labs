@@ -36,6 +36,11 @@ export interface BottomPanelProps {
   onSelectOrderSymbol?: (symbolName: string) => void;
   aiTraderEnabled?: boolean;
   height?: number;
+  /** Stretch to the available height instead of the fixed `height` box.
+   * Set by the mobile Positions tab, where this panel is the whole screen
+   * rather than a drawer under the chart — the `max-h-[150px]` below dates
+   * from when small screens only ever saw it inside that drawer. */
+  fill?: boolean;
   isFeedConnected?: boolean;
 }
 
@@ -53,6 +58,7 @@ export function BottomPanel({
   onSelectOrderSymbol,
   aiTraderEnabled,
   height = 220,
+  fill = false,
   isFeedConnected = true,
 }: BottomPanelProps) {
   const cancelOrder = useCancelOrder();
@@ -153,8 +159,11 @@ export function BottomPanel({
 
   return (
     <div
-      className="relative border-t border-border flex flex-col shrink-0 bg-card max-h-[150px] md:max-h-none"
-      style={{ height: collapsed ? 31 : height }}
+      className={cn(
+        "relative border-t border-border flex flex-col bg-card",
+        fill ? "flex-1 min-h-0" : "shrink-0 max-h-[150px] md:max-h-none",
+      )}
+      style={fill ? undefined : { height: collapsed ? 31 : height }}
     >
       {/* Tab bar */}
       <div className="relative flex items-center gap-0.5 px-2 py-1 border-b border-border bg-secondary text-xs overflow-x-auto no-scrollbar">
@@ -162,8 +171,11 @@ export function BottomPanel({
           <button
             key={t.key}
             onClick={() => t.key !== tab && onTabChange(t.key)}
+            aria-label={t.label}
             className={cn(
               "flex items-center gap-1 px-2.5 py-1 rounded shrink-0 whitespace-nowrap",
+              // Icon-only on small screens, so the icon is the whole target.
+              "max-md:min-h-[44px] max-md:min-w-[44px] max-md:justify-center",
               tab === t.key
                 ? "bg-card text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
@@ -179,7 +191,7 @@ export function BottomPanel({
           </button>
         ))}
 
-        {onToggleCollapsed && (
+        {onToggleCollapsed && !fill && (
           <button
             type="button"
             title={collapsed ? "Expand bottom panel" : "Collapse bottom panel"}

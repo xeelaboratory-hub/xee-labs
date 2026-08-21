@@ -20,7 +20,8 @@ export function ThemeSwitcher() {
     <button
       onClick={toggleMode}
       title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-      className="text-muted-foreground hover:text-foreground"
+      aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      className="text-muted-foreground hover:text-foreground max-md:flex max-md:min-h-[44px] max-md:min-w-[44px] max-md:items-center max-md:justify-center"
     >
       {mode === "dark" ? <Moon className="h-7 w-7" /> : <Sun className="h-7 w-7" />}
     </button>
