@@ -1581,6 +1581,11 @@ export function ChartPanel({
     colors.up,
     colors.down,
     selectedSymbol,
+    // Both are useRef objects returned by their hooks, so their identity is
+    // stable for the life of this component — listed to satisfy
+    // exhaustive-deps, with no effect on when the chart is recreated.
+    largeOrderBookRef,
+    sessionVolumeProfileRef,
   ]); // Re-create on theme / precision / symbol change — NOT timeframe (the
   // chart persists across TF switches so drawings never blink out; the
   // TF-change effect below updates the live state in place, TradingView-style).

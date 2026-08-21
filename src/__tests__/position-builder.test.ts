@@ -6,7 +6,7 @@ import {
   roundToTick,
   type InstrumentSpec,
 } from "../pages/trading/positionBuilder.ts";
-import { validateOrderInput } from "../pages/trading/PositionBuilderPanel.tsx";
+import { validateOrderInput } from "../pages/trading/order-validation.ts";
 
 const SWAP_INSTRUMENT: InstrumentSpec = {
   instId: "BTC-USDT-SWAP",
