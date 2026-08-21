@@ -124,10 +124,10 @@ export const PaginatedSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
   });
 
 // ── Input schemas (for validation) ────────────────────────
-// STOP orders and take-profit/stop-loss are not sent to the backend yet —
-// OKX conditional/algo orders aren't wired up (see OrderPanel.tsx). Kept as
-// optional fields so the UI can still round-trip them locally without the
-// backend silently dropping them.
+// takeProfit/stopLoss ride along with the entry order as an OKX
+// `attachAlgoOrds` bracket (see backend okx_client._attach_algo_ords). STOP as
+// an *order type* is still not wired up — that needs OKX's separate
+// order-algo endpoint, not an attached bracket.
 export const PlaceOrderInputSchema = z.object({
   mode: TradingModeSchema,
   symbol: z.string().min(1).max(20),
@@ -135,6 +135,8 @@ export const PlaceOrderInputSchema = z.object({
   type: z.enum(["MARKET", "LIMIT"]),
   quantity: z.number().positive().max(1000),
   price: z.number().positive().optional(),
+  takeProfit: z.number().positive().optional(),
+  stopLoss: z.number().positive().optional(),
 });
 export type PlaceOrderInput = z.infer<typeof PlaceOrderInputSchema>;
 

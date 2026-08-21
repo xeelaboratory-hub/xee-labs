@@ -15,6 +15,39 @@ from app.exchange.errors import ExchangeError
 OKX_BASE_URL = "https://www.okx.com"
 
 
+def _attach_algo_ords(*, tp_trigger_px: str | None, sl_trigger_px: str | None) -> dict[str, Any] | None:
+    """Builds OKX's `attachAlgoOrds` entry — the take-profit/stop-loss bracket
+    that rides along with the entry order itself, rather than being placed as a
+    separate algo order afterwards.
+
+    Two details are load-bearing:
+
+    - `tpOrdPx`/`slOrdPx` are `"-1"`, OKX's sentinel for "execute at market when
+      triggered." Omitting them makes the trigger place a *limit* order at an
+      unset price, which OKX rejects; setting a real price would mean the
+      protective exit can go unfilled in exactly the fast move it exists for.
+    - `*TriggerPxType` is pinned to `"last"` rather than left to OKX's default,
+      so the trigger reference matches the last-price feed the chart and the
+      Position Builder's stop model are both built on. Mark price would trigger
+      off a number the user never saw.
+
+    Returns None when neither side is set, so the caller omits the key entirely
+    instead of sending an empty bracket.
+    """
+    if tp_trigger_px is None and sl_trigger_px is None:
+        return None
+    attached: dict[str, Any] = {}
+    if tp_trigger_px is not None:
+        attached["tpTriggerPx"] = tp_trigger_px
+        attached["tpOrdPx"] = "-1"
+        attached["tpTriggerPxType"] = "last"
+    if sl_trigger_px is not None:
+        attached["slTriggerPx"] = sl_trigger_px
+        attached["slOrdPx"] = "-1"
+        attached["slTriggerPxType"] = "last"
+    return attached
+
+
 class OKXClient:
     def __init__(self, api_key: str, api_secret: str, passphrase: str, is_demo: bool):
         self._api_key = api_key
@@ -79,6 +112,8 @@ class OKXClient:
         size: str,
         price: str | None = None,
         td_mode: str = "cross",
+        tp_trigger_px: str | None = None,
+        sl_trigger_px: str | None = None,
     ) -> list[dict[str, Any]]:
         body: dict[str, Any] = {
             "instId": inst_id,
@@ -89,6 +124,9 @@ class OKXClient:
         }
         if price is not None:
             body["px"] = price
+        attached = _attach_algo_ords(tp_trigger_px=tp_trigger_px, sl_trigger_px=sl_trigger_px)
+        if attached is not None:
+            body["attachAlgoOrds"] = [attached]
         return await self._request("POST", "/api/v5/trade/order", body=body)
 
     async def cancel_order(self, *, inst_id: str, order_id: str) -> list[dict[str, Any]]:

@@ -50,6 +50,11 @@ type ConfirmOrderState = {
   type: "MARKET" | "LIMIT";
   quantity: number;
   price?: number;
+  // The attached bracket, so the confirmation dialog shows the same stop and
+  // target the Position Builder sized the trade from — its TP/SL rows already
+  // render these; before the bracket was wired up they were never populated.
+  takeProfit?: number;
+  stopLoss?: number;
   _submit: () => Promise<unknown>;
 } | null;
 

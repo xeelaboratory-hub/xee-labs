@@ -75,13 +75,46 @@ class PlaceOrderRequest(BaseModel):
     # theoretical gap.
     quantity: float = Field(gt=0, allow_inf_nan=False)
     price: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    # Protective bracket, attached to the entry order itself via OKX's
+    # `attachAlgoOrds` (see okx_client._attach_algo_ords). Same gt/allow_inf_nan
+    # defense as quantity and price — these become trigger prices at the
+    # exchange, so a NaN reaching OKX is not a theoretical concern.
+    takeProfit: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    stopLoss: float | None = Field(default=None, gt=0, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def _limit_orders_require_a_price(self) -> "PlaceOrderRequest":
-        # Mirrors OrderPanel.tsx's existing client-side rule (validateOrderInput)
-        # — not a new business rule, just enforcing the same contract server-side.
+        # Mirrors PositionBuilderPanel's existing client-side rule
+        # (validateOrderInput) — not a new business rule, just enforcing the
+        # same contract server-side.
         if self.type == "LIMIT" and self.price is None:
             raise ValueError("price is required for LIMIT orders")
+        return self
+
+    @model_validator(mode="after")
+    def _bracket_must_straddle_the_limit_price(self) -> "PlaceOrderRequest":
+        """A stop-loss on the profitable side of the entry (or a take-profit on
+        the losing side) triggers the instant the order fills, closing the
+        position it was meant to protect. OKX rejects some of these itself, but
+        not uniformly, so catch it here where the error can name the field.
+
+        Only LIMIT orders are checked: a MARKET order has no server-side entry
+        price to compare against — it fills at whatever the book gives it. The
+        client validates those against the live tick (`validateOrderInput`),
+        which is the only reference either side actually has.
+        """
+        if self.type != "LIMIT" or self.price is None:
+            return self
+        if self.side == "BUY":
+            if self.stopLoss is not None and self.stopLoss >= self.price:
+                raise ValueError("stopLoss must be below the limit price for a BUY order")
+            if self.takeProfit is not None and self.takeProfit <= self.price:
+                raise ValueError("takeProfit must be above the limit price for a BUY order")
+        else:
+            if self.stopLoss is not None and self.stopLoss <= self.price:
+                raise ValueError("stopLoss must be above the limit price for a SELL order")
+            if self.takeProfit is not None and self.takeProfit >= self.price:
+                raise ValueError("takeProfit must be below the limit price for a SELL order")
         return self
 
 
@@ -155,6 +188,8 @@ async def place_order(
             ord_type=body.type.lower(),
             size=str(body.quantity),
             price=str(body.price) if body.price is not None else None,
+            tp_trigger_px=str(body.takeProfit) if body.takeProfit is not None else None,
+            sl_trigger_px=str(body.stopLoss) if body.stopLoss is not None else None,
         )
     except ExchangeError as exc:
         _log_exchange_error("place_order", exchange="okx", user=user, mode=mode, exc=exc)

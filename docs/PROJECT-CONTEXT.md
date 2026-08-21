@@ -109,20 +109,24 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
   table) — `App.tsx` loads them from the server on login and debounce-saves
   local changes back (500ms) via `PUT /api/preferences`. `localStorage` is
   only the source of truth for logged-out/offline use.
-- `npm run typecheck` currently fails with pre-existing errors confined to
-  `src/services/queries.ts` and `src/hooks/useTraderPreferences.ts` — both
-  are PropSim-fork leftovers with zero UI consumers for the affected code
-  paths (verified). Not expected to be fixed incidentally by unrelated work.
-- `npm run lint` has no ESLint config in the repo and fails immediately.
+- `npm run typecheck` and `npm run lint` are both clean repo-wide. This
+  reversed twice: the typecheck errors were confined to `services/queries.ts`
+  and `hooks/useTraderPreferences.ts` until `v1.6.3` removed the dead hooks
+  behind them, and ESLint had no config at all until `v1.6.4` added one
+  (`eslint.config.js`). The baseline is 0 errors / 0 warnings — see AGENTS.md
+  on why a warning here is worth reading rather than tolerating.
 
 ## Known limitations / intentional decisions (FACT)
 
-- **OKX conditional/algo orders are not wired up.** STOP orders,
-  take-profit/stop-loss (on order placement or on an existing position), and
-  amending a pending order are all **disabled in the UI** with an explicit
-  "not supported yet" message — not silently dropped. Wiring these means
-  integrating OKX's `attachAlgoOrds` / conditional-order API, which is a
-  distinct, not-yet-scoped piece of work.
+- **OKX conditional/algo orders are only partly wired up.** Take-profit and
+  stop-loss **on order placement** ship as of `v1.9.0` — they ride along with
+  the entry order as an OKX `attachAlgoOrds` bracket, so the stop the Position
+  Builder sizes a trade from actually reaches the exchange. What is still
+  **disabled in the UI** with an explicit "not supported yet" message — not
+  silently dropped — is everything needing OKX's separate `order-algo`
+  endpoints: editing TP/SL on an *existing* position, amending a pending
+  order, and STOP as a standalone order type (the chart's right-click quick
+  order). Those remain distinct, not-yet-scoped pieces of work.
 - **No real-time push for positions/orders/account balance.** The backend's
   `/ws` gateway only streams market data — OKX's private WS channels
   (account/positions/orders) aren't wired in. The frontend keeps these fresh
@@ -159,8 +163,10 @@ see [architecture/OVERVIEW.md](architecture/OVERVIEW.md).
   hook that makes them (`useTraderPreferences()`) is never actually invoked
   anywhere; only its sibling helper functions (`readTraderPrefs`,
   `writeTraderPrefs`, both `localStorage`-only) are used directly.
-- OKX conditional/algo orders (STOP, TP/SL, amend order) — see "Known
-  limitations / intentional decisions" above. This is the main remaining
+- OKX conditional/algo orders — the remaining three: TP/SL on an existing
+  position, amend order, and STOP as an order type. See "Known limitations /
+  intentional decisions" above. TP/SL at placement shipped in `v1.9.0`; these
+  three still need the `order-algo` endpoints, and are the main remaining
   piece of real trading functionality, not cleanup.
 Before acting on any of this, confirm scope with the project owner. (Order
 Book persistence, Large Order Statistics, ETF Flow, and Session Volume
