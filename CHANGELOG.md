@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-08-21
+
+### Fixed
+- ETF flow markers were anchored to the scrape timestamp rather than the day
+  they describe. `computeEtfFlowMarkers` used `observedAt` when present,
+  falling back to the flow's own date otherwise — but `observedAt` is scrape
+  provenance, not an event time: per `backend/app/db/models.py` it is "NULL
+  for historical backfill rows and set to the scraper's first-observation
+  time for genuinely new rows".
+
+  That caused two problems at once. Markers landed wherever the scraper
+  happened to run instead of on their `flowDate`, and because backfilled rows
+  carry NULL while freshly scraped rows carry a timestamp, adjacent days on
+  the same chart could be positioned by two different rules.
+
+  Markers now always anchor to `flowDate`. `observedAt` still travels through
+  the API contract and is used elsewhere; it is simply no longer treated as
+  an event time.
+
 ## [1.7.0] - 2026-08-21
 
 Closes the incident chain that ran through 1.6.5 and 1.6.6: one health signal
