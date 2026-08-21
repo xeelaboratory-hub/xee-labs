@@ -11,7 +11,8 @@ import {
   calcStopFromMargin,
   calcTakeProfitFromRr,
   type InstrumentSpec,
-  roundToTick,
+  type ProfileEntryLevel,
+  resolveProfileEntry,
   type Side,
 } from "./positionBuilder.ts";
 import { validateOrderInput } from "./order-validation.ts";
@@ -106,7 +107,7 @@ export function PositionBuilderPanel({
   // snapshot, not a subscription: the developing session's POC drifts, and a
   // limit price that moves under the trader while they read the plan is worse
   // than one that is a few points old. Clicking again takes a fresh value.
-  const [nextProfileLevel, setNextProfileLevel] = useState<"poc" | "vah">("poc");
+  const [nextProfileLevel, setNextProfileLevel] = useState<ProfileEntryLevel>("poc");
   const [rr, setRr] = useState("2");
 
   // Reset the chart preview whenever the symbol changes — a stale preview
@@ -124,16 +125,12 @@ export function PositionBuilderPanel({
 
   const applyProfileLevel = () => {
     if (!volumeProfile) return;
-    const raw = nextProfileLevel === "poc" ? volumeProfile.poc : volumeProfile.vah;
-    // A profile level is a bucket boundary, not a tradeable price — it lands on
-    // values like 76451.67166666666. Snap it to the instrument's tick the same
-    // way the stop and take-profit are snapped, or the exchange rejects it.
-    const value = roundToTick(raw, instrument.tickSz);
+    const { price, next } = resolveProfileEntry(nextProfileLevel, volumeProfile, instrument.tickSz);
     // Entry only reads limitPrice in limit mode — in market mode it tracks the
     // live tick, so setting a level without switching would silently do nothing.
     setEntryMode("limit");
-    setLimitPrice(String(value));
-    setNextProfileLevel(nextProfileLevel === "poc" ? "vah" : "poc");
+    setLimitPrice(String(price));
+    setNextProfileLevel(next);
   };
 
   const entry =

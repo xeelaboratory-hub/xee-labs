@@ -65,6 +65,28 @@ export function roundToTick(value: number, tickSz: number): number {
   return Number(rounded.toFixed(Math.min(12, precision + 2)));
 }
 
+/** Which session volume profile level the entry button will apply next. */
+export type ProfileEntryLevel = "poc" | "vah";
+
+/**
+ * Turns a volume profile level into a usable limit price, and reports which
+ * level the button should offer next.
+ *
+ * The rounding is the point. A profile level is a histogram bucket boundary,
+ * not a tradeable price — POC arrives as values like 76451.67166666666, which
+ * an exchange rejects. Snapping to the instrument's tick here keeps entry
+ * consistent with the stop and take-profit, which already go through
+ * roundToTick.
+ */
+export function resolveProfileEntry(
+  level: ProfileEntryLevel,
+  profile: { poc: number; vah: number },
+  tickSz: number,
+): { price: number; next: ProfileEntryLevel } {
+  const raw = level === "poc" ? profile.poc : profile.vah;
+  return { price: roundToTick(raw, tickSz), next: level === "poc" ? "vah" : "poc" };
+}
+
 /**
  * TP from risk/reward: distance from entry = stopDistance × RR.
  * Long: entry + dist · RR. Short: entry − dist · RR.

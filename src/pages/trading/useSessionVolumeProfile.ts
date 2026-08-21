@@ -7,7 +7,9 @@ import {
   isInSession,
   type OhlcvBar,
   type SessionMarket,
+  type SessionVolumeProfileSummary,
   sessionWindowsInRange,
+  summarizeLatestProfile,
 } from "../../lib/session-volume-profile.ts";
 import { api } from "../../services/api.ts";
 import { queryKeys } from "../../services/queries.ts";
@@ -17,20 +19,7 @@ import { TF_INTERVAL_MS, type Timeframe } from "./constants.ts";
 
 type VisibleTimeRange = { from: number; to: number };
 
-/** The compact slice of a profile that panels outside the chart care about.
- *
- * Deliberately excludes `rows`: the full profile is recomputed on every
- * visible-range change, and pushing it up the tree would re-render the whole
- * trading screen on each scroll. Only these scalars leave the hook. */
-export interface SessionVolumeProfileSummary {
-  market: SessionMarket;
-  date: string;
-  poc: number;
-  vah: number;
-  val: number;
-  totalVolume: number;
-  isDeveloping: boolean;
-}
+export type { SessionVolumeProfileSummary } from "../../lib/session-volume-profile.ts";
 
 function toOhlcv(bar: OhlcvBar): OhlcvBar {
   return {
@@ -215,22 +204,10 @@ export function useSessionVolumeProfile({
     primitiveRef.current?.setProfiles(active ? profiles : []);
   }, [active, profiles]);
 
-  // The most recent session, which is the developing one while a session is
-  // open. Several markets can be selected at once; the trade panel shows the
-  // one that describes where price is now.
-  const summary = useMemo<SessionVolumeProfileSummary | null>(() => {
-    if (!active || profiles.length === 0) return null;
-    const latest = profiles.reduce((newest, p) => (p.start > newest.start ? p : newest));
-    return {
-      market: latest.market,
-      date: latest.date,
-      poc: latest.poc,
-      vah: latest.vah,
-      val: latest.val,
-      totalVolume: latest.totalVolume,
-      isDeveloping: latest.isDeveloping,
-    };
-  }, [active, profiles]);
+  const summary = useMemo(
+    () => (active ? summarizeLatestProfile(profiles) : null),
+    [active, profiles],
+  );
 
   return { primitiveRef, summary };
 }
