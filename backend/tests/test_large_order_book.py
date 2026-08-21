@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 import httpx
+import pytest
 from fastapi import FastAPI
 
 from app.api.market_data import router
@@ -145,7 +146,12 @@ async def test_ws_updates_send_only_changed_and_removed_levels() -> None:
         bus.unsubscribe(queue)
 
 
+@pytest.mark.network
 async def test_okx_subscribes_only_to_the_connections_filtered_channels() -> None:
+    """Constructing cryptofeed's OKX feed fetches the live instrument list from
+    www.okx.com, so this test needs outbound internet — it fails with a proxy
+    403 in any sandboxed environment, on a clean checkout, unrelated to the
+    code under test."""
     sent: list[str] = []
 
     class Connection:

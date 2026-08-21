@@ -28,6 +28,12 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    # Reaches a real exchange over the network. Excluded in CI (see
+    # .github/workflows/ci.yml) so a green build never depends on OKX being
+    # up; a plain `pytest` still runs it.
+    "network: requires outbound internet access",
+]
 
 [tool.coverage.run]
 relative_files = true

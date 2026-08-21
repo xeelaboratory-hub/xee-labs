@@ -196,6 +196,26 @@ Postgres + the backend + the frontend together for local dev; see
   bump (see the comment at the top of each `requirements-lock.txt`); it's not
   meant to be hand-edited.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs the gates on every push to `main` and every PR
+into it — frontend `typecheck`, `lint`, `test` and `build` in one job, backend
+`pytest` in another. They are the same commands documented above, so a red run
+reproduces locally with no CI-specific incantation.
+
+One difference on purpose: CI runs `pytest -m "not network"`. The `network`
+marker covers the single test that constructs a cryptofeed OKX feed, which
+fetches the live instrument list from `www.okx.com` — a green build must not
+depend on an exchange being reachable, because a CI that goes red for reasons
+outside the diff is a CI people learn to ignore. A plain `pytest` locally
+still runs it, and should.
+
+There is no Docker build job yet. It compiles cryptofeed's C++ extension and
+installs the whole Python runtime, which is minutes per run and has already
+failed once on a PyPI read timeout unrelated to any code. Add it as its own
+job when it earns its place, not folded into the test jobs where an image
+registry hiccup would mask a real failure.
+
 ## Backups & recovery
 
 `scripts/backup-postgres.sh` / `scripts/restore-postgres.sh` — `pg_dump`/
