@@ -10,10 +10,11 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useIsDesktop } from "../../hooks/useIsDesktop.ts";
-import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
+import { type IndicatorType } from "../../lib/indicators.ts";
 import type { SessionMarket } from "../../lib/session-volume-profile.ts";
 import { cn, formatNumber } from "../../lib/utils.ts";
 import { TIMEFRAMES, type Timeframe } from "./constants.ts";
+import { IndicatorList } from "./IndicatorList.tsx";
 import { TimeframeMenu } from "./TimeframeMenu.tsx";
 
 export interface ChartToolbarProps {
@@ -237,9 +238,11 @@ export function ChartToolbar({
 
       <div className="h-4 border-l border-border mx-1 hidden md:block" />
 
-      {/* Indicators */}
-      {
-        <div className="relative hidden md:block">
+      {/* Indicators — a dropdown under the toolbar where there is room for
+          one, a sheet on a phone. Same list either way (IndicatorList), so the
+          Session Volume Profile's sub-controls cannot drift between them. */}
+      {isDesktop ? (
+        <div className="relative">
           <button
             onClick={onToggleIndicatorMenu}
             className={cn(
@@ -259,60 +262,81 @@ export function ChartToolbar({
           </button>
 
           {showIndicatorMenu && (
-            <div className="absolute top-full left-0 z-50 mt-1 w-64 bg-card border border-border rounded-lg shadow-xl p-2 space-y-0.5">
-              {INDICATOR_REGISTRY.map((ind) => (
-                <div key={ind.type}>
-                  <button
-                    onClick={() => onToggleIndicator(ind.type)}
-                    className={cn(
-                      "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-secondary text-left",
-                      activeIndicators.includes(ind.type) && "bg-secondary",
-                    )}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: ind.color }}
-                    />
-                    <span className="flex-1">{ind.label}</span>
-                    <span className="text-xs text-muted-foreground">{ind.pane}</span>
-                  </button>
-                  {ind.type === "SESSION_VOLUME_PROFILE" && activeIndicators.includes(ind.type) && (
-                    <div className="ml-4 mr-1 mt-1 space-y-2 rounded border border-border/70 bg-background/40 p-2">
-                      <div className="grid grid-cols-4 gap-1">
-                        {(["ASX", "TOKYO", "LONDON", "NEW_YORK"] as const).map((market) => (
-                          <button
-                            key={market}
-                            onClick={() => onSessionVolumeProfileMarket(market)}
-                            className={cn(
-                              "rounded px-1 py-1 text-xs font-medium hover:bg-secondary",
-                              sessionVolumeProfileMarkets.includes(market) && "bg-primary text-primary-foreground",
-                            )}
-                          >
-                            {market === "NEW_YORK" ? "NY" : market === "TOKYO" ? "TKY" : market}
-                          </button>
-                        ))}
-                      </div>
-                      <label className="flex items-center justify-between gap-2 text-[13px] text-muted-foreground">
-                        Rows
-                        <input
-                          aria-label="Session Volume Profile rows"
-                          type="number"
-                          min={10}
-                          max={100}
-                          step={1}
-                          value={sessionVolumeProfileRows}
-                          onChange={(event) => onSessionVolumeProfileRows(Number(event.target.value))}
-                          className="w-16 rounded border border-border bg-background px-1.5 py-0.5 text-right text-foreground outline-none focus:border-primary"
-                        />
-                      </label>
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="absolute top-full left-0 z-50 mt-1 w-64 bg-card border border-border rounded-lg shadow-xl p-2">
+              <IndicatorList
+                compact
+                activeIndicators={activeIndicators}
+                onToggleIndicator={onToggleIndicator}
+                sessionVolumeProfileMarkets={sessionVolumeProfileMarkets}
+                sessionVolumeProfileRows={sessionVolumeProfileRows}
+                onSessionVolumeProfileMarket={onSessionVolumeProfileMarket}
+                onSessionVolumeProfileRows={onSessionVolumeProfileRows}
+              />
             </div>
           )}
         </div>
-      }
+      ) : (
+        <div className="relative shrink-0">
+          <button
+            onClick={onToggleIndicatorMenu}
+            aria-haspopup="dialog"
+            aria-expanded={showIndicatorMenu}
+            aria-label={
+              activeIndicators.length > 0
+                ? `Indicators: ${activeIndicators.length} active`
+                : "Indicators"
+            }
+            className={cn(
+              "flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-md",
+              activeIndicators.length > 0
+                ? "bg-primary/20 text-primary"
+                : "text-muted-foreground active:bg-secondary",
+            )}
+          >
+            <BarChart3 className="h-5 w-5" aria-hidden="true" />
+            {activeIndicators.length > 0 && (
+              <span className="bg-primary text-primary-foreground rounded-full px-1 text-[11px]">
+                {activeIndicators.length}
+              </span>
+            )}
+          </button>
+
+          {showIndicatorMenu && (
+            <div className="fixed inset-0 z-[100] bg-black/60" onClick={onToggleIndicatorMenu}>
+              <div
+                role="dialog"
+                aria-label="Indicators"
+                className="fixed inset-x-0 top-0 flex max-h-[85vh] flex-col bg-card border-b border-border shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between p-3 border-b border-border">
+                  <span className="text-base font-semibold">Indicators</span>
+                  <button
+                    type="button"
+                    onClick={onToggleIndicatorMenu}
+                    aria-label="Close"
+                    className="p-1.5 rounded-md hover:bg-secondary"
+                  >
+                    <X className="h-8 w-8" aria-hidden="true" />
+                  </button>
+                </div>
+                {/* Scrolls on its own: the registry outgrows a phone screen
+                    once Session Volume Profile is on and expands. */}
+                <div className="flex-1 overflow-y-auto overscroll-contain p-2">
+                  <IndicatorList
+                    activeIndicators={activeIndicators}
+                    onToggleIndicator={onToggleIndicator}
+                    sessionVolumeProfileMarkets={sessionVolumeProfileMarkets}
+                    sessionVolumeProfileRows={sessionVolumeProfileRows}
+                    onSessionVolumeProfileMarket={onSessionVolumeProfileMarket}
+                    onSessionVolumeProfileRows={onSessionVolumeProfileRows}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 hidden md:block" />
 
