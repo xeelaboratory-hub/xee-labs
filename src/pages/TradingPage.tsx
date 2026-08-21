@@ -651,6 +651,7 @@ export function TradingPage() {
             {isDesktop && rightPanel === "dom" && <DOMPanel symbol={selectedSymbol} tick={tick} />}
             {isDesktop && rightPanel === "position-builder" && (
               <PositionBuilderPanel
+                onRequestSignIn={() => setShowSettings(true)}
                 symbol={selectedSymbol}
                 symbolInfo={symbolInfo}
                 tick={tick}
@@ -705,6 +706,7 @@ export function TradingPage() {
       {!isDesktop && mobileTab === "trade" && (
         <div className="flex flex-1 flex-col overflow-hidden">
           <PositionBuilderPanel
+            onRequestSignIn={() => setShowSettings(true)}
             symbol={selectedSymbol}
             symbolInfo={symbolInfo}
             tick={tick}

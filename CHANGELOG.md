@@ -26,6 +26,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hiding one with `md:` would put two controls for the same value in the tree
   and have a screen reader announce all sixteen.
 
+- **Switching to live trading took one tap and asked nothing.** The switch
+  places no order by itself — it decides which credentials the *next* order
+  uses, since `mode` selects a different credential row and a different OKX
+  host on every trading route. On a phone that control sits in the footer, in
+  the thumb's path, one tap from a Trade tab whose submit button is
+  deliberately 52px tall.
+
+  Going live now asks, and names what changes in money terms rather than in
+  mode names. Coming back to demo still does not: the asymmetry is the point,
+  since guarding the harmless direction trains people to dismiss the guard.
+
+  The active mode is also coloured by what it means. Both modes shared one
+  green, so at a glance the only thing telling real money from paper was a
+  four-letter word.
+
+- **A signed-out phone was told it had no money.** The Trade tab showed
+  `BALANCE $0.00` and a disabled submit, and the reason sat in a low-contrast
+  line reading "No Total Equity available" — which describes the symptom. The
+  cause is that nobody is signed in, and nothing said so or offered a way to
+  fix it. Signed out, the balance now reads as unavailable rather than zero,
+  and the panel says what to do and gives it a button.
+
+- **Prices rendered with more precision than the exchange has.** The entry
+  price showed `77,280.30000` — four digits past anything OKX quotes for BTC —
+  because the decimal count was a constant. It now comes from the instrument's
+  own tick size, falling back to 2 for an unknown tick: too few decimals hides
+  information, too many invent it, and the second is the worse failure on the
+  number an order is built from.
+
 - **The price scale reserved 80px of a 375px phone screen** — 21% of the
   width — because `rightPriceScale.minimumWidth` was a constant chosen for a
   desktop chart. It is a floor, not a width: the scale still grows to fit its

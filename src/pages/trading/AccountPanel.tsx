@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Settings } from "lucide-react";
+import { AlertTriangle, Settings } from "lucide-react";
+import { useState } from "react";
 import { ThemeSwitcher } from "../../components/ThemeSwitcher.tsx";
 import { api } from "../../services/api.ts";
 import { ApiError } from "../../services/api/request.ts";
@@ -22,6 +23,7 @@ export function AccountPanel({ onOpenSettings }: { onOpenSettings: () => void })
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const queryClient = useQueryClient();
+  const [confirmingLive, setConfirmingLive] = useState(false);
 
   const { error: accountError } = useQuery({
     queryKey: ["account", mode, user?.id ?? "guest"],
@@ -32,14 +34,31 @@ export function AccountPanel({ onOpenSettings }: { onOpenSettings: () => void })
   });
   const noCredentials = accountError instanceof ApiError && accountError.status === 404;
 
-  const switchMode = (next: TradingMode) => {
-    if (next === mode) return;
+  const applyMode = (next: TradingMode) => {
     setMode(next);
     queryClient.invalidateQueries({ queryKey: ["account"] });
     if (accessToken) {
       loadPositions();
       loadOrders();
     }
+  };
+
+  /**
+   * Going to live asks first; coming back to demo does not.
+   *
+   * The switch itself places nothing — but it decides which credentials the
+   * *next* order uses, and that order can be one tap away on a phone, where
+   * this control sits in the thumb's path. The asymmetry is the point: a
+   * mistake in one direction costs real money, and in the other it costs a
+   * tap.
+   */
+  const switchMode = (next: TradingMode) => {
+    if (next === mode) return;
+    if (next === "live") {
+      setConfirmingLive(true);
+      return;
+    }
+    applyMode(next);
   };
 
   return (
@@ -55,7 +74,15 @@ export function AccountPanel({ onOpenSettings }: { onOpenSettings: () => void })
               // status-bar sizing it was drawn for.
               "px-2 py-0.5 text-xs font-semibold uppercase tracking-wide",
               "max-md:flex max-md:min-h-[44px] max-md:min-w-[44px] max-md:items-center max-md:justify-center",
-              m === mode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary",
+              m === mode
+                ? m === "live"
+                  // Live is the one state where the colour is load-bearing:
+                  // the two modes were the same green, so the only thing
+                  // distinguishing "real money" from "not" was a four-letter
+                  // word at a glance.
+                  ? "bg-destructive text-destructive-foreground"
+                  : "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-secondary",
             )}
           >
             {m}
@@ -85,6 +112,50 @@ export function AccountPanel({ onOpenSettings }: { onOpenSettings: () => void })
         >
           Log in
         </button>
+      )}
+
+      {confirmingLive && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setConfirmingLive(false)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-label="Switch to live trading"
+            className="w-full max-w-sm rounded-lg border border-border bg-card p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-8 w-8 shrink-0 text-destructive" aria-hidden="true" />
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-foreground">Switch to live trading?</p>
+                <p className="text-sm text-muted-foreground">
+                  Orders placed after this use your real OKX account and real funds.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmingLive(false)}
+                className="min-h-[44px] flex-1 rounded-md border border-border text-sm font-medium hover:bg-secondary"
+              >
+                Stay in Demo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingLive(false);
+                  applyMode("live");
+                }}
+                className="min-h-[44px] flex-1 rounded-md bg-destructive text-sm font-semibold text-destructive-foreground"
+              >
+                Go Live
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="flex items-center gap-2 ml-auto shrink-0">

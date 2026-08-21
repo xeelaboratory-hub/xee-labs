@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cn, formatCurrency, formatNumber, pnlClass } from "@/lib/utils";
+import { cn, decimalsFromTick, formatCurrency, formatNumber, pnlClass } from "@/lib/utils";
 
 describe("cn (class name merge)", () => {
   it("merges class names", () => {
@@ -73,5 +73,36 @@ describe("pnlClass", () => {
 
   it("returns muted for zero", () => {
     expect(pnlClass(0)).toBe("text-muted-foreground");
+  });
+});
+
+describe("decimalsFromTick", () => {
+  it("takes its precision from the exchange's own tick", () => {
+    // The defect: a constant 5 rendered BTC as 77,280.30000, four digits past
+    // anything OKX quotes, on the number an order is built from.
+    expect(decimalsFromTick(0.1)).toBe(1);
+    expect(decimalsFromTick(0.01)).toBe(2);
+    expect(decimalsFromTick(0.00001)).toBe(5);
+  });
+
+  it("gives a whole-tick instrument no decimals at all", () => {
+    expect(decimalsFromTick(1)).toBe(0);
+    expect(decimalsFromTick(10)).toBe(0);
+  });
+
+  it("falls back to 2 rather than inventing precision", () => {
+    // Too few decimals hides information; too many fabricate it. For an
+    // unknown tick the second failure is the worse one.
+    expect(decimalsFromTick(undefined)).toBe(2);
+    expect(decimalsFromTick(0)).toBe(2);
+    expect(decimalsFromTick(-1)).toBe(2);
+    expect(decimalsFromTick(Number.NaN)).toBe(2);
+    expect(decimalsFromTick(Number.POSITIVE_INFINITY)).toBe(2);
+  });
+
+  it("reads a tiny tick as digits, not as an exponent", () => {
+    // String(1e-7) is "1e-7" — splitting that on "." counts no decimals and
+    // silently rounds a real price to a whole number.
+    expect(decimalsFromTick(1e-7)).toBe(7);
   });
 });
