@@ -110,6 +110,16 @@ live call to `www.okx.com`. It carries a `network` marker, so CI deselects it
 (`pytest -m "not network"`: 211 passed, 1 deselected) and a green build never
 depends on an exchange being up. A plain `pytest` locally still runs it.
 
+**There is no production, and the only running instance is the author's
+machine.** Releases are tagged and published on GitHub, which is a versioning
+act rather than a deployment one: `.github/workflows/` holds `ci.yml` and
+nothing else — no deploy job, no host, no domain. What runs is docker compose
+on the author's desktop, reachable at `localhost:8080`, on the LAN, and
+through the Tailscale tunnel below. From a phone that arrangement reads like a
+deployed product; it disappears when the machine sleeps or reboots. Say "the
+running instance", not "production", and expect the question to come up again
+— it is genuinely not obvious from the outside.
+
 Whether the environment is already running depends on where you picked this
 up. On the author's machine it usually is; a fresh cloud container has
 nothing running and no Docker daemon, and needs `npm ci` before the frontend
@@ -198,6 +208,20 @@ than restarting it.
 9. **`@playwright/test` is installed with no config and no specs.** The money
    path — login, order placement, cancellation, closing a position — has no
    end-to-end coverage in either suite.
+
+Two findings from the `v1.12.0` mobile review were examined and deliberately
+left, so they don't get rediscovered as bugs:
+
+- **The phone spends ~108px on bottom chrome** (57px tab bar + 51px footer).
+  Folding the footer away was measured and rejected: the toolbar has no room
+  for its controls at 375px (symbol, price, timeframe and indicators already
+  take ~289 of it), the theme switcher exists nowhere else, and the footer is
+  where DEMO/LIVE lives — burying that contradicts the confirmation `v1.12.0`
+  added in front of going live.
+- **The price axis is 68px because of its label text**, not the floor that was
+  lowered from 80. Reclaiming the rest means dropping decimals from
+  `79600.00`, which is a precision decision on a trading chart rather than a
+  layout one, and was left to the owner.
 
 (Item 3's old entry — a stale `OrderPanel.tsx` reference in
 `services/schemas.ts` — was fixed in `v1.9.0`, which rewrote that comment.
