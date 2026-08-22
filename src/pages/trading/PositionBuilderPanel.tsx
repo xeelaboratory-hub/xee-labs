@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
-import { TrendingUp, TrendingDown, Zap, Volume2, VolumeX } from "lucide-react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  AlertTriangle,
+  ChevronRight,
+  TrendingDown,
+  TrendingUp,
+  Volume2,
+  VolumeX,
+  Zap,
+} from "lucide-react";
 import { Button } from "../../components/ui/button.tsx";
 import { PanelHeader } from "../../components/PanelHeader.tsx";
 import { DisconnectedTradingBanner } from "../../components/ConnectionIndicator.tsx";
+import { useIsDesktop } from "../../hooks/useIsDesktop.ts";
 import { decimalsFromTick, formatCurrency, formatNumber, cn } from "../../lib/utils.ts";
-import { mobileIcon, mobileText } from "../../lib/mobile-ui.ts";
+import { mobileForm, mobileIcon, mobilePage, mobileText, mobileTouch } from "../../lib/mobile-ui.ts";
 import { useAuthStore } from "../../services/store.tsx";
 import { useInstrument, usePlaceOrder } from "../../services/queries.ts";
 import type { PlaceOrderInput, Symbol, TradingMode } from "../../services/schemas.ts";
@@ -28,6 +37,80 @@ const MARKET_LABELS: Record<string, string> = {
   LONDON: "LONDON",
   NEW_YORK: "NY",
 };
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className={cn(mobileText.label, "uppercase tracking-wide text-muted-foreground")}>
+      {children}
+    </span>
+  );
+}
+
+function PreviewRow({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: ReactNode;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-0.5">
+      <span className={cn(mobileText.meta, "shrink-0 text-muted-foreground")}>{label}</span>
+      <span className={cn(mobileText.primaryMono, "truncate text-right", valueClassName)}>{value}</span>
+    </div>
+  );
+}
+
+function MobileVolumeProfileSection({
+  volumeProfile,
+  expanded,
+  onToggle,
+}: {
+  volumeProfile: SessionVolumeProfileSummary;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const marketLabel = MARKET_LABELS[volumeProfile.market] ?? volumeProfile.market;
+  return (
+    <div className="border-t border-border pt-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        data-testid="volume-profile-toggle"
+        className={cn(
+          "flex w-full items-center justify-between gap-2 rounded-md py-1 text-left",
+          mobileForm.control,
+          "min-h-0 h-auto",
+        )}
+      >
+        <span className={cn(mobileText.ui, "text-foreground")}>
+          Volume Profile · {marketLabel}
+          {volumeProfile.isDeveloping && (
+            <span className={cn(mobileText.meta, "text-muted-foreground")}> · developing</span>
+          )}
+        </span>
+        <ChevronRight
+          className={cn(mobileIcon.ui, "shrink-0 text-muted-foreground transition-transform", expanded && "rotate-90")}
+          aria-hidden="true"
+        />
+      </button>
+      {expanded && (
+        <div className="mt-1 space-y-0.5 border-l border-border/60 pl-2" data-testid="volume-profile-details">
+          <PreviewRow label="Value Area High" value={formatNumber(volumeProfile.vah, 2)} />
+          <PreviewRow
+            label="Point of Control"
+            value={formatNumber(volumeProfile.poc, 2)}
+            valueClassName="text-warning"
+          />
+          <PreviewRow label="Value Area Low" value={formatNumber(volumeProfile.val, 2)} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export interface PositionBuilderPreview {
   entry: number;
@@ -114,6 +197,8 @@ export function PositionBuilderPanel({
   // than one that is a few points old. Clicking again takes a fresh value.
   const [nextProfileLevel, setNextProfileLevel] = useState<ProfileEntryLevel>("poc");
   const [rr, setRr] = useState("2");
+  const isDesktop = useIsDesktop();
+  const [volumeProfileExpanded, setVolumeProfileExpanded] = useState(false);
 
   // Reset the chart preview whenever the symbol changes — a stale preview
   // from the previous symbol must never linger on the new chart.
@@ -273,46 +358,311 @@ export function PositionBuilderPanel({
     doSubmit();
   };
 
+  const mobileInputClass = cn(
+    "w-full rounded border border-border bg-background px-2 font-mono tabular-nums",
+    mobileForm.control,
+    mobileText.ui,
+  );
+
+  const mobileSegmentClass = (active: boolean) =>
+    cn(
+      mobileForm.control,
+      mobileText.ui,
+      "rounded border border-border transition-colors",
+      active ? "bg-primary text-primary-foreground border-primary" : "hover:bg-secondary",
+    );
+
+  const headerControls = (
+    <div className="flex items-center gap-1 shrink-0">
+      <button
+        onClick={handleToggleMute}
+        className={cn(
+          "flex items-center justify-center rounded border transition-colors",
+          isDesktop
+            ? "gap-1 px-1.5 py-1 text-meta font-medium"
+            : cn(mobileTouch.headerIcon, "border-border"),
+          !soundMuted
+            ? "bg-accent/15 text-accent border-accent/30"
+            : "text-muted-foreground border-border hover:bg-secondary",
+        )}
+        title={soundMuted ? "Unmute trade sounds" : "Mute trade sounds"}
+        aria-label={soundMuted ? "Unmute trade sounds" : "Mute trade sounds"}
+      >
+        {soundMuted ? (
+          <VolumeX className={isDesktop ? "h-7 w-7" : mobileIcon.ui} />
+        ) : (
+          <Volume2 className={isDesktop ? "h-7 w-7" : mobileIcon.ui} />
+        )}
+      </button>
+      <button
+        onClick={handleToggleOneClick}
+        className={cn(
+          "flex items-center justify-center rounded border transition-colors",
+          isDesktop
+            ? "gap-1 px-1.5 py-1 text-meta font-medium"
+            : cn(mobileTouch.headerIcon, "border-border"),
+          oneClick
+            ? "bg-buy/15 text-buy border-buy/30"
+            : "text-muted-foreground border-border hover:bg-secondary",
+        )}
+        title="One-click trading: skip confirmation for market orders"
+        aria-label="One-click trading"
+      >
+        <Zap className={isDesktop ? "h-7 w-7" : mobileIcon.ui} />
+        {isDesktop && "1-Click"}
+      </button>
+    </div>
+  );
+
+  const orderStatusMessages = (
+    <>
+      {placeOrder.isError && (
+        <p className="text-destructive text-xs mt-1 p-1.5 bg-destructive/10 rounded">
+          {(placeOrder.error as { message?: string } | null)?.message || "Order failed"}
+        </p>
+      )}
+      {placeOrder.isSuccess && (
+        <p className="text-buy text-xs mt-1 p-1.5 bg-buy/10 rounded">Order placed successfully</p>
+      )}
+    </>
+  );
+
+  const applyButton = (
+    <Button
+      variant={side === "long" ? "buy" : "sell"}
+      className={cn(
+        "w-full",
+        isDesktop ? "text-sm" : cn(mobileForm.cta, mobileText.ui, "font-semibold"),
+      )}
+      onClick={handleApply}
+      loading={placeOrder.isPending}
+      disabled={!canApply || !isFeedConnected || placeOrder.isPending}
+      title={
+        !isOkx
+          ? "Apply to Order is only available for OKX symbols"
+          : !isFeedConnected
+            ? "Cannot place orders while disconnected from the data feed"
+            : undefined
+      }
+    >
+      {placeOrder.isPending ? "Placing…" : "Apply to Order"}
+    </Button>
+  );
+
+  if (!isDesktop) {
+    return (
+      <div className="flex flex-col h-full" data-testid="position-builder">
+        <PanelHeader
+          title="Trade Setup"
+          titleClassName={cn(mobileText.ui, "font-semibold normal-case text-foreground")}
+          right={headerControls}
+          className="py-1.5"
+        >
+          <div className="mt-1 flex items-baseline justify-between gap-2">
+            <span className={cn(mobileText.primaryMono, isSignedIn ? "text-foreground" : "text-muted-foreground")}>
+              {isSignedIn ? formatCurrency(accountEquity) : "—"}
+            </span>
+            <span className={cn(mobileText.meta, "truncate text-muted-foreground uppercase")}>{symbol}</span>
+          </div>
+        </PanelHeader>
+
+        <div className={cn("flex-1 overflow-y-auto overscroll-contain", mobilePage.paddingX, "py-2", mobileForm.sectionGap)}>
+          <div className={cn("grid grid-cols-2", mobileForm.rowGap)}>
+            <button type="button" onClick={() => setSide("long")} className={mobileSegmentClass(side === "long")}>
+              <TrendingUp className={cn(mobileIcon.ui, "mr-1")} aria-hidden="true" />
+              Long
+            </button>
+            <button type="button" onClick={() => setSide("short")} className={mobileSegmentClass(side === "short")}>
+              <TrendingDown className={cn(mobileIcon.ui, "mr-1")} aria-hidden="true" />
+              Short
+            </button>
+          </div>
+
+          <div className={cn("grid grid-cols-2", mobileForm.rowGap)}>
+            <label className={mobileForm.sectionGap}>
+              <FieldLabel>Risk %</FieldLabel>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={riskPercent}
+                onChange={(e) => setRiskPercent(e.target.value)}
+                className={mobileInputClass}
+                step="0.1"
+                min="0"
+              />
+            </label>
+            <label className={mobileForm.sectionGap}>
+              <FieldLabel>Leverage</FieldLabel>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={leverage}
+                onChange={(e) => setLeverage(e.target.value)}
+                className={mobileInputClass}
+                step="1"
+                min="0"
+              />
+              {instrument.maxLever > 0 && (
+                <span className={cn(mobileText.meta, "text-muted-foreground")}>max {instrument.maxLever}x</span>
+              )}
+            </label>
+          </div>
+
+          <div className={mobileForm.sectionGap}>
+            <FieldLabel>Entry</FieldLabel>
+            <div className={cn("grid grid-cols-2 mt-1", mobileForm.rowGap)}>
+              <button type="button" onClick={() => setEntryMode("market")} className={mobileSegmentClass(entryMode === "market")}>
+                Market
+              </button>
+              <button type="button" onClick={() => setEntryMode("limit")} className={mobileSegmentClass(entryMode === "limit")}>
+                Limit
+              </button>
+            </div>
+            <div className={cn("mt-1 flex gap-2", mobileForm.rowGap)}>
+              {entryMode === "limit" ? (
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={limitPrice}
+                  onChange={(e) => setLimitPrice(e.target.value)}
+                  placeholder={tick ? formatNumber(side === "long" ? tick.ask : tick.bid, priceDigits) : ""}
+                  className={cn(mobileInputClass, "min-w-0 flex-1")}
+                  step="any"
+                />
+              ) : (
+                <div
+                  className={cn(
+                    mobileInputClass,
+                    "flex min-w-0 flex-1 items-center bg-secondary/40 text-foreground",
+                  )}
+                >
+                  {entry > 0 ? formatNumber(entry, priceDigits) : "—"}
+                </div>
+              )}
+              {volumeProfile && (
+                <button
+                  type="button"
+                  onClick={applyProfileLevel}
+                  title="Set the entry to this session's volume profile level. Switches the order to Limit, since a market entry follows the live price."
+                  className={cn(
+                    mobileForm.control,
+                    mobileText.label,
+                    "shrink-0 rounded border border-border px-2 font-semibold uppercase tracking-wide hover:bg-secondary",
+                  )}
+                >
+                  Use {nextProfileLevel === "poc" ? "POC" : "VAH"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <label className={cn("block", mobileForm.sectionGap)}>
+            <FieldLabel>RR</FieldLabel>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={rr}
+              onChange={(e) => setRr(e.target.value)}
+              className={mobileInputClass}
+              step="0.1"
+              min="0"
+            />
+          </label>
+
+          <div className="border-t border-border pt-2" data-testid="order-preview">
+            <FieldLabel>Order Preview</FieldLabel>
+            <div className="mt-1">
+              {!isSignedIn ? (
+                <div className="space-y-2 py-1">
+                  <p className={cn(mobileText.meta, "text-muted-foreground")}>Sign in to size and place orders.</p>
+                  {onRequestSignIn && (
+                    <Button variant="outline" size="sm" className={mobileForm.control} onClick={onRequestSignIn}>
+                      Sign In
+                    </Button>
+                  )}
+                </div>
+              ) : !plan.ok ? (
+                <p className={cn(mobileText.meta, "text-muted-foreground py-1")}>{plan.error}</p>
+              ) : (
+                <>
+                  <PreviewRow label="Stop Loss" value={formatNumber(plan.stop, 2)} valueClassName="text-sell" />
+                  <PreviewRow
+                    label="Take Profit"
+                    value={tpPlan ? formatNumber(tpPlan.takeProfit, 2) : "—"}
+                    valueClassName="text-buy"
+                  />
+                  <PreviewRow label="Risk" value={formatCurrency(plan.riskAmount)} />
+                  <PreviewRow
+                    label="Reward"
+                    value={tpPlan ? formatCurrency(plan.riskAmount * (Number(rr) || 0)) : "—"}
+                    valueClassName="text-buy"
+                  />
+                  <PreviewRow
+                    label="Liquidation"
+                    value={formatNumber(plan.approxLiq, 2)}
+                    valueClassName="text-orange-500"
+                  />
+                  {plan.warnings.map((w) => (
+                    <p
+                      key={w}
+                      className="mt-1 flex items-start gap-1.5 rounded border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-destructive"
+                    >
+                      <AlertTriangle className={cn(mobileIcon.status, "mt-0.5 shrink-0")} aria-hidden="true" />
+                      <span className={mobileText.ui}>{w}</span>
+                    </p>
+                  ))}
+                  <details className="mt-1">
+                    <summary className={cn(mobileText.meta, "cursor-pointer text-muted-foreground")}>
+                      Estimate notes
+                    </summary>
+                    <div className={cn(mobileText.meta, "mt-1 space-y-1 text-muted-foreground")}>
+                      <p>Liquidation is a rough isolated-margin estimate — it ignores fees and maintenance margin.</p>
+                      {isApproximateInstrument && (
+                        <p>
+                          {isOkx && isLoadingInstrument
+                            ? "Loading real OKX instrument specs…"
+                            : "Using approximate instrument data — not exchange-accurate."}
+                        </p>
+                      )}
+                    </div>
+                  </details>
+                </>
+              )}
+            </div>
+          </div>
+
+          {volumeProfile && plan.ok && isSignedIn && (
+            <MobileVolumeProfileSection
+              volumeProfile={volumeProfile}
+              expanded={volumeProfileExpanded}
+              onToggle={() => setVolumeProfileExpanded((v) => !v)}
+            />
+          )}
+
+          {orderStatusMessages}
+        </div>
+
+        <div
+          className={cn(
+            "shrink-0 border-t border-border bg-card",
+            mobilePage.paddingX,
+            "pt-2 pb-2 safe-area-bottom",
+          )}
+          data-testid="trade-apply-footer"
+        >
+          {!isFeedConnected && <DisconnectedTradingBanner />}
+          {applyButton}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full" data-testid="position-builder">
       <PanelHeader
         title="TRADE SETUP"
         titleClassName="max-md:text-data max-md:font-bold md:text-[13px] font-extrabold tracking-wide normal-case text-foreground"
-        right={
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={handleToggleMute}
-              className={cn(
-                "flex items-center gap-1 px-1.5 py-1 rounded text-meta font-medium border transition-colors",
-                "max-md:min-h-[44px] max-md:min-w-[44px] max-md:justify-center",
-                !soundMuted
-                  ? "bg-accent/15 text-accent border-accent/30"
-                  : "text-muted-foreground border-border hover:bg-secondary",
-              )}
-              title={soundMuted ? "Unmute trade sounds" : "Mute trade sounds"}
-            >
-              {soundMuted ? (
-                <VolumeX className="max-md:h-4 max-md:w-4 md:h-7 md:w-7" />
-              ) : (
-                <Volume2 className="max-md:h-4 max-md:w-4 md:h-7 md:w-7" />
-              )}
-            </button>
-            <button
-              onClick={handleToggleOneClick}
-              className={cn(
-                "flex items-center gap-1 px-1.5 py-1 rounded text-meta font-medium border transition-colors",
-                "max-md:min-h-[44px] max-md:min-w-[44px] max-md:justify-center",
-                oneClick
-                  ? "bg-buy/15 text-buy border-buy/30"
-                  : "text-muted-foreground border-border hover:bg-secondary",
-              )}
-              title="One-click trading: skip confirmation for market orders"
-            >
-              <Zap className="max-md:h-4 max-md:w-4 md:h-7 md:w-7" />
-              1-Click
-            </button>
-          </div>
-        }
+        right={headerControls}
       >
         <div className="mt-1.5 flex items-baseline justify-between gap-2">
           <div className="flex items-baseline gap-1.5">
@@ -552,41 +902,12 @@ export function PositionBuilderPanel({
           )}
         </div>
 
-        {/* Pinned to the bottom of the scroll area on a phone. The panel is
-            taller than a phone screen once a plan is showing, and the control
-            that sends the order should not be something you have to scroll to
-            find. Desktop keeps it in normal flow — the right panel fits. */}
-        <div className="max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-3 max-md:-mb-3 max-md:space-y-2 max-md:border-t max-md:border-border max-md:bg-card max-md:px-3 max-md:pb-3 max-md:pt-2">
-        {!isFeedConnected && <DisconnectedTradingBanner />}
-        <Button
-          variant={side === "long" ? "buy" : "sell"}
-          // Taller on a phone than the 44px floor on purpose: this is the
-          // control that sends a real order to a real exchange, and it sits
-          // directly above the tab bar where a thumb rests.
-          className="w-full max-md:min-h-[48px] max-md:text-xs max-md:font-semibold md:text-sm"
-          onClick={handleApply}
-          loading={placeOrder.isPending}
-          disabled={!canApply || !isFeedConnected || placeOrder.isPending}
-          title={
-            !isOkx
-              ? "Apply to Order is only available for OKX symbols"
-              : !isFeedConnected
-                ? "Cannot place orders while disconnected from the data feed"
-                : undefined
-          }
-        >
-          {placeOrder.isPending ? "Placing…" : "Apply to Order"}
-        </Button>
+        <div className="space-y-2">
+          {!isFeedConnected && <DisconnectedTradingBanner />}
+          {applyButton}
         </div>
 
-        {placeOrder.isError && (
-          <p className="text-destructive text-xs mt-1 p-1.5 bg-destructive/10 rounded">
-            {(placeOrder.error as { message?: string } | null)?.message || "Order failed"}
-          </p>
-        )}
-        {placeOrder.isSuccess && (
-          <p className="text-buy text-xs mt-1 p-1.5 bg-buy/10 rounded">Order placed successfully</p>
-        )}
+        {orderStatusMessages}
       </div>
     </div>
   );

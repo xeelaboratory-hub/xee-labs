@@ -45,3 +45,11 @@ export const mobilePage = {
   sectionGap: "space-y-3",
   rowGap: "gap-3",
 } as const;
+
+/** Compact form controls — 44px touch floor, chart-header density. */
+export const mobileForm = {
+  control: "h-11 min-h-[44px]",
+  cta: "h-12 min-h-[48px]",
+  sectionGap: "space-y-2",
+  rowGap: "gap-2",
+} as const;
