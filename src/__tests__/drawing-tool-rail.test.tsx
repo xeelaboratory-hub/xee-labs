@@ -2,7 +2,10 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DrawingToolRail } from "@/pages/trading/DrawingToolRail";
+import {
+  DrawingToolRail,
+  MOBILE_MEDIA_QUERY,
+} from "@/pages/trading/DrawingToolRail";
 import type { DrawingTool } from "@/pages/trading/constants";
 
 function RailHarness({
@@ -111,8 +114,6 @@ describe("DrawingToolRail on a phone", () => {
   function setViewport(matches: boolean) {
     // The rail reads the breakpoint once at mount, so this has to be in place
     // before render — see the collapsed initialiser in DrawingToolRail.
-    // `matches` means phone: the query is a comma-separated OR over a narrow
-    // width and a short height, so landscape counts too.
     vi.spyOn(window, "matchMedia").mockImplementation(
       (query: string) =>
         ({
@@ -136,8 +137,6 @@ describe("DrawingToolRail on a phone", () => {
     setViewport(true);
     render(<RailHarness />);
 
-    // Expanded, the rail is a full-height column of tools over the chart. On a
-    // phone that column costs the chart 36 of its 390 pixels, permanently.
     expect(screen.getByRole("button", { name: /show drawing tools/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cursor" })).not.toBeInTheDocument();
   });
@@ -150,9 +149,6 @@ describe("DrawingToolRail on a phone", () => {
   });
 
   it("asks about height too, so landscape does not open it over the chart", () => {
-    // The whole reason this changed: a phone in landscape is 844px across,
-    // which cleared a width-only query and unfurled a full-height tool column
-    // across the chart the rotation was for.
     const queries: string[] = [];
     vi.spyOn(window, "matchMedia").mockImplementation((query: string) => {
       queries.push(query);
@@ -169,6 +165,7 @@ describe("DrawingToolRail on a phone", () => {
     });
     render(<RailHarness />);
     expect(queries.some((q) => q.includes("max-height"))).toBe(true);
+    expect(queries.some((q) => q === MOBILE_MEDIA_QUERY)).toBe(true);
   });
 
   it("opens on demand when collapsed", async () => {
@@ -178,5 +175,21 @@ describe("DrawingToolRail on a phone", () => {
     await userEvent.click(screen.getByRole("button", { name: /show drawing tools/i }));
 
     expect(screen.getByRole("button", { name: "Cursor" })).toBeInTheDocument();
+  });
+
+  it("renders as a non-layout overlay with a scrollable tool column", async () => {
+    setViewport(true);
+    const { container } = render(<RailHarness />);
+
+    await userEvent.click(screen.getByRole("button", { name: /show drawing tools/i }));
+
+    const overlay = container.querySelector('[data-mobile-overlay="true"]');
+    expect(overlay).toBeInTheDocument();
+    expect(overlay?.className).toContain("pointer-events-none");
+    expect(overlay?.className).toContain("absolute");
+
+    const scrollRegion = container.querySelector('[data-mobile-tool-scroll="true"]');
+    expect(scrollRegion).toBeInTheDocument();
+    expect(scrollRegion?.className).toContain("overflow-y-auto");
   });
 });
