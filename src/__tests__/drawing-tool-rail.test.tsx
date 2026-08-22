@@ -202,7 +202,11 @@ describe("DrawingToolRail on a phone", () => {
 
     const groupShell = screen.getByRole("button", { name: "Lines: Trend Line" }).parentElement;
     expect(groupShell?.className).toContain("overflow-hidden");
-    expect(groupShell?.className).toContain("w-9");
+    expect(groupShell?.className).toContain("h-9");
     expect(groupShell?.className).toContain("text-primary");
+
+    const chevronBtn = screen.getByRole("button", { name: "Choose lines tool" });
+    expect(chevronBtn.className).toContain("absolute");
+    expect(chevronBtn.className).toContain("h-3.5");
   });
 });

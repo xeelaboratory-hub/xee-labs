@@ -39,6 +39,9 @@ export const MOBILE_MEDIA_QUERY = "(max-width: 767px), (max-height: 499.98px)";
 /** Expanded mobile rail width — compact overlay, comfortable touch targets inside. */
 const MOBILE_RAIL_WIDTH = "w-[50px]";
 
+/** LC time-axis row height (~27px on mobile) — keep the rail above it. */
+const MOBILE_TIME_AXIS_INSET = "bottom-7";
+
 /** Fixed item box — icons centered, backgrounds clipped inside the rail. */
 const MOBILE_ITEM_BOX = cn(mobileTouch.headerIcon, "shrink-0 overflow-hidden");
 
@@ -195,6 +198,75 @@ function RailGroup({
         onClick={onActivate}
         isMobile={isMobile}
       />
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="relative shrink-0">
+        <div
+          className={cn(
+            MOBILE_ITEM_BOX,
+            "relative rounded-md transition-colors",
+            active ? "bg-primary/15 text-primary" : "text-muted-foreground",
+          )}
+        >
+          <button
+            type="button"
+            title={title}
+            aria-label={title}
+            onClick={onActivate}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            <Icon className={mobileIcon.ui} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            title={`Choose ${group.label.toLowerCase()} tool`}
+            aria-label={`Choose ${group.label.toLowerCase()} tool`}
+            aria-expanded={open}
+            onClick={onToggle}
+            className="absolute bottom-0 right-0 flex h-3.5 w-3.5 items-center justify-center text-muted-foreground/80"
+          >
+            <ChevronRight
+              className={cn("h-2 w-2 transition-transform", open && "rotate-90")}
+              strokeWidth={2.5}
+            />
+          </button>
+        </div>
+
+        {open && (
+          <div
+            role="menu"
+            className="absolute left-full top-0 z-40 ml-1.5 min-w-[200px] rounded-md border border-border bg-card py-1 shadow-lg"
+          >
+            <div className="px-2.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {group.label}
+            </div>
+            {group.tools.map((t) => {
+              const selected = activeTool === t.tool;
+              return (
+                <button
+                  key={t.tool}
+                  type="button"
+                  role="menuitem"
+                  aria-label={t.label}
+                  onClick={() => onSelect(t.tool)}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-sm transition-colors",
+                    "hover:bg-secondary",
+                    selected ? "bg-secondary/80 text-primary" : "text-foreground",
+                  )}
+                >
+                  <t.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                  <span className="flex-1">{t.label}</span>
+                  {selected && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -498,7 +570,12 @@ export function DrawingToolRail({
 
   if (collapsed) {
     return (
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-30 flex items-center">
+      <div
+        className={cn(
+          "pointer-events-none absolute left-0 z-30 flex items-center",
+          isMobile ? cn("top-0", MOBILE_TIME_AXIS_INSET) : "inset-y-0",
+        )}
+      >
         <button
           type="button"
           title="Show drawing tools"
@@ -524,13 +601,16 @@ export function DrawingToolRail({
     return (
       <div
         ref={ref}
-        className="pointer-events-none absolute inset-y-0 left-0 z-30 flex items-stretch"
+        className={cn(
+          "pointer-events-none absolute top-0 left-0 z-30 flex items-stretch",
+          MOBILE_TIME_AXIS_INSET,
+        )}
         data-mobile-overlay="true"
       >
         <div
           className={cn(
             MOBILE_RAIL_WIDTH,
-            "pointer-events-auto flex h-full flex-col items-center rounded-r-lg border border-l-0 border-border bg-card/95 py-1 shadow-lg backdrop-blur-[2px]",
+            "pointer-events-auto flex h-full flex-col items-center rounded-r-lg border-y border-l-0 border-r-0 border-border bg-card/90 py-1 shadow-md backdrop-blur-[2px]",
           )}
         >
           <button
@@ -548,12 +628,12 @@ export function DrawingToolRail({
           </button>
 
           <div
-            className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain"
+            className="no-scrollbar flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain"
             data-mobile-tool-scroll="true"
           >
-            <div className="flex w-full flex-col items-center gap-0.5 px-0.5">{toolButtons}</div>
+            <div className="flex w-full flex-col items-center gap-0.5">{toolButtons}</div>
             <div className="flex-1 min-h-2" />
-            <div className="flex w-full flex-col items-center gap-0.5 px-0.5 pb-0.5">
+            <div className="flex w-full flex-col items-center gap-0.5 pb-0.5">
               {utilityButtons}
             </div>
           </div>
