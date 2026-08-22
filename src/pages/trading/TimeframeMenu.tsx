@@ -23,9 +23,12 @@ import { TIMEFRAMES, type Timeframe } from "./constants.ts";
 export function TimeframeMenu({
   timeframe,
   onTimeframeChange,
+  compact = false,
 }: {
   timeframe: Timeframe;
   onTimeframeChange: (tf: Timeframe) => void;
+  /** Tighter padding for the single-row mobile chart header. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -37,7 +40,10 @@ export function TimeframeMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Timeframe: ${timeframe}`}
-        className="flex min-h-[44px] items-center gap-1 rounded-md px-2.5 text-xs font-medium text-foreground hover:bg-secondary"
+        className={cn(
+          "flex items-center gap-0.5 rounded-md font-medium text-foreground hover:bg-secondary active:bg-secondary",
+          compact ? "h-9 min-w-[44px] px-1.5 text-xs" : "min-h-[44px] gap-1 px-2.5 text-xs",
+        )}
       >
         {timeframe}
         <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />

@@ -24,6 +24,7 @@ const baseProps = {
   rightPanel: "dom",
   onRightPanel: () => {},
   showRightPanel: false,
+  tick: { bid: 77239, ask: 77240, timestamp: Date.now() },
 };
 
 describe("ChartToolbar on mobile", () => {
@@ -35,7 +36,14 @@ describe("ChartToolbar on mobile", () => {
     expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 
-  it("shows the trading mode indicator below the toolbar row", () => {
+  it("shows a shortened symbol label while keeping the full symbol in aria-label", () => {
+    render(<ChartToolbar {...baseProps} onOpenSettings={() => {}} />);
+    expect(screen.getByText("BTCUSD")).toBeInTheDocument();
+    expect(screen.queryByText("BINANCE:BTCUSD")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Symbol: BINANCE:BTCUSD" })).toBeInTheDocument();
+  });
+
+  it("keeps the trading mode badge in the single header row", () => {
     render(<ChartToolbar {...baseProps} onOpenSettings={() => {}} />);
     expect(screen.getByLabelText("Demo trading mode")).toBeInTheDocument();
   });
