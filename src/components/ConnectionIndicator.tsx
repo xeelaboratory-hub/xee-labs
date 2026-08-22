@@ -133,7 +133,7 @@ export function ConnectionIndicator({ className }: { className?: string }) {
   const isSpinning = state === "connecting" || state === "reconnecting";
 
   return (
-    <div className={cn("flex items-center gap-1.5 text-[13px]", className)} title={label}>
+    <div className={cn("flex items-center gap-1.5 text-data", className)} title={label}>
       <span
         className={cn("h-1.5 w-1.5 rounded-full", dot, state !== "connected" && "animate-pulse")}
       />
@@ -193,7 +193,7 @@ export function DisconnectedTradingBanner({ className }: { className?: string })
       )}
     >
       <div className="flex items-center justify-center gap-1.5 text-destructive text-xs font-semibold">
-        <WifiOff className="h-7 w-7" />
+        <WifiOff className="max-md:h-4 max-md:w-4 md:h-7 md:w-7 shrink-0" />
         Data Feed Disconnected
       </div>
       <p className="text-xs text-muted-foreground mt-0.5">

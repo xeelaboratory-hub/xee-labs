@@ -1,4 +1,5 @@
 import { CandlestickChart, ArrowUpDown, Wallet, Layers3 } from "lucide-react";
+import { mobileIcon, mobileText, mobileTouch } from "../../lib/mobile-ui.ts";
 import { cn } from "../../lib/utils.ts";
 
 /** The four mobile destinations. Ordered by how often a trader reaches for
@@ -18,15 +19,9 @@ const TABS = [
  * used to cover 57% of the screen from first paint and could only be dismissed
  * by hitting a 40x6px handle.
  *
- * Visibility is the caller's call, not a `md:hidden` baked in here: the phone
- * layout is chosen by viewport height as well as width (see `useIsDesktop`),
- * and a CSS class keyed on width alone would hide this bar in exactly the
- * landscape case that needs it most.
- *
- * `min-h-[56px]` is deliberate rather than decorative: every interactive
- * element in the old mobile layout was 36px tall, carried over from the
- * desktop build where a mouse pointer picks the target. 44px is the documented
- * floor for a finger, and these are the primary controls of the whole app.
+ * Icon size matches the chart header (16px); touch targets stay at 48px min
+ * height so tabs remain easy to hit without the oversized visual weight of
+ * the previous 20px icons / 56px bar.
  */
 export function MobileTabBar({
   tab,
@@ -49,12 +44,13 @@ export function MobileTabBar({
             onClick={() => onTabChange(id)}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 transition-colors",
+              "flex flex-1 flex-col items-center justify-center gap-0.5 py-1 transition-colors",
+              mobileTouch.navTab,
               active ? "text-primary" : "text-muted-foreground",
             )}
           >
-            <Icon className="h-5 w-5" aria-hidden="true" />
-            <span className={cn("text-label", active && "text-primary")}>{label}</span>
+            <Icon className={mobileIcon.nav} aria-hidden="true" />
+            <span className={cn(mobileText.label, active && "text-primary")}>{label}</span>
           </button>
         );
       })}

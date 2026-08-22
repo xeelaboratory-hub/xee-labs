@@ -189,6 +189,14 @@ function makeHistoryLoader(
   };
 }
 
+/** Lightweight Charts layout tuned per viewport — mobile reclaims axis pixels. */
+function chartViewportLayout(isDesktop: boolean) {
+  return {
+    fontSize: isDesktop ? 11 : 10,
+    rightPriceScaleMinimumWidth: isDesktop ? 80 : 44,
+  } as const;
+}
+
 // ── Props ────────────────────────────────────────────────────
 
 export interface ChartPanelProps {
@@ -1333,6 +1341,7 @@ export function ChartPanel({
     if (!containerRef.current) return;
 
     const minMove = getMinMove(pipDigits);
+    const viewportLayout = chartViewportLayout(isDesktopRef.current);
 
     const chart = createChart(containerRef.current, {
       layout: {
@@ -1340,7 +1349,7 @@ export function ChartPanel({
         textColor: colors.text,
         fontFamily:
           "-apple-system, BlinkMacSystemFont, 'Trebuchet MS', Roboto, Ubuntu, sans-serif",
-        fontSize: 11,
+        fontSize: viewportLayout.fontSize,
         // Attribution requirement is met via the "Charts by TradingView" link
         // in the app Footer instead (see lightweight-charts license terms).
         attributionLogo: false,
@@ -1374,11 +1383,11 @@ export function ChartPanel({
         borderVisible: true,
         entireTextOnly: false,
         ticksVisible: false,
-        // A floor, not a width — the scale still grows to fit its widest
-        // label. 80 was picked for a desktop chart and costs 21% of a 375px
-        // phone screen, permanently, for labels that need about 55. Kept on
-        // desktop, where a steady axis width is worth more than the pixels.
-        minimumWidth: isDesktopRef.current ? 80 : 56,
+        // A floor, not a width — optimal width still grows to fit the widest
+        // label (text + LC's fixed tick/padding budget). Desktop keeps 80 for
+        // a steady axis; mobile uses a smaller font (see chartViewportLayout)
+        // and a lower floor so the axis only reserves what labels need.
+        minimumWidth: viewportLayout.rightPriceScaleMinimumWidth,
       },
       timeScale: {
         borderColor: colors.grid,
@@ -1611,12 +1620,13 @@ export function ChartPanel({
   // chart persists across TF switches so drawings never blink out; the
   // TF-change effect below updates the live state in place, TradingView-style).
 
-  // Rotation changes which floor the price scale gets. Applied in place for
-  // the same reason it is read through a ref above: rebuilding the chart on
-  // every rotation would drop the drawings and the scroll position.
+  // Rotation changes axis density. Applied in place — rebuilding the chart
+  // would drop the drawings and the scroll position.
   useEffect(() => {
+    const viewportLayout = chartViewportLayout(isDesktop);
     chartRef.current?.applyOptions({
-      rightPriceScale: { minimumWidth: isDesktop ? 80 : 56 },
+      layout: { fontSize: viewportLayout.fontSize },
+      rightPriceScale: { minimumWidth: viewportLayout.rightPriceScaleMinimumWidth },
     });
   }, [isDesktop]);
 

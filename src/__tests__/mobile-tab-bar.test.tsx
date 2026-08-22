@@ -53,12 +53,11 @@ describe("MobileTabBar", () => {
   });
 
   it("gives every tab a target a finger can hit", () => {
-    // The layout this replaced had 42 controls at 36px. These four are the
-    // primary navigation of the whole app on a phone, so the 44px floor is
-    // the point of the component, not a detail of it.
     render(<TabHarness />);
     for (const label of ["Chart", "Trade", "Positions", "Book"]) {
-      expect(screen.getByRole("button", { name: label }).className).toContain("min-h-[56px]");
+      const tab = screen.getByRole("button", { name: label });
+      expect(tab.className).toContain("min-h-[48px]");
+      expect(tab.querySelector("svg")?.getAttribute("class")).toContain("h-4");
     }
   });
 });

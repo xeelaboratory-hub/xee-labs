@@ -21,6 +21,12 @@ export function formatNumber(value: number, decimals = 2): string {
   }).format(value);
 }
 
+/** Strip exchange prefix for narrow mobile headers (BINANCE:BTCUSD → BTCUSD). */
+export function formatMobileSymbolLabel(symbol: string): string {
+  const idx = symbol.lastIndexOf(":");
+  return idx >= 0 ? symbol.slice(idx + 1) : symbol;
+}
+
 export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",

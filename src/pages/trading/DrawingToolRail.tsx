@@ -18,6 +18,7 @@ import {
   MousePointer2,
   MoveUpRight,
   MoveVertical,
+  PenLine,
   Repeat,
   Ruler,
   Spline,
@@ -27,9 +28,25 @@ import {
   Triangle,
   Type,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
+import { mobileIcon, mobileTouch } from "../../lib/mobile-ui.ts";
 import { cn } from "../../lib/utils.ts";
 import type { DrawingTool, MagnetMode } from "./constants.ts";
+
+/** Phone / short viewport — matches useIsDesktop's inverse (OR over width and height). */
+export const MOBILE_MEDIA_QUERY = "(max-width: 767px), (max-height: 499.98px)";
+
+/** Expanded mobile rail width — compact overlay, comfortable touch targets inside. */
+const MOBILE_RAIL_WIDTH = "w-[50px]";
+
+/** LC time-axis row height (~27px on mobile) — keep the rail above it. */
+const MOBILE_TIME_AXIS_INSET = "bottom-7";
+
+/** Fixed item box — icons centered, backgrounds clipped inside the rail. */
+const MOBILE_ITEM_BOX = cn(mobileTouch.headerIcon, "shrink-0 overflow-hidden");
+
+const DESKTOP_ICON_SIZE = "h-4 w-4";
 
 interface ToolMeta {
   tool: DrawingTool;
@@ -97,7 +114,71 @@ const GROUPS: ToolGroup[] = [
   },
 ];
 
-const ICON_SIZE = "h-4 w-4";
+function railButtonClass(isMobile: boolean, active?: boolean, danger?: boolean): string {
+  return cn(
+    "flex items-center justify-center transition-colors",
+    isMobile
+      ? cn(MOBILE_ITEM_BOX, "rounded-md active:bg-secondary")
+      : "h-8 w-8 rounded-sm hover:bg-secondary",
+    !isMobile && "hover:bg-secondary",
+    active && "bg-primary/15 text-primary",
+    !active && !danger && "text-muted-foreground hover:text-foreground",
+    danger && "text-muted-foreground hover:bg-destructive/15 hover:text-destructive",
+  );
+}
+
+function ToolGroupFlyout({
+  group,
+  activeTool,
+  onSelect,
+  className,
+  style,
+  flyoutRef,
+}: {
+  group: ToolGroup;
+  activeTool: DrawingTool;
+  onSelect: (t: DrawingTool) => void;
+  className?: string;
+  style?: CSSProperties;
+  flyoutRef?: React.Ref<HTMLDivElement>;
+}) {
+  return (
+    <div
+      ref={flyoutRef}
+      role="menu"
+      style={style}
+      className={cn(
+        "min-w-[200px] rounded-md border border-border bg-card py-1 shadow-lg",
+        className,
+      )}
+    >
+      <div className="px-2.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {group.label}
+      </div>
+      {group.tools.map((t) => {
+        const selected = activeTool === t.tool;
+        return (
+          <button
+            key={t.tool}
+            type="button"
+            role="menuitem"
+            aria-label={t.label}
+            onClick={() => onSelect(t.tool)}
+            className={cn(
+              "flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-sm transition-colors",
+              "hover:bg-secondary",
+              selected ? "bg-secondary/80 text-primary" : "text-foreground",
+            )}
+          >
+            <t.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+            <span className="flex-1">{t.label}</span>
+            {selected && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function RailButton({
   icon: Icon,
@@ -106,6 +187,7 @@ function RailButton({
   disabled,
   onClick,
   danger,
+  isMobile,
 }: {
   icon: LucideIcon;
   title: string;
@@ -113,6 +195,7 @@ function RailButton({
   disabled?: boolean;
   onClick: () => void;
   danger?: boolean;
+  isMobile: boolean;
 }) {
   return (
     <button
@@ -122,14 +205,15 @@ function RailButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex h-8 w-8 items-center justify-center rounded-sm transition-colors",
-        "hover:bg-secondary disabled:pointer-events-none disabled:opacity-35",
-        active && "bg-primary/15 text-primary",
-        !active && !danger && "text-muted-foreground hover:text-foreground",
-        danger && "text-muted-foreground hover:bg-destructive/15 hover:text-destructive",
+        railButtonClass(isMobile, active, danger),
+        "disabled:pointer-events-none disabled:opacity-35",
       )}
     >
-      <Icon className={ICON_SIZE} strokeWidth={1.75} />
+      <Icon
+        className={isMobile ? mobileIcon.ui : DESKTOP_ICON_SIZE}
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
     </button>
   );
 }
@@ -142,6 +226,8 @@ function RailGroup({
   onToggle,
   onActivate,
   onSelect,
+  isMobile,
+  onAnchor,
 }: {
   group: ToolGroup;
   activeTool: DrawingTool;
@@ -150,6 +236,8 @@ function RailGroup({
   onToggle: () => void;
   onActivate: () => void;
   onSelect: (t: DrawingTool) => void;
+  isMobile: boolean;
+  onAnchor?: (groupId: string, el: HTMLDivElement | null) => void;
 }) {
   const activeMeta = group.tools.find((t) => t.tool === activeTool);
   const lastMeta = group.tools.find((t) => t.tool === lastTool) ?? group.tools[0]!;
@@ -159,17 +247,61 @@ function RailGroup({
 
   if (group.tools.length === 1) {
     return (
-      <RailButton icon={Icon} title={lastMeta.label} active={active} onClick={onActivate} />
+      <RailButton
+        icon={Icon}
+        title={lastMeta.label}
+        active={active}
+        onClick={onActivate}
+        isMobile={isMobile}
+      />
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div
+        ref={(el) => onAnchor?.(group.id, el)}
+        className="relative shrink-0"
+      >
+        <div
+          className={cn(
+            MOBILE_ITEM_BOX,
+            "relative rounded-md transition-colors",
+            active ? "bg-primary/15 text-primary" : "text-muted-foreground",
+          )}
+        >
+          <button
+            type="button"
+            title={title}
+            aria-label={title}
+            aria-expanded={open}
+            onClick={onToggle}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            <Icon className={mobileIcon.ui} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 right-0 flex h-3.5 w-3.5 items-center justify-center text-muted-foreground/80"
+          >
+            <ChevronRight
+              className={cn("h-2 w-2 transition-transform", open && "rotate-90")}
+              strokeWidth={2.5}
+            />
+          </span>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="relative">
+    <div className={cn("relative shrink-0", isMobile ? "w-9" : "w-8")}>
       <div
         className={cn(
-          "flex h-8 w-8 flex-col items-center justify-center rounded-sm transition-colors",
-          "hover:bg-secondary",
+          "flex flex-col items-center justify-center overflow-hidden rounded-md transition-colors",
+          isMobile ? MOBILE_ITEM_BOX : "h-8 w-8 rounded-sm hover:bg-secondary",
           active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+          !isMobile && !active && "hover:bg-secondary",
         )}
       >
         <button
@@ -177,9 +309,13 @@ function RailGroup({
           title={title}
           aria-label={title}
           onClick={onActivate}
-          className="flex flex-1 items-center justify-center pt-0.5"
+          className="flex min-h-0 w-full flex-1 items-center justify-center"
         >
-          <Icon className={ICON_SIZE} strokeWidth={1.75} />
+          <Icon
+            className={isMobile ? mobileIcon.ui : DESKTOP_ICON_SIZE}
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
         </button>
         <button
           type="button"
@@ -187,7 +323,7 @@ function RailGroup({
           aria-label={`Choose ${group.label.toLowerCase()} tool`}
           aria-expanded={open}
           onClick={onToggle}
-          className="flex h-2.5 w-full items-center justify-center pb-0.5"
+          className="flex h-3 w-full shrink-0 items-center justify-center"
         >
           <ChevronRight
             className={cn("h-2.5 w-2.5 transition-transform", open && "rotate-90")}
@@ -197,35 +333,12 @@ function RailGroup({
       </div>
 
       {open && (
-        <div
-          role="menu"
-          className="absolute left-full top-0 z-40 ml-1.5 min-w-[200px] rounded-md border border-border bg-card py-1 shadow-lg"
-        >
-          <div className="px-2.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            {group.label}
-          </div>
-          {group.tools.map((t) => {
-            const selected = activeTool === t.tool;
-            return (
-              <button
-                key={t.tool}
-                type="button"
-                role="menuitem"
-                aria-label={t.label}
-                onClick={() => onSelect(t.tool)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-sm transition-colors",
-                  "hover:bg-secondary",
-                  selected ? "bg-secondary/80 text-primary" : "text-foreground",
-                )}
-              >
-                <t.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                <span className="flex-1">{t.label}</span>
-                {selected && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-              </button>
-            );
-          })}
-        </div>
+        <ToolGroupFlyout
+          group={group}
+          activeTool={activeTool}
+          onSelect={onSelect}
+          className="absolute left-full top-0 z-40 ml-1.5"
+        />
       )}
     </div>
   );
@@ -244,6 +357,86 @@ function magnetTitle(mode: MagnetMode): string {
       return _exhaustive;
     }
   }
+}
+
+function UtilityButtons({
+  magnetMode,
+  onCycleMagnet,
+  stayInDrawingMode,
+  onToggleStayInDrawingMode,
+  allLocked,
+  onToggleLockAll,
+  drawingsHidden,
+  onToggleHideAll,
+  onClearDrawings,
+  hasDrawings,
+  isMobile,
+}: {
+  magnetMode: MagnetMode;
+  onCycleMagnet?: () => void;
+  stayInDrawingMode: boolean;
+  onToggleStayInDrawingMode?: () => void;
+  allLocked?: boolean;
+  onToggleLockAll?: () => void;
+  drawingsHidden?: boolean;
+  onToggleHideAll?: () => void;
+  onClearDrawings?: () => void;
+  hasDrawings?: boolean;
+  isMobile: boolean;
+}) {
+  return (
+    <>
+      <div className="mb-1 h-px w-5 bg-border" />
+
+      {onCycleMagnet && (
+        <RailButton
+          icon={Magnet}
+          title={magnetTitle(magnetMode)}
+          active={magnetMode !== "none"}
+          onClick={onCycleMagnet}
+          isMobile={isMobile}
+        />
+      )}
+      {onToggleStayInDrawingMode && (
+        <RailButton
+          icon={Repeat}
+          title="Stay in drawing mode"
+          active={stayInDrawingMode}
+          onClick={onToggleStayInDrawingMode}
+          isMobile={isMobile}
+        />
+      )}
+      {onToggleLockAll && (
+        <RailButton
+          icon={allLocked ? Lock : LockOpen}
+          title={allLocked ? "Unlock all drawings" : "Lock all drawings"}
+          active={allLocked}
+          disabled={!hasDrawings}
+          onClick={onToggleLockAll}
+          isMobile={isMobile}
+        />
+      )}
+      {onToggleHideAll && (
+        <RailButton
+          icon={drawingsHidden ? EyeOff : Eye}
+          title={drawingsHidden ? "Show drawings" : "Hide drawings"}
+          active={drawingsHidden}
+          onClick={onToggleHideAll}
+          isMobile={isMobile}
+        />
+      )}
+      {onClearDrawings && (
+        <RailButton
+          icon={Trash2}
+          title="Remove all drawings"
+          disabled={!hasDrawings}
+          danger
+          onClick={onClearDrawings}
+          isMobile={isMobile}
+        />
+      )}
+    </>
+  );
 }
 
 export function DrawingToolRail({
@@ -280,15 +473,12 @@ export function DrawingToolRail({
   // is unchanged: there the rail has its own gutter and costs the chart
   // nothing. Read once at mount, so a rotation does not yank the rail open or
   // shut while a tool is selected.
-  const [collapsed, setCollapsed] = useState(
-    // Same two-axis question the layout asks (see useIsDesktop), phrased so a
-    // match still means "phone": a comma is OR in a media query, and either
-    // axis being small is enough. A phone in landscape clears 767px and would
-    // otherwise open the rail across the chart it was just rotated for.
+  const [isMobile] = useState(
     () =>
       typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 767px), (max-height: 499.98px)").matches,
+      window.matchMedia(MOBILE_MEDIA_QUERY).matches,
   );
+  const [collapsed, setCollapsed] = useState(isMobile);
   const [lastUsed, setLastUsed] = useState<Record<string, DrawingTool>>({
     lines: "trendline",
     fib: "fibonacci",
@@ -297,15 +487,51 @@ export function DrawingToolRail({
     measure: "long-position",
   });
   const ref = useRef<HTMLDivElement>(null);
+  const flyoutRef = useRef<HTMLDivElement>(null);
+  const groupAnchorRefs = useRef(new Map<string, HTMLDivElement>());
+  const [mobileFlyoutPos, setMobileFlyoutPos] = useState<{ top: number; left: number } | null>(
+    null,
+  );
+
+  const setGroupAnchor = useCallback((groupId: string, el: HTMLDivElement | null) => {
+    if (el) groupAnchorRefs.current.set(groupId, el);
+    else groupAnchorRefs.current.delete(groupId);
+  }, []);
 
   useEffect(() => {
     if (!openGroup) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpenGroup(null);
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      if (flyoutRef.current?.contains(target)) return;
+      setOpenGroup(null);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [openGroup]);
+
+  useEffect(() => {
+    if (!openGroup || !isMobile) {
+      setMobileFlyoutPos(null);
+      return;
+    }
+
+    const syncFlyoutPos = () => {
+      const anchor = groupAnchorRefs.current.get(openGroup);
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      setMobileFlyoutPos({ top: rect.top, left: rect.right + 6 });
+    };
+
+    syncFlyoutPos();
+    const scrollEl = ref.current?.querySelector('[data-mobile-tool-scroll="true"]');
+    scrollEl?.addEventListener("scroll", syncFlyoutPos, { passive: true });
+    window.addEventListener("resize", syncFlyoutPos);
+    return () => {
+      scrollEl?.removeEventListener("scroll", syncFlyoutPos);
+      window.removeEventListener("resize", syncFlyoutPos);
+    };
+  }, [openGroup, isMobile]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -327,23 +553,148 @@ export function DrawingToolRail({
     activate(t);
   };
 
+  const collapse = () => {
+    setOpenGroup(null);
+    setCollapsed(true);
+  };
+
+  const toolButtons = (
+    <>
+      <RailButton
+        icon={MousePointer2}
+        title="Cursor"
+        active={drawingTool === "none"}
+        onClick={() => {
+          onDrawingTool("none");
+          setOpenGroup(null);
+        }}
+        isMobile={isMobile}
+      />
+
+      <div className="my-1 h-px w-5 bg-border" />
+
+      {GROUPS.map((g) => (
+        <RailGroup
+          key={g.id}
+          group={g}
+          activeTool={drawingTool}
+          lastTool={lastUsed[g.id] ?? g.tools[0]!.tool}
+          open={openGroup === g.id}
+          onToggle={() => setOpenGroup((o) => (o === g.id ? null : g.id))}
+          onActivate={() => activate(lastUsed[g.id] ?? g.tools[0]!.tool)}
+          onSelect={(t) => select(g.id, t)}
+          isMobile={isMobile}
+          onAnchor={isMobile ? setGroupAnchor : undefined}
+        />
+      ))}
+    </>
+  );
+
+  const utilityButtons = (
+    <UtilityButtons
+      magnetMode={magnetMode}
+      onCycleMagnet={onCycleMagnet}
+      stayInDrawingMode={stayInDrawingMode}
+      onToggleStayInDrawingMode={onToggleStayInDrawingMode}
+      allLocked={allLocked}
+      onToggleLockAll={onToggleLockAll}
+      drawingsHidden={drawingsHidden}
+      onToggleHideAll={onToggleHideAll}
+      onClearDrawings={onClearDrawings}
+      hasDrawings={hasDrawings}
+      isMobile={isMobile}
+    />
+  );
+
   if (collapsed) {
     return (
-      <div className="absolute left-0 top-1/2 z-20 -translate-y-1/2">
+      <div
+        className={cn(
+          "pointer-events-none absolute left-0 z-30 flex items-center",
+          isMobile ? cn("top-0", MOBILE_TIME_AXIS_INSET) : "inset-y-0",
+        )}
+      >
         <button
           type="button"
           title="Show drawing tools"
           aria-label="Show drawing tools"
           aria-expanded={false}
           onClick={() => setCollapsed(false)}
-          // On a phone this is now the ONLY way back to the drawing tools,
-          // since the rail starts collapsed there — so it gets a real target
-          // rather than the 40x16 sliver that was fine as a desktop affordance
-          // sitting next to an already-visible rail.
-          className="flex items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground shadow-sm hover:text-foreground h-10 w-4 max-md:h-11 max-md:w-7"
+          className={cn(
+            "pointer-events-auto flex items-center justify-center rounded-r-md border border-l-0 border-border bg-card/95 text-muted-foreground shadow-sm backdrop-blur-[2px] active:bg-secondary",
+            isMobile ? "h-11 w-7" : "h-10 w-4 hover:text-foreground",
+          )}
         >
-          <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
+          {isMobile ? (
+            <PenLine className={mobileIcon.ui} strokeWidth={1.75} aria-hidden="true" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+          )}
         </button>
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "pointer-events-none absolute top-0 left-0 z-30 flex items-stretch",
+          MOBILE_TIME_AXIS_INSET,
+        )}
+        data-mobile-overlay="true"
+      >
+        <div
+          className={cn(
+            MOBILE_RAIL_WIDTH,
+            "pointer-events-auto flex h-full flex-col items-center rounded-r-lg border-y border-l-0 border-r-0 border-border bg-card/90 py-1 shadow-md backdrop-blur-[2px]",
+          )}
+        >
+          <button
+            type="button"
+            title="Collapse drawing tools"
+            aria-label="Collapse drawing tools"
+            aria-expanded={true}
+            onClick={collapse}
+            className={cn(
+              mobileTouch.headerIcon,
+              "mb-0.5 flex shrink-0 items-center justify-center rounded-md text-muted-foreground active:bg-secondary",
+            )}
+          >
+            <ChevronLeft className={mobileIcon.ui} strokeWidth={2} aria-hidden="true" />
+          </button>
+
+          <div
+            className="no-scrollbar flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain"
+            data-mobile-tool-scroll="true"
+          >
+            <div className="flex w-full flex-col items-center gap-0.5">{toolButtons}</div>
+            <div className="flex-1 min-h-2" />
+            <div className="flex w-full flex-col items-center gap-0.5 pb-0.5">
+              {utilityButtons}
+            </div>
+          </div>
+        </div>
+
+        {openGroup &&
+          mobileFlyoutPos &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <ToolGroupFlyout
+              flyoutRef={flyoutRef}
+              group={GROUPS.find((g) => g.id === openGroup)!}
+              activeTool={drawingTool}
+              onSelect={(t) => select(openGroup, t)}
+              className="pointer-events-auto z-50 max-h-[min(70vh,420px)] overflow-y-auto overscroll-contain"
+              style={{
+                position: "fixed",
+                top: mobileFlyoutPos.top,
+                left: mobileFlyoutPos.left,
+              }}
+            />,
+            document.body,
+          )}
       </div>
     );
   }
@@ -351,81 +702,11 @@ export function DrawingToolRail({
   return (
     <div ref={ref} className="absolute left-0 top-0 z-20 flex h-full items-stretch">
       <div className="flex w-9 flex-col items-center border-r border-border bg-card/95 py-1 backdrop-blur-[2px]">
-        <div className="flex flex-col items-center gap-0.5 px-0.5">
-          <RailButton
-            icon={MousePointer2}
-            title="Cursor"
-            active={drawingTool === "none"}
-            onClick={() => {
-              onDrawingTool("none");
-              setOpenGroup(null);
-            }}
-          />
-
-          <div className="my-1 h-px w-5 bg-border" />
-
-          {GROUPS.map((g) => (
-            <RailGroup
-              key={g.id}
-              group={g}
-              activeTool={drawingTool}
-              lastTool={lastUsed[g.id] ?? g.tools[0]!.tool}
-              open={openGroup === g.id}
-              onToggle={() => setOpenGroup((o) => (o === g.id ? null : g.id))}
-              onActivate={() => activate(lastUsed[g.id] ?? g.tools[0]!.tool)}
-              onSelect={(t) => select(g.id, t)}
-            />
-          ))}
-        </div>
+        <div className="flex flex-col items-center gap-0.5 px-0.5">{toolButtons}</div>
 
         <div className="flex-1" />
 
-        <div className="flex flex-col items-center gap-0.5 px-0.5 pb-0.5">
-          <div className="mb-1 h-px w-5 bg-border" />
-
-          {onCycleMagnet && (
-            <RailButton
-              icon={Magnet}
-              title={magnetTitle(magnetMode)}
-              active={magnetMode !== "none"}
-              onClick={onCycleMagnet}
-            />
-          )}
-          {onToggleStayInDrawingMode && (
-            <RailButton
-              icon={Repeat}
-              title="Stay in drawing mode"
-              active={stayInDrawingMode}
-              onClick={onToggleStayInDrawingMode}
-            />
-          )}
-          {onToggleLockAll && (
-            <RailButton
-              icon={allLocked ? Lock : LockOpen}
-              title={allLocked ? "Unlock all drawings" : "Lock all drawings"}
-              active={allLocked}
-              disabled={!hasDrawings}
-              onClick={onToggleLockAll}
-            />
-          )}
-          {onToggleHideAll && (
-            <RailButton
-              icon={drawingsHidden ? EyeOff : Eye}
-              title={drawingsHidden ? "Show drawings" : "Hide drawings"}
-              active={drawingsHidden}
-              onClick={onToggleHideAll}
-            />
-          )}
-          {onClearDrawings && (
-            <RailButton
-              icon={Trash2}
-              title="Remove all drawings"
-              disabled={!hasDrawings}
-              danger
-              onClick={onClearDrawings}
-            />
-          )}
-        </div>
+        <div className="flex flex-col items-center gap-0.5 px-0.5 pb-0.5">{utilityButtons}</div>
       </div>
 
       <button
@@ -433,13 +714,10 @@ export function DrawingToolRail({
         title="Collapse drawing tools"
         aria-label="Collapse drawing tools"
         aria-expanded={true}
-        onClick={() => {
-          setOpenGroup(null);
-          setCollapsed(true);
-        }}
+        onClick={collapse}
         className="absolute top-1/2 left-full z-30 flex h-10 w-3.5 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-border bg-card text-muted-foreground shadow-sm hover:text-foreground"
       >
-        <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} />
+        <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
       </button>
     </div>
   );

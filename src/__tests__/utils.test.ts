@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cn, decimalsFromTick, formatCurrency, formatNumber, pnlClass } from "@/lib/utils";
+import { cn, decimalsFromTick, formatCurrency, formatMobileSymbolLabel, formatNumber, pnlClass } from "@/lib/utils";
 
 describe("cn (class name merge)", () => {
   it("merges class names", () => {
@@ -59,6 +59,16 @@ describe("formatNumber", () => {
 
   it("respects custom decimals", () => {
     expect(formatNumber(3.14159, 4)).toBe("3.1416");
+  });
+});
+
+describe("formatMobileSymbolLabel", () => {
+  it("strips the exchange prefix for mobile display", () => {
+    expect(formatMobileSymbolLabel("BINANCE:BTCUSD")).toBe("BTCUSD");
+  });
+
+  it("returns the symbol unchanged when no prefix is present", () => {
+    expect(formatMobileSymbolLabel("BTCUSD")).toBe("BTCUSD");
   });
 });
 

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { cn } from "../lib/utils.ts";
+import { mobileText, mobileTouch } from "../lib/mobile-ui.ts";
 import { useAuthStore } from "../services/store.tsx";
 
 /** Login/register form, used by Settings → Account. No outer chrome — the
@@ -34,18 +36,24 @@ export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex rounded border border-border text-sm">
+      <div className={cn("flex rounded border border-border max-md:text-xs md:text-sm")}>
         <button
           type="button"
           onClick={() => setMode("login")}
-          className={`flex-1 py-1.5 ${mode === "login" ? "bg-secondary" : "text-muted-foreground"}`}
+          className={cn(
+            "flex-1 max-md:min-h-[44px]",
+            mode === "login" ? "bg-secondary" : "text-muted-foreground",
+          )}
         >
           Log in
         </button>
         <button
           type="button"
           onClick={() => setMode("register")}
-          className={`flex-1 py-1.5 ${mode === "register" ? "bg-secondary" : "text-muted-foreground"}`}
+          className={cn(
+            "flex-1 max-md:min-h-[44px]",
+            mode === "register" ? "bg-secondary" : "text-muted-foreground",
+          )}
         >
           Register
         </button>
@@ -93,7 +101,12 @@ export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
       <button
         type="submit"
         disabled={submitting}
-        className="w-full rounded bg-primary py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+        className={cn(
+          "w-full rounded bg-primary font-medium text-primary-foreground disabled:opacity-50",
+          mobileText.ui,
+          mobileTouch.target,
+          "md:py-1.5 md:text-sm",
+        )}
       >
         {submitting ? "Please wait…" : mode === "login" ? "Log in" : "Create account"}
       </button>

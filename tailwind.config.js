@@ -53,6 +53,8 @@ export default {
         meta: ["11px", { lineHeight: "16px" }],
         data: ["13px", { lineHeight: "18px" }],
         heading: ["15px", { lineHeight: "20px", fontWeight: "600" }],
+        /** Compact status badges — chart header DEMO/LIVE pill baseline. */
+        status: ["9px", { lineHeight: "12px", letterSpacing: "0.04em", fontWeight: "600" }],
       },
       fontFamily: {
         sans: ["-apple-system", "BlinkMacSystemFont", "Trebuchet MS", "Roboto", "Ubuntu", "sans-serif"],

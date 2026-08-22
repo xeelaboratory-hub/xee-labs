@@ -504,6 +504,7 @@ export function TradingPage() {
         tick={tick}
         symbolInfo={symbolInfo}
         aiTraderEnabled={aiTraderEnabled}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* Surfaces a feed whose prices have stopped arriving. Written long ago
@@ -810,7 +811,7 @@ export function TradingPage() {
         loading={confirmLoading}
       />
 
-      {/* ── Footer ──────────────────────────────────────── */}
+      {/* ── Footer (desktop only — mobile global controls live in Settings) ── */}
       <Footer onOpenSettings={() => setShowSettings(true)} />
 
       {/* Last element on the page on purpose: a bottom tab bar is the anchor
