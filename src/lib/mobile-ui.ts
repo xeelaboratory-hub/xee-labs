@@ -37,3 +37,11 @@ export const mobileTouch = {
   navTab: "min-h-[48px]",
   headerIcon: "h-9 w-9",
 } as const;
+
+/** Compact page chrome — matches chart header horizontal padding. */
+export const mobilePage = {
+  paddingX: "px-3",
+  paddingY: "py-3",
+  sectionGap: "space-y-3",
+  rowGap: "gap-3",
+} as const;
