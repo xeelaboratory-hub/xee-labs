@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
+  Calculator,
   ChevronRight,
+  ChevronUp,
   TrendingDown,
   TrendingUp,
   Volume2,
@@ -93,13 +97,38 @@ function MobileSegmentButton({
   );
 }
 
-function CalculatedPriceBlock({
+function PriceFieldBox({
+  children,
+  suffix,
+}: {
+  children: ReactNode;
+  suffix?: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        mobileForm.control,
+        "flex items-center justify-between gap-2 rounded border border-border bg-background px-2",
+      )}
+    >
+      <div className="min-w-0 flex-1">{children}</div>
+      {suffix && (
+        <span className={cn(mobileText.meta, "shrink-0 rounded bg-secondary px-1.5 py-0.5 text-muted-foreground")}>
+          {suffix}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function CalculatedFieldRow({
   label,
   price,
   percent,
   percentClassName,
   meta,
   metaClassName,
+  testId,
 }: {
   label: string;
   price: string;
@@ -107,16 +136,66 @@ function CalculatedPriceBlock({
   percentClassName?: string;
   meta?: string;
   metaClassName?: string;
+  testId?: string;
 }) {
   return (
-    <div className={cn("flex flex-col", mobileForm.labelGap)}>
+    <div className={cn("flex flex-col", mobileForm.labelGap)} data-testid={testId}>
       <FieldLabel>{label}</FieldLabel>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className={cn(mobileText.primaryMono, "text-foreground")}>{price}</span>
-        {percent && <span className={cn(mobileText.primaryMono, percentClassName)}>{percent}</span>}
+      <div className={cn("flex", mobileForm.rowGap)}>
+        <div
+          className={cn(
+            mobileForm.control,
+            "flex min-w-0 flex-1 items-center justify-between gap-2 rounded border border-border bg-background px-2",
+          )}
+        >
+          <span className={cn(mobileText.primaryMono, "truncate text-foreground")}>{price}</span>
+          {percent && <span className={cn(mobileText.primaryMono, "shrink-0", percentClassName)}>{percent}</span>}
+        </div>
+        <div
+          className={cn(
+            mobileForm.control,
+            "flex w-11 shrink-0 items-center justify-center rounded border border-border bg-background text-muted-foreground",
+          )}
+          aria-hidden="true"
+        >
+          <Calculator className={mobileIcon.ui} />
+        </div>
       </div>
       {meta && <span className={cn(mobileText.meta, metaClassName)}>{meta}</span>}
     </div>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  expanded,
+  onToggle,
+  children,
+  testId,
+}: {
+  title: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  testId?: string;
+}) {
+  return (
+    <section className="border-t border-border pt-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        data-testid={testId}
+        className="flex w-full items-center justify-between gap-2 text-left"
+      >
+        <SectionTitle>{title}</SectionTitle>
+        <ChevronUp
+          className={cn(mobileIcon.ui, "shrink-0 text-muted-foreground transition-transform", !expanded && "rotate-180")}
+          aria-hidden="true"
+        />
+      </button>
+      {expanded && <div className="mt-2 space-y-2">{children}</div>}
+    </section>
   );
 }
 
@@ -284,6 +363,7 @@ export function PositionBuilderPanel({
   const [rr, setRr] = useState("2");
   const isDesktop = useIsDesktop();
   const [volumeProfileExpanded, setVolumeProfileExpanded] = useState(false);
+  const [riskManagementExpanded, setRiskManagementExpanded] = useState(true);
 
   // Reset the chart preview whenever the symbol changes — a stale preview
   // from the previous symbol must never linger on the new chart.
@@ -543,31 +623,36 @@ export function PositionBuilderPanel({
   );
 
   if (!isDesktop) {
+    const accountMeta = isSignedIn
+      ? `Available ${formatCurrency(accountEquity)}`
+      : "Sign in to trade";
+
     return (
       <div className="flex flex-col h-full" data-testid="position-builder">
         <PanelHeader
           title="Trade Setup"
           titleClassName={cn(mobileText.ui, "font-semibold normal-case text-foreground")}
-          right={headerControls}
+          right={
+            <div className="flex min-w-0 items-center gap-1">
+              <span className={cn(mobileText.meta, "truncate text-muted-foreground")}>
+                {exchangeLabel} · {accountMeta}
+              </span>
+              {headerControls}
+            </div>
+          }
           className="py-1"
-        >
-          <p className={cn("mt-0.5", mobileText.meta, "text-muted-foreground")}>
-            {isSignedIn
-              ? `${exchangeLabel} · Available ${formatCurrency(accountEquity)}`
-              : `${exchangeLabel} · Sign in to trade`}
-          </p>
-        </PanelHeader>
+        />
 
         <div className={cn("flex-1 overflow-y-auto overscroll-contain", mobilePage.paddingX, "py-1.5 space-y-3")}>
           {/* A. Trade Setup — trader-controlled inputs */}
           <section className="space-y-2" aria-label="Trade Setup">
             <MobileSegmentGroup>
               <MobileSegmentButton active={side === "long"} variant="long" onClick={() => setSide("long")}>
-                <TrendingUp className={mobileIcon.ui} aria-hidden="true" />
+                <ArrowUpRight className={mobileIcon.ui} aria-hidden="true" />
                 Long
               </MobileSegmentButton>
               <MobileSegmentButton active={side === "short"} variant="short" onClick={() => setSide("short")}>
-                <TrendingDown className={mobileIcon.ui} aria-hidden="true" />
+                <ArrowDownRight className={mobileIcon.ui} aria-hidden="true" />
                 Short
               </MobileSegmentButton>
             </MobileSegmentGroup>
@@ -618,22 +703,22 @@ export function PositionBuilderPanel({
                   )}
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-2 py-0.5">
+                <PriceFieldBox suffix="Market">
                   <span className={cn(mobileText.primaryMono, "text-foreground")}>
                     {entry > 0 ? formatNumber(entry, priceDigits) : "—"}
                   </span>
-                  <span className={cn(mobileText.meta, "rounded bg-secondary px-1.5 py-0.5 text-muted-foreground")}>
-                    Market
-                  </span>
-                </div>
+                </PriceFieldBox>
               )}
             </div>
           </section>
 
-          {/* B. Risk Management — editable sizing + calculated SL/TP */}
-          <section className="space-y-2 border-t border-border pt-2" aria-label="Risk Management">
-            <SectionTitle>Risk Management</SectionTitle>
-
+          {/* B. Risk Management — collapsible sizing + calculated SL/TP */}
+          <CollapsibleSection
+            title="Risk Management"
+            expanded={riskManagementExpanded}
+            onToggle={() => setRiskManagementExpanded((v) => !v)}
+            testId="risk-management-toggle"
+          >
             <div className={cn("grid grid-cols-2", mobileForm.rowGap)}>
               <label className={cn("flex flex-col", mobileForm.labelGap)}>
                 <FieldLabel>Risk %</FieldLabel>
@@ -674,42 +759,26 @@ export function PositionBuilderPanel({
               </label>
             </div>
 
-            <label className={cn("flex items-center gap-2", mobileForm.labelGap)}>
-              <FieldLabel>Risk / Reward</FieldLabel>
-              <span className={cn(mobileText.meta, "text-muted-foreground")}>1 :</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={rr}
-                onChange={(e) => setRr(e.target.value)}
-                className={cn(mobileInputClass, "w-16")}
-                step="0.1"
-                min="0"
-                aria-label="Risk reward ratio"
-              />
-            </label>
-
             {!isSignedIn ? (
               <p className={cn(mobileText.meta, "text-muted-foreground")}>Sign in to size and place orders.</p>
             ) : !plan.ok ? (
               <p className={cn(mobileText.meta, "text-muted-foreground")}>{plan.error}</p>
             ) : (
               <>
-                <CalculatedPriceBlock
-                  label="Stop Loss Price"
+                <CalculatedFieldRow
+                  testId="stop-loss-field"
+                  label="Stop Loss"
                   price={formatNumber(plan.stop, priceDigits)}
                   percent={slPct !== null ? formatSignedPercent(slPct) : undefined}
                   percentClassName="text-sell"
                   meta={slPct !== null && lev > 0 ? `${formatSignedPercent(slPct * lev)} @ ${lev}×` : undefined}
                   metaClassName="text-sell"
                 />
-                <CalculatedPriceBlock
-                  label="Take Profit Price (optional)"
+                <CalculatedFieldRow
+                  label="Take Profit (Optional)"
                   price={tpPlan ? formatNumber(tpPlan.takeProfit, priceDigits) : "—"}
                   percent={tpPct !== null ? formatSignedPercent(tpPct) : undefined}
                   percentClassName="text-buy"
-                  meta={rrNum > 0 ? `RR 1 : ${formatNumber(rrNum, 1)}` : undefined}
-                  metaClassName="text-buy"
                 />
               </>
             )}
@@ -723,7 +792,27 @@ export function PositionBuilderPanel({
                 <span className={mobileText.ui}>{w}</span>
               </p>
             ))}
-          </section>
+
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <FieldLabel>Risk / Reward</FieldLabel>
+              <div className="flex items-center gap-1">
+                <span className={cn(mobileText.meta, "text-muted-foreground")}>1 :</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={rr}
+                  onChange={(e) => setRr(e.target.value)}
+                  className={cn(
+                    mobileText.primaryMono,
+                    "w-12 border-0 bg-transparent p-0 text-right text-buy outline-none focus:ring-0",
+                  )}
+                  step="0.1"
+                  min="0"
+                  aria-label="Risk reward ratio"
+                />
+              </div>
+            </div>
+          </CollapsibleSection>
 
           {/* C. Trade Summary — calculated outputs only */}
           <section
@@ -744,7 +833,7 @@ export function PositionBuilderPanel({
             ) : !plan.ok ? null : (
               <div className="space-y-0.5">
                 <SummaryRow
-                  label="Risk Amount"
+                  label="Risk (USDT)"
                   value={formatCurrency(plan.riskAmount)}
                   valueClassName="text-sell"
                   emphasized
@@ -777,17 +866,15 @@ export function PositionBuilderPanel({
                   value={rrNum > 0 ? `1 : ${formatNumber(rrNum, 1)}` : "—"}
                   valueClassName="text-buy"
                 />
-                <SummaryRow
-                  label="Liquidation ≈"
-                  value={formatNumber(plan.approxLiq, priceDigits)}
-                  valueClassName="text-orange-500"
-                />
                 <details className="pt-0.5">
                   <summary className={cn(mobileText.meta, "cursor-pointer text-muted-foreground")}>
                     Estimate notes
                   </summary>
                   <div className={cn(mobileText.meta, "mt-1 space-y-1 text-muted-foreground")}>
-                    <p>Liquidation is a rough isolated-margin estimate — it ignores fees and maintenance margin.</p>
+                    <p>
+                      Liquidation ≈ {formatNumber(plan.approxLiq, priceDigits)} — rough isolated-margin estimate;
+                      ignores fees and maintenance margin.
+                    </p>
                     {isApproximateInstrument && (
                       <p>
                         {isOkx && isLoadingInstrument

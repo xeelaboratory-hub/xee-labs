@@ -64,12 +64,12 @@ describe("PositionBuilderPanel mobile layout", () => {
       />,
     );
 
-    expect(screen.getByText("OKX · Available $1,450.57")).toBeInTheDocument();
+    expect(screen.getByText(/OKX · Available \$1,450\.57/)).toBeInTheDocument();
     expect(screen.getByText("Risk Management")).toBeInTheDocument();
+    expect(screen.getByTestId("risk-management-toggle")).toBeInTheDocument();
+    expect(screen.getByTestId("stop-loss-field")).toBeInTheDocument();
+    expect(screen.getByText("Risk (USDT)")).toBeInTheDocument();
     expect(screen.getByTestId("trade-summary")).toBeInTheDocument();
-    expect(screen.getByText("Trade Summary")).toBeInTheDocument();
-    expect(screen.getByText("Stop Loss Price")).toBeInTheDocument();
-    expect(screen.getByText("Risk Amount")).toBeInTheDocument();
     expect(screen.getByTestId("trade-apply-footer")).toBeInTheDocument();
     expect(screen.queryByTestId("volume-profile-details")).not.toBeInTheDocument();
 
