@@ -9,7 +9,7 @@ project is*, see [docs/PROJECT-CONTEXT.md](docs/PROJECT-CONTEXT.md). For
 
 ## Stable Development Baseline
 
-- `v1.8.1` is the current verified stable baseline on `main`.
+- `v1.12.0` is the current verified stable baseline on `main`.
 - All new work starts from a fully synced `main`
   (`git checkout main && git pull --ff-only origin main`).
 - Do not develop directly on `main` — every change goes on a dedicated branch.
@@ -278,7 +278,10 @@ This repo follows a strict commit → changelog → tag → release cadence — 
 for the full rules and the incident that motivated them. In short: a
 completed change gets a `package.json` version bump, a `CHANGELOG.md` entry,
 a **new** annotated git tag (tags are never moved or deleted), and a
-`gh release create` for that tag.
+`gh release create` for that tag. Finish by updating the stable baseline
+version at the top of this file — it names the release a next session starts
+from, and it went four releases stale because nothing in this list pointed
+at it.
 
 ## Constraints — do not change without approval
 
