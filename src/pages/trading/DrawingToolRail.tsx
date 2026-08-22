@@ -39,6 +39,11 @@ export const MOBILE_MEDIA_QUERY = "(max-width: 767px), (max-height: 499.98px)";
 /** Expanded mobile rail width — compact overlay, comfortable touch targets inside. */
 const MOBILE_RAIL_WIDTH = "w-[50px]";
 
+/** Fixed item box — icons centered, backgrounds clipped inside the rail. */
+const MOBILE_ITEM_BOX = cn(mobileTouch.headerIcon, "shrink-0 overflow-hidden");
+
+const DESKTOP_ICON_SIZE = "h-4 w-4";
+
 interface ToolMeta {
   tool: DrawingTool;
   icon: LucideIcon;
@@ -105,13 +110,11 @@ const GROUPS: ToolGroup[] = [
   },
 ];
 
-const DESKTOP_ICON_SIZE = "h-4 w-4";
-
 function railButtonClass(isMobile: boolean, active?: boolean, danger?: boolean): string {
   return cn(
     "flex items-center justify-center transition-colors",
     isMobile
-      ? cn(mobileTouch.headerIcon, "rounded-md active:bg-secondary")
+      ? cn(MOBILE_ITEM_BOX, "rounded-md active:bg-secondary")
       : "h-8 w-8 rounded-sm hover:bg-secondary",
     !isMobile && "hover:bg-secondary",
     active && "bg-primary/15 text-primary",
@@ -196,14 +199,13 @@ function RailGroup({
   }
 
   return (
-    <div className="relative">
+    <div className={cn("relative shrink-0", isMobile ? "w-9" : "w-8")}>
       <div
         className={cn(
-          "flex flex-col items-center justify-center transition-colors",
-          isMobile
-            ? cn(mobileTouch.headerIcon, "rounded-md")
-            : "h-8 w-8 rounded-sm hover:bg-secondary",
+          "flex flex-col items-center justify-center overflow-hidden rounded-md transition-colors",
+          isMobile ? MOBILE_ITEM_BOX : "h-8 w-8 rounded-sm hover:bg-secondary",
           active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+          !isMobile && !active && "hover:bg-secondary",
         )}
       >
         <button
@@ -211,7 +213,7 @@ function RailGroup({
           title={title}
           aria-label={title}
           onClick={onActivate}
-          className="flex flex-1 items-center justify-center pt-0.5"
+          className="flex min-h-0 w-full flex-1 items-center justify-center"
         >
           <Icon
             className={isMobile ? mobileIcon.ui : DESKTOP_ICON_SIZE}
@@ -225,7 +227,7 @@ function RailGroup({
           aria-label={`Choose ${group.label.toLowerCase()} tool`}
           aria-expanded={open}
           onClick={onToggle}
-          className="flex h-2.5 w-full items-center justify-center pb-0.5"
+          className="flex h-3 w-full shrink-0 items-center justify-center"
         >
           <ChevronRight
             className={cn("h-2.5 w-2.5 transition-transform", open && "rotate-90")}
@@ -546,12 +548,14 @@ export function DrawingToolRail({
           </button>
 
           <div
-            className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain px-0.5"
+            className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain"
             data-mobile-tool-scroll="true"
           >
-            <div className="flex flex-col items-center gap-0.5">{toolButtons}</div>
+            <div className="flex w-full flex-col items-center gap-0.5 px-0.5">{toolButtons}</div>
             <div className="flex-1 min-h-2" />
-            <div className="flex flex-col items-center gap-0.5 pb-0.5">{utilityButtons}</div>
+            <div className="flex w-full flex-col items-center gap-0.5 px-0.5 pb-0.5">
+              {utilityButtons}
+            </div>
           </div>
         </div>
       </div>

@@ -192,4 +192,17 @@ describe("DrawingToolRail on a phone", () => {
     expect(scrollRegion).toBeInTheDocument();
     expect(scrollRegion?.className).toContain("overflow-y-auto");
   });
+
+  it("keeps submenu group active backgrounds inside the fixed item box", async () => {
+    setViewport(true);
+    render(<RailHarness />);
+
+    await userEvent.click(screen.getByRole("button", { name: /show drawing tools/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Lines: Trend Line" }));
+
+    const groupShell = screen.getByRole("button", { name: "Lines: Trend Line" }).parentElement;
+    expect(groupShell?.className).toContain("overflow-hidden");
+    expect(groupShell?.className).toContain("w-9");
+    expect(groupShell?.className).toContain("text-primary");
+  });
 });
