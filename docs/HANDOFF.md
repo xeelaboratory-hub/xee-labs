@@ -200,8 +200,9 @@ than restarting it.
    nothing else.
 8. **CI stops at "was this green".** There are no build artifacts, no deploy
    pipeline, and nothing to roll back *to* — `.github/workflows/ci.yml` is the
-   floor of the release-readiness document's fourth blocker, not the whole of
-   it. Two smaller gaps it names are open too: `nginx.conf` sets no
+   floor of the fourth blocker in
+   [docs/releases/RELEASE-READINESS.md](releases/RELEASE-READINESS.md), not the
+   whole of it. Two smaller gaps it names are open too: `nginx.conf` sets no
    `Cache-Control` on `index.html`, so a returning user can hold a stale one
    pointing at asset hashes that no longer exist; and `restart:` is set on
    `etf-scraper` alone, not on `backend`, `frontend` or `postgres`.
