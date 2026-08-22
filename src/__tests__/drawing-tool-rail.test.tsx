@@ -193,7 +193,7 @@ describe("DrawingToolRail on a phone", () => {
     expect(scrollRegion?.className).toContain("overflow-y-auto");
   });
 
-  it("keeps submenu group active backgrounds inside the fixed item box", async () => {
+  it("keeps submenu group item shell clipped inside the rail", async () => {
     setViewport(true);
     render(<RailHarness />);
 
@@ -203,10 +203,24 @@ describe("DrawingToolRail on a phone", () => {
     const groupShell = screen.getByRole("button", { name: "Lines: Trend Line" }).parentElement;
     expect(groupShell?.className).toContain("overflow-hidden");
     expect(groupShell?.className).toContain("h-9");
-    expect(groupShell?.className).toContain("text-primary");
+  });
 
-    const chevronBtn = screen.getByRole("button", { name: "Choose lines tool" });
-    expect(chevronBtn.className).toContain("absolute");
-    expect(chevronBtn.className).toContain("h-3.5");
+  it("opens the tool picker via a body portal on mobile", async () => {
+    setViewport(true);
+    render(<RailHarness />);
+
+    await userEvent.click(screen.getByRole("button", { name: /show drawing tools/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Lines: Trend Line" }));
+
+    const menu = document.body.querySelector('[role="menu"]');
+    expect(menu).toBeInTheDocument();
+    expect(menu?.parentElement).toBe(document.body);
+    expect(getComputedStyle(menu!).position).toBe("fixed");
+    expect(screen.getByRole("menuitem", { name: "Ray" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("menuitem", { name: "Ray" }));
+    expect(screen.getByRole("button", { name: "Lines: Ray" }).parentElement?.className).toContain(
+      "text-primary",
+    );
   });
 });

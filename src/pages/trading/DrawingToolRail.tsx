@@ -28,7 +28,8 @@ import {
   Triangle,
   Type,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { mobileIcon, mobileTouch } from "../../lib/mobile-ui.ts";
 import { cn } from "../../lib/utils.ts";
 import type { DrawingTool, MagnetMode } from "./constants.ts";
@@ -126,6 +127,59 @@ function railButtonClass(isMobile: boolean, active?: boolean, danger?: boolean):
   );
 }
 
+function ToolGroupFlyout({
+  group,
+  activeTool,
+  onSelect,
+  className,
+  style,
+  flyoutRef,
+}: {
+  group: ToolGroup;
+  activeTool: DrawingTool;
+  onSelect: (t: DrawingTool) => void;
+  className?: string;
+  style?: CSSProperties;
+  flyoutRef?: React.Ref<HTMLDivElement>;
+}) {
+  return (
+    <div
+      ref={flyoutRef}
+      role="menu"
+      style={style}
+      className={cn(
+        "min-w-[200px] rounded-md border border-border bg-card py-1 shadow-lg",
+        className,
+      )}
+    >
+      <div className="px-2.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {group.label}
+      </div>
+      {group.tools.map((t) => {
+        const selected = activeTool === t.tool;
+        return (
+          <button
+            key={t.tool}
+            type="button"
+            role="menuitem"
+            aria-label={t.label}
+            onClick={() => onSelect(t.tool)}
+            className={cn(
+              "flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-sm transition-colors",
+              "hover:bg-secondary",
+              selected ? "bg-secondary/80 text-primary" : "text-foreground",
+            )}
+          >
+            <t.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+            <span className="flex-1">{t.label}</span>
+            {selected && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function RailButton({
   icon: Icon,
   title,
@@ -173,6 +227,7 @@ function RailGroup({
   onActivate,
   onSelect,
   isMobile,
+  onAnchor,
 }: {
   group: ToolGroup;
   activeTool: DrawingTool;
@@ -182,6 +237,7 @@ function RailGroup({
   onActivate: () => void;
   onSelect: (t: DrawingTool) => void;
   isMobile: boolean;
+  onAnchor?: (groupId: string, el: HTMLDivElement | null) => void;
 }) {
   const activeMeta = group.tools.find((t) => t.tool === activeTool);
   const lastMeta = group.tools.find((t) => t.tool === lastTool) ?? group.tools[0]!;
@@ -203,7 +259,10 @@ function RailGroup({
 
   if (isMobile) {
     return (
-      <div className="relative shrink-0">
+      <div
+        ref={(el) => onAnchor?.(group.id, el)}
+        className="relative shrink-0"
+      >
         <div
           className={cn(
             MOBILE_ITEM_BOX,
@@ -215,57 +274,22 @@ function RailGroup({
             type="button"
             title={title}
             aria-label={title}
-            onClick={onActivate}
+            aria-expanded={open}
+            onClick={onToggle}
             className="absolute inset-0 flex items-center justify-center"
           >
             <Icon className={mobileIcon.ui} strokeWidth={1.75} aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            title={`Choose ${group.label.toLowerCase()} tool`}
-            aria-label={`Choose ${group.label.toLowerCase()} tool`}
-            aria-expanded={open}
-            onClick={onToggle}
-            className="absolute bottom-0 right-0 flex h-3.5 w-3.5 items-center justify-center text-muted-foreground/80"
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 right-0 flex h-3.5 w-3.5 items-center justify-center text-muted-foreground/80"
           >
             <ChevronRight
               className={cn("h-2 w-2 transition-transform", open && "rotate-90")}
               strokeWidth={2.5}
             />
-          </button>
+          </span>
         </div>
-
-        {open && (
-          <div
-            role="menu"
-            className="absolute left-full top-0 z-40 ml-1.5 min-w-[200px] rounded-md border border-border bg-card py-1 shadow-lg"
-          >
-            <div className="px-2.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              {group.label}
-            </div>
-            {group.tools.map((t) => {
-              const selected = activeTool === t.tool;
-              return (
-                <button
-                  key={t.tool}
-                  type="button"
-                  role="menuitem"
-                  aria-label={t.label}
-                  onClick={() => onSelect(t.tool)}
-                  className={cn(
-                    "flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-sm transition-colors",
-                    "hover:bg-secondary",
-                    selected ? "bg-secondary/80 text-primary" : "text-foreground",
-                  )}
-                >
-                  <t.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                  <span className="flex-1">{t.label}</span>
-                  {selected && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
     );
   }
@@ -309,35 +333,12 @@ function RailGroup({
       </div>
 
       {open && (
-        <div
-          role="menu"
-          className="absolute left-full top-0 z-40 ml-1.5 min-w-[200px] rounded-md border border-border bg-card py-1 shadow-lg"
-        >
-          <div className="px-2.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            {group.label}
-          </div>
-          {group.tools.map((t) => {
-            const selected = activeTool === t.tool;
-            return (
-              <button
-                key={t.tool}
-                type="button"
-                role="menuitem"
-                aria-label={t.label}
-                onClick={() => onSelect(t.tool)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left text-sm transition-colors",
-                  "hover:bg-secondary",
-                  selected ? "bg-secondary/80 text-primary" : "text-foreground",
-                )}
-              >
-                <t.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                <span className="flex-1">{t.label}</span>
-                {selected && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-              </button>
-            );
-          })}
-        </div>
+        <ToolGroupFlyout
+          group={group}
+          activeTool={activeTool}
+          onSelect={onSelect}
+          className="absolute left-full top-0 z-40 ml-1.5"
+        />
       )}
     </div>
   );
@@ -486,15 +487,51 @@ export function DrawingToolRail({
     measure: "long-position",
   });
   const ref = useRef<HTMLDivElement>(null);
+  const flyoutRef = useRef<HTMLDivElement>(null);
+  const groupAnchorRefs = useRef(new Map<string, HTMLDivElement>());
+  const [mobileFlyoutPos, setMobileFlyoutPos] = useState<{ top: number; left: number } | null>(
+    null,
+  );
+
+  const setGroupAnchor = useCallback((groupId: string, el: HTMLDivElement | null) => {
+    if (el) groupAnchorRefs.current.set(groupId, el);
+    else groupAnchorRefs.current.delete(groupId);
+  }, []);
 
   useEffect(() => {
     if (!openGroup) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpenGroup(null);
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      if (flyoutRef.current?.contains(target)) return;
+      setOpenGroup(null);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [openGroup]);
+
+  useEffect(() => {
+    if (!openGroup || !isMobile) {
+      setMobileFlyoutPos(null);
+      return;
+    }
+
+    const syncFlyoutPos = () => {
+      const anchor = groupAnchorRefs.current.get(openGroup);
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      setMobileFlyoutPos({ top: rect.top, left: rect.right + 6 });
+    };
+
+    syncFlyoutPos();
+    const scrollEl = ref.current?.querySelector('[data-mobile-tool-scroll="true"]');
+    scrollEl?.addEventListener("scroll", syncFlyoutPos, { passive: true });
+    window.addEventListener("resize", syncFlyoutPos);
+    return () => {
+      scrollEl?.removeEventListener("scroll", syncFlyoutPos);
+      window.removeEventListener("resize", syncFlyoutPos);
+    };
+  }, [openGroup, isMobile]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -547,6 +584,7 @@ export function DrawingToolRail({
           onActivate={() => activate(lastUsed[g.id] ?? g.tools[0]!.tool)}
           onSelect={(t) => select(g.id, t)}
           isMobile={isMobile}
+          onAnchor={isMobile ? setGroupAnchor : undefined}
         />
       ))}
     </>
@@ -638,6 +676,25 @@ export function DrawingToolRail({
             </div>
           </div>
         </div>
+
+        {openGroup &&
+          mobileFlyoutPos &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <ToolGroupFlyout
+              flyoutRef={flyoutRef}
+              group={GROUPS.find((g) => g.id === openGroup)!}
+              activeTool={drawingTool}
+              onSelect={(t) => select(openGroup, t)}
+              className="pointer-events-auto z-50 max-h-[min(70vh,420px)] overflow-y-auto overscroll-contain"
+              style={{
+                position: "fixed",
+                top: mobileFlyoutPos.top,
+                left: mobileFlyoutPos.left,
+              }}
+            />,
+            document.body,
+          )}
       </div>
     );
   }
