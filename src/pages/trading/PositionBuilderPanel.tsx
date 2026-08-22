@@ -633,12 +633,9 @@ export function PositionBuilderPanel({
           title="Trade Setup"
           titleClassName={cn(mobileText.ui, "font-semibold normal-case text-foreground")}
           right={
-            <div className="flex min-w-0 items-center gap-1">
-              <span className={cn(mobileText.meta, "truncate text-muted-foreground")}>
-                {exchangeLabel} · {accountMeta}
-              </span>
-              {headerControls}
-            </div>
+            <span className={cn(mobileText.meta, "min-w-0 truncate text-muted-foreground")}>
+              {exchangeLabel} · {accountMeta}
+            </span>
           }
           className="py-1"
         />
@@ -793,7 +790,12 @@ export function PositionBuilderPanel({
               </p>
             ))}
 
-            <div className="flex items-center justify-between gap-2 pt-0.5">
+            <div
+              className={cn(
+                mobileForm.control,
+                "flex items-center justify-between gap-2 rounded border border-border bg-background px-2",
+              )}
+            >
               <FieldLabel>Risk / Reward</FieldLabel>
               <div className="flex items-center gap-1">
                 <span className={cn(mobileText.meta, "text-muted-foreground")}>1 :</span>
@@ -831,7 +833,7 @@ export function PositionBuilderPanel({
                 )}
               </div>
             ) : !plan.ok ? null : (
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 rounded border border-border bg-background px-2 py-1.5">
                 <SummaryRow
                   label="Risk (USDT)"
                   value={formatCurrency(plan.riskAmount)}
