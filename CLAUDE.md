@@ -21,6 +21,8 @@ memory:
   reference with screenshots, including what's unreachable/dead in the current build.
 - **[docs/releases/1.5.0-large-order-book.md](docs/releases/1.5.0-large-order-book.md)** —
   implementation, operational, and verification handoff for the 1.5.0 Large Order Book release.
+- **[docs/releases/RELEASE-READINESS.md](docs/releases/RELEASE-READINESS.md)** — audit of the
+  codebase against the four blockers for a first paid release, with a measured baseline.
 
 Read `AGENTS.md` first for any task in this repo. There is currently nothing Claude-Code-specific
 beyond what's in `AGENTS.md` — this file exists as the pointer Claude Code loads automatically.
