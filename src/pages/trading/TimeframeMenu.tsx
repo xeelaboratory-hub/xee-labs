@@ -1,6 +1,7 @@
 import { ChevronDown, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../../lib/utils.ts";
+import { mobileText } from "../../lib/mobile-ui.ts";
 import { TIMEFRAMES, type Timeframe } from "./constants.ts";
 
 /**
@@ -84,7 +85,8 @@ export function TimeframeMenu({
                     setOpen(false);
                   }}
                   className={cn(
-                    "min-h-[44px] rounded-md text-base font-medium transition-colors",
+                    "min-h-[44px] rounded-md font-medium transition-colors",
+                    mobileText.ui,
                     tf === timeframe
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "bg-secondary/60 text-foreground active:bg-secondary",

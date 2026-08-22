@@ -257,6 +257,10 @@
 }
 
 /* ─── Mobile utilities ───────────────────────────────────── */
+/* Typography & icon scale for phone layouts — chart header is the baseline.
+   Tokens: text-xs (ui/primary), text-label, text-meta, text-data, text-status.
+   Icons: h-4 w-4 (ui/nav), h-3 w-3 (status). Touch: 44px floor, 48px nav tabs.
+   See src/lib/mobile-ui.ts for shared class constants. */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

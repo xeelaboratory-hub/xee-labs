@@ -1,4 +1,5 @@
 import { cn } from "../../lib/utils.ts";
+import { mobileText } from "../../lib/mobile-ui.ts";
 import { useTradingStore } from "../../services/store.tsx";
 
 /**
@@ -19,10 +20,10 @@ export function TradingModeIndicator({
     return (
       <span
         className={cn(
-          "inline-flex shrink-0 items-center gap-0.5 font-semibold uppercase text-destructive",
-          compact
-            ? "rounded bg-destructive/15 px-1 py-0.5 text-[9px] tracking-wide"
-            : "gap-1 text-[10px] tracking-wide",
+          "inline-flex shrink-0 items-center gap-0.5",
+          mobileText.status,
+          "text-destructive",
+          compact && "rounded bg-destructive/15 px-1 py-0.5",
           className,
         )}
         aria-label="Live trading mode"
@@ -36,10 +37,10 @@ export function TradingModeIndicator({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 font-semibold uppercase text-muted-foreground",
-        compact
-          ? "rounded bg-secondary/80 px-1 py-0.5 text-[9px] tracking-wide"
-          : "text-[10px] tracking-wide",
+        "inline-flex shrink-0",
+        mobileText.status,
+        "text-muted-foreground",
+        compact && "rounded bg-secondary/80 px-1 py-0.5",
         className,
       )}
       aria-label="Demo trading mode"

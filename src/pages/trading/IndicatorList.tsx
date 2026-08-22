@@ -1,6 +1,7 @@
 import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
 import type { SessionMarket } from "../../lib/session-volume-profile.ts";
 import { cn } from "../../lib/utils.ts";
+import { mobileText, mobileTouch } from "../../lib/mobile-ui.ts";
 
 const SESSION_MARKETS = ["ASX", "TOKYO", "LONDON", "NEW_YORK"] as const;
 
@@ -56,7 +57,7 @@ export function IndicatorList({
                 "w-full flex items-center gap-2 rounded text-left",
                 compact
                   ? "px-2 py-1.5 text-sm hover:bg-secondary"
-                  : "min-h-[44px] px-3 py-2 text-base active:bg-secondary",
+                  : cn(mobileTouch.target, "px-3 py-2 text-xs active:bg-secondary"),
                 active && "bg-secondary",
               )}
             >
@@ -65,7 +66,7 @@ export function IndicatorList({
                 style={{ backgroundColor: ind.color }}
               />
               <span className="flex-1">{ind.label}</span>
-              <span className={cn("text-muted-foreground", compact ? "text-xs" : "text-sm")}>
+              <span className={cn("text-muted-foreground", compact ? mobileText.ui : mobileText.meta)}>
                 {ind.pane}
               </span>
             </button>
@@ -87,8 +88,8 @@ export function IndicatorList({
                       className={cn(
                         "rounded font-medium",
                         compact
-                          ? "px-1 py-1 text-xs hover:bg-secondary"
-                          : "min-h-[44px] px-1 text-sm active:bg-secondary",
+                          ? cn(mobileText.ui, "px-1 py-1 hover:bg-secondary")
+                          : cn(mobileTouch.target, mobileText.ui, "px-1 active:bg-secondary"),
                         sessionVolumeProfileMarkets.includes(market) &&
                           "bg-primary text-primary-foreground",
                       )}
@@ -100,7 +101,7 @@ export function IndicatorList({
                 <label
                   className={cn(
                     "flex items-center justify-between gap-2 text-muted-foreground",
-                    compact ? "text-[13px]" : "text-base",
+                    compact ? mobileText.data : mobileText.ui,
                   )}
                 >
                   Rows
@@ -115,7 +116,7 @@ export function IndicatorList({
                     onChange={(event) => onSessionVolumeProfileRows(Number(event.target.value))}
                     className={cn(
                       "rounded border border-border bg-background text-right text-foreground outline-none focus:border-primary",
-                      compact ? "w-16 px-1.5 py-0.5" : "min-h-[44px] w-20 px-2 text-base",
+                      compact ? "w-16 px-1.5 py-0.5" : cn(mobileTouch.target, "w-20 px-2", mobileText.ui),
                     )}
                   />
                 </label>

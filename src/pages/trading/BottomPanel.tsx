@@ -184,7 +184,7 @@ export function BottomPanel({
             <t.icon className="h-3 w-3" />
             <span className="hidden md:inline">{t.label}</span>
             {t.count !== undefined && t.count > 0 && (
-              <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-[11px]">
+              <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-meta">
                 {t.count}
               </span>
             )}
@@ -278,7 +278,7 @@ function TradeHistoryTable({ mode }: { mode: TradingMode }) {
 
   return (
     <div className="flex flex-col h-full">
-      <table className="w-full text-[13px]">
+      <table className="w-full max-md:text-xs md:text-data">
         <thead className="sticky top-0 bg-card z-10">
           <tr>
             <th>Time</th>

@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { PanelHeader } from "../../components/PanelHeader.tsx";
 import { DisconnectedTradingBanner } from "../../components/ConnectionIndicator.tsx";
 import { decimalsFromTick, formatCurrency, formatNumber, cn } from "../../lib/utils.ts";
+import { mobileIcon, mobileText } from "../../lib/mobile-ui.ts";
 import { useAuthStore } from "../../services/store.tsx";
 import { useInstrument, usePlaceOrder } from "../../services/queries.ts";
 import type { PlaceOrderInput, Symbol, TradingMode } from "../../services/schemas.ts";
@@ -276,7 +277,7 @@ export function PositionBuilderPanel({
     <div className="flex flex-col h-full" data-testid="position-builder">
       <PanelHeader
         title="TRADE SETUP"
-        titleClassName="text-[13px] font-extrabold tracking-wide normal-case text-foreground"
+        titleClassName="max-md:text-data max-md:font-bold md:text-[13px] font-extrabold tracking-wide normal-case text-foreground"
         right={
           <div className="flex items-center gap-1.5 shrink-0">
             <button
@@ -290,7 +291,11 @@ export function PositionBuilderPanel({
               )}
               title={soundMuted ? "Unmute trade sounds" : "Mute trade sounds"}
             >
-              {soundMuted ? <VolumeX className="h-7 w-7" /> : <Volume2 className="h-7 w-7" />}
+              {soundMuted ? (
+                <VolumeX className="max-md:h-4 max-md:w-4 md:h-7 md:w-7" />
+              ) : (
+                <Volume2 className="max-md:h-4 max-md:w-4 md:h-7 md:w-7" />
+              )}
             </button>
             <button
               onClick={handleToggleOneClick}
@@ -303,7 +308,7 @@ export function PositionBuilderPanel({
               )}
               title="One-click trading: skip confirmation for market orders"
             >
-              <Zap className="h-7 w-7" />
+              <Zap className="max-md:h-4 max-md:w-4 md:h-7 md:w-7" />
               1-Click
             </button>
           </div>
@@ -314,14 +319,16 @@ export function PositionBuilderPanel({
             <span className="text-label uppercase text-muted-foreground">Balance</span>
             <span
               className={cn(
-                "text-[18px] font-extrabold leading-none font-mono",
+                "leading-none font-mono max-md:text-data max-md:font-bold md:text-[18px] md:font-extrabold",
                 isSignedIn ? "text-foreground" : "text-muted-foreground",
               )}
             >
               {isSignedIn ? formatCurrency(accountEquity) : "—"}
             </span>
           </div>
-          <span className="text-xs font-semibold text-muted-foreground truncate">{symbol}</span>
+          <span className={cn(mobileText.primary, "text-muted-foreground truncate md:font-semibold")}>
+            {symbol}
+          </span>
         </div>
       </PanelHeader>
 
@@ -333,7 +340,7 @@ export function PositionBuilderPanel({
             onClick={() => setSide("long")}
             className="text-xs max-md:min-h-[48px]"
           >
-            <TrendingUp className="h-3 w-3 mr-1" />
+            <TrendingUp className={cn(mobileIcon.ui, "mr-1 md:h-3 md:w-3")} />
             Long
           </Button>
           <Button
@@ -342,13 +349,13 @@ export function PositionBuilderPanel({
             onClick={() => setSide("short")}
             className="text-xs max-md:min-h-[48px]"
           >
-            <TrendingDown className="h-3 w-3 mr-1" />
+            <TrendingDown className={cn(mobileIcon.ui, "mr-1 md:h-3 md:w-3")} />
             Short
           </Button>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs text-muted-foreground uppercase tracking-wider">
+          <label className={cn(mobileText.ui, "text-muted-foreground uppercase tracking-wider")}>
             Risk %
             <input
               type="number"
@@ -360,7 +367,7 @@ export function PositionBuilderPanel({
               min="0"
             />
           </label>
-          <label className="text-xs text-muted-foreground uppercase tracking-wider">
+          <label className={cn(mobileText.ui, "text-muted-foreground uppercase tracking-wider")}>
             Leverage
             <input
               type="number"
@@ -372,7 +379,7 @@ export function PositionBuilderPanel({
               min="0"
             />
             {instrument.maxLever > 0 && (
-              <i className="block text-[11px] not-italic text-muted-foreground mt-0.5">
+              <i className={cn("block not-italic text-muted-foreground mt-0.5", mobileText.meta)}>
                 max {instrument.maxLever}x
               </i>
             )}
@@ -380,7 +387,7 @@ export function PositionBuilderPanel({
         </div>
 
         <div>
-          <label className="text-xs text-muted-foreground uppercase tracking-wider">Entry</label>
+          <label className={cn(mobileText.ui, "text-muted-foreground uppercase tracking-wider")}>Entry</label>
           <div className="grid grid-cols-2 gap-1 mt-1">
             <button
               onClick={() => setEntryMode("market")}
@@ -437,7 +444,7 @@ export function PositionBuilderPanel({
           )}
         </div>
 
-        <label className="block text-xs text-muted-foreground uppercase tracking-wider">
+        <label className={cn("block text-muted-foreground uppercase tracking-wider", mobileText.ui)}>
           RR (risk:reward)
           <input
             type="number"
@@ -450,7 +457,7 @@ export function PositionBuilderPanel({
           />
         </label>
 
-        <div className="bg-secondary rounded p-2.5 text-[13px] space-y-1.5">
+        <div className={cn("bg-secondary rounded p-2.5 space-y-1.5 max-md:text-xs md:text-data")}>
           {!isSignedIn ? (
             // Signed out, every number here is a placeholder, and the reason
             // the planner reports ("No Total Equity available") describes the
@@ -504,7 +511,7 @@ export function PositionBuilderPanel({
                     <span className="text-muted-foreground uppercase text-label">
                       Volume Profile
                     </span>
-                    <span className="text-muted-foreground text-xs">
+                    <span className={cn("text-muted-foreground", mobileText.ui)}>
                       {MARKET_LABELS[volumeProfile.market] ?? volumeProfile.market}
                       {volumeProfile.isDeveloping && " · developing"}
                     </span>
@@ -556,7 +563,7 @@ export function PositionBuilderPanel({
           // Taller on a phone than the 44px floor on purpose: this is the
           // control that sends a real order to a real exchange, and it sits
           // directly above the tab bar where a thumb rests.
-          className="w-full max-md:min-h-[52px] max-md:text-sm"
+          className="w-full max-md:min-h-[48px] max-md:text-xs max-md:font-semibold md:text-sm"
           onClick={handleApply}
           loading={placeOrder.isPending}
           disabled={!canApply || !isFeedConnected || placeOrder.isPending}

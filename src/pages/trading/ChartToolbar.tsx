@@ -14,6 +14,7 @@ import { useIsDesktop } from "../../hooks/useIsDesktop.ts";
 import { type IndicatorType } from "../../lib/indicators.ts";
 import type { SessionMarket } from "../../lib/session-volume-profile.ts";
 import { cn, formatMobileSymbolLabel, formatNumber } from "../../lib/utils.ts";
+import { mobileIcon, mobileText, mobileTouch } from "../../lib/mobile-ui.ts";
 import { TIMEFRAMES, type Timeframe } from "./constants.ts";
 import { IndicatorList } from "./IndicatorList.tsx";
 import { TimeframeMenu } from "./TimeframeMenu.tsx";
@@ -199,7 +200,8 @@ export function ChartToolbar({
 
   const mobileIconButtonClass = (active: boolean) =>
     cn(
-      "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
+      "relative flex shrink-0 items-center justify-center rounded-md",
+      mobileTouch.headerIcon,
       active ? "bg-primary/15 text-primary" : "text-muted-foreground active:bg-secondary",
     );
 
@@ -223,7 +225,7 @@ export function ChartToolbar({
           </div>
 
           {midPrice !== null && (
-            <span className="min-w-0 flex-1 truncate text-center font-mono text-xs font-semibold tabular-nums tracking-tight text-foreground">
+            <span className={cn("min-w-0 flex-1 truncate text-center", mobileText.primaryMono)}>
               {midPrice}
             </span>
           )}
@@ -243,9 +245,9 @@ export function ChartToolbar({
               }
               className={mobileIconButtonClass(activeIndicators.length > 0)}
             >
-              <BarChart3 className="h-4 w-4" aria-hidden="true" />
+              <BarChart3 className={mobileIcon.ui} aria-hidden="true" />
               {activeIndicators.length > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-semibold leading-none text-primary-foreground">
+                <span className={cn("absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 leading-none text-primary-foreground", mobileText.status)}>
                   {activeIndicators.length}
                 </span>
               )}
@@ -259,7 +261,7 @@ export function ChartToolbar({
                 aria-label="Settings"
                 className={mobileIconButtonClass(false)}
               >
-                <Settings className="h-4 w-4" aria-hidden="true" />
+                <Settings className={mobileIcon.ui} aria-hidden="true" />
               </button>
             )}
 
