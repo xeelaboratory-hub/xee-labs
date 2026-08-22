@@ -46,10 +46,21 @@ export const mobilePage = {
   rowGap: "gap-3",
 } as const;
 
-/** Compact form controls — 44px touch floor, chart-header density. */
+/**
+ * Compact form controls — chart-header density.
+ *
+ * Visual heights target ~40px for inputs/segments and ~46px for the primary
+ * CTA. Touch floors stay at 44px where controls are primary tap targets.
+ */
 export const mobileForm = {
-  control: "h-11 min-h-[44px]",
-  cta: "h-12 min-h-[48px]",
-  sectionGap: "space-y-2",
-  rowGap: "gap-2",
+  /** Text inputs, segments, secondary actions — 40px visual */
+  control: "h-10 min-h-[40px] px-1.5",
+  /** Primary sticky CTA — slightly taller than field controls */
+  cta: "h-[46px] min-h-[44px] px-3 py-0",
+  /** Vertical spacing between field groups / sections */
+  sectionGap: "space-y-1.5",
+  /** Horizontal / grid gap between paired controls */
+  rowGap: "gap-1.5",
+  /** Label → control spacing within a field */
+  labelGap: "gap-0.5",
 } as const;

@@ -74,16 +74,15 @@ function MobileVolumeProfileSection({
 }) {
   const marketLabel = MARKET_LABELS[volumeProfile.market] ?? volumeProfile.market;
   return (
-    <div className="border-t border-border pt-2">
+    <div className="border-t border-border pt-1.5">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
         data-testid="volume-profile-toggle"
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-md py-1 text-left",
-          mobileForm.control,
-          "min-h-0 h-auto",
+          "flex w-full min-h-[40px] items-center justify-between gap-2 rounded-md py-0.5 text-left",
+          mobileText.ui,
         )}
       >
         <span className={cn(mobileText.ui, "text-foreground")}>
@@ -359,7 +358,7 @@ export function PositionBuilderPanel({
   };
 
   const mobileInputClass = cn(
-    "w-full rounded border border-border bg-background px-2 font-mono tabular-nums",
+    "w-full rounded border border-border bg-background font-mono tabular-nums leading-none",
     mobileForm.control,
     mobileText.ui,
   );
@@ -368,8 +367,8 @@ export function PositionBuilderPanel({
     cn(
       mobileForm.control,
       mobileText.ui,
-      "rounded border border-border transition-colors",
-      active ? "bg-primary text-primary-foreground border-primary" : "hover:bg-secondary",
+      "flex items-center justify-center gap-0.5 rounded border border-border leading-none transition-colors",
+      active ? "bg-primary font-semibold text-primary-foreground border-primary" : "hover:bg-secondary",
     );
 
   const headerControls = (
@@ -380,10 +379,10 @@ export function PositionBuilderPanel({
           "flex items-center justify-center rounded border transition-colors",
           isDesktop
             ? "gap-1 px-1.5 py-1 text-meta font-medium"
-            : cn(mobileTouch.headerIcon, "border-border"),
+            : cn(mobileTouch.headerIcon, "rounded-md border border-border p-0"),
           !soundMuted
             ? "bg-accent/15 text-accent border-accent/30"
-            : "text-muted-foreground border-border hover:bg-secondary",
+            : "text-muted-foreground hover:bg-secondary",
         )}
         title={soundMuted ? "Unmute trade sounds" : "Mute trade sounds"}
         aria-label={soundMuted ? "Unmute trade sounds" : "Mute trade sounds"}
@@ -400,10 +399,10 @@ export function PositionBuilderPanel({
           "flex items-center justify-center rounded border transition-colors",
           isDesktop
             ? "gap-1 px-1.5 py-1 text-meta font-medium"
-            : cn(mobileTouch.headerIcon, "border-border"),
+            : cn(mobileTouch.headerIcon, "rounded-md border border-border p-0"),
           oneClick
             ? "bg-buy/15 text-buy border-buy/30"
-            : "text-muted-foreground border-border hover:bg-secondary",
+            : "text-muted-foreground hover:bg-secondary",
         )}
         title="One-click trading: skip confirmation for market orders"
         aria-label="One-click trading"
@@ -432,7 +431,7 @@ export function PositionBuilderPanel({
       variant={side === "long" ? "buy" : "sell"}
       className={cn(
         "w-full",
-        isDesktop ? "text-sm" : cn(mobileForm.cta, mobileText.ui, "font-semibold"),
+        isDesktop ? "text-sm" : cn(mobileForm.cta, mobileText.ui, "font-semibold leading-none"),
       )}
       onClick={handleApply}
       loading={placeOrder.isPending}
@@ -456,9 +455,9 @@ export function PositionBuilderPanel({
           title="Trade Setup"
           titleClassName={cn(mobileText.ui, "font-semibold normal-case text-foreground")}
           right={headerControls}
-          className="py-1.5"
+          className="py-1"
         >
-          <div className="mt-1 flex items-baseline justify-between gap-2">
+          <div className="mt-0.5 flex items-baseline justify-between gap-2">
             <span className={cn(mobileText.primaryMono, isSignedIn ? "text-foreground" : "text-muted-foreground")}>
               {isSignedIn ? formatCurrency(accountEquity) : "—"}
             </span>
@@ -466,20 +465,20 @@ export function PositionBuilderPanel({
           </div>
         </PanelHeader>
 
-        <div className={cn("flex-1 overflow-y-auto overscroll-contain", mobilePage.paddingX, "py-2", mobileForm.sectionGap)}>
+        <div className={cn("flex-1 overflow-y-auto overscroll-contain", mobilePage.paddingX, "py-1.5", mobileForm.sectionGap)}>
           <div className={cn("grid grid-cols-2", mobileForm.rowGap)}>
             <button type="button" onClick={() => setSide("long")} className={mobileSegmentClass(side === "long")}>
-              <TrendingUp className={cn(mobileIcon.ui, "mr-1")} aria-hidden="true" />
+              <TrendingUp className={mobileIcon.ui} aria-hidden="true" />
               Long
             </button>
             <button type="button" onClick={() => setSide("short")} className={mobileSegmentClass(side === "short")}>
-              <TrendingDown className={cn(mobileIcon.ui, "mr-1")} aria-hidden="true" />
+              <TrendingDown className={mobileIcon.ui} aria-hidden="true" />
               Short
             </button>
           </div>
 
           <div className={cn("grid grid-cols-2", mobileForm.rowGap)}>
-            <label className={mobileForm.sectionGap}>
+            <label className={cn("flex flex-col", mobileForm.labelGap)}>
               <FieldLabel>Risk %</FieldLabel>
               <input
                 type="number"
@@ -491,7 +490,7 @@ export function PositionBuilderPanel({
                 min="0"
               />
             </label>
-            <label className={mobileForm.sectionGap}>
+            <label className={cn("flex flex-col", mobileForm.labelGap)}>
               <FieldLabel>Leverage</FieldLabel>
               <input
                 type="number"
@@ -508,9 +507,9 @@ export function PositionBuilderPanel({
             </label>
           </div>
 
-          <div className={mobileForm.sectionGap}>
+          <div className={cn("flex flex-col", mobileForm.labelGap)}>
             <FieldLabel>Entry</FieldLabel>
-            <div className={cn("grid grid-cols-2 mt-1", mobileForm.rowGap)}>
+            <div className={cn("grid grid-cols-2", mobileForm.rowGap)}>
               <button type="button" onClick={() => setEntryMode("market")} className={mobileSegmentClass(entryMode === "market")}>
                 Market
               </button>
@@ -518,7 +517,7 @@ export function PositionBuilderPanel({
                 Limit
               </button>
             </div>
-            <div className={cn("mt-1 flex gap-2", mobileForm.rowGap)}>
+            <div className={cn("flex", mobileForm.rowGap)}>
               {entryMode === "limit" ? (
                 <input
                   type="number"
@@ -547,7 +546,7 @@ export function PositionBuilderPanel({
                   className={cn(
                     mobileForm.control,
                     mobileText.label,
-                    "shrink-0 rounded border border-border px-2 font-semibold uppercase tracking-wide hover:bg-secondary",
+                    "inline-flex shrink-0 items-center justify-center font-semibold uppercase tracking-wide rounded border border-border hover:bg-secondary",
                   )}
                 >
                   Use {nextProfileLevel === "poc" ? "POC" : "VAH"}
@@ -556,7 +555,7 @@ export function PositionBuilderPanel({
             </div>
           </div>
 
-          <label className={cn("block", mobileForm.sectionGap)}>
+          <label className={cn("flex flex-col", mobileForm.labelGap)}>
             <FieldLabel>RR</FieldLabel>
             <input
               type="number"
@@ -569,9 +568,9 @@ export function PositionBuilderPanel({
             />
           </label>
 
-          <div className="border-t border-border pt-2" data-testid="order-preview">
+          <div className="border-t border-border pt-1.5" data-testid="order-preview">
             <FieldLabel>Order Preview</FieldLabel>
-            <div className="mt-1">
+            <div className="mt-0.5">
               {!isSignedIn ? (
                 <div className="space-y-2 py-1">
                   <p className={cn(mobileText.meta, "text-muted-foreground")}>Sign in to size and place orders.</p>
@@ -605,7 +604,7 @@ export function PositionBuilderPanel({
                   {plan.warnings.map((w) => (
                     <p
                       key={w}
-                      className="mt-1 flex items-start gap-1.5 rounded border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-destructive"
+                      className="mt-0.5 flex items-start gap-1 rounded border border-destructive/30 bg-destructive/10 px-1.5 py-1 text-destructive"
                     >
                       <AlertTriangle className={cn(mobileIcon.status, "mt-0.5 shrink-0")} aria-hidden="true" />
                       <span className={mobileText.ui}>{w}</span>
@@ -646,7 +645,7 @@ export function PositionBuilderPanel({
           className={cn(
             "shrink-0 border-t border-border bg-card",
             mobilePage.paddingX,
-            "pt-2 pb-2 safe-area-bottom",
+            "pt-1.5 pb-1.5 safe-area-bottom",
           )}
           data-testid="trade-apply-footer"
         >
