@@ -1,30 +1,30 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, LogOut, Palette, Plug, Trash2, User } from "lucide-react";
-import { AccentPicker } from "../components/ThemeSwitcher.tsx";
+import { ArrowLeft, LogOut, Palette, TrendingUp, Trash2, User } from "lucide-react";
+import { AccentPicker, ThemeSwitcher } from "../components/ThemeSwitcher.tsx";
 import { LoginForm } from "./LoginForm.tsx";
 import { api, type ExchangeCredentialInput } from "../services/api.ts";
-import { useAuthStore, useTradingStore } from "../services/store.tsx";
+import { useAuthStore } from "../services/store.tsx";
 import { toast } from "../services/toast.ts";
 import { cn } from "../lib/utils.ts";
 import { trimCredentialFields, validateOkxCredentials } from "../lib/okx-credentials.ts";
+import { TradingModeSwitch } from "./trading/TradingModeSwitch.tsx";
 
-// ── Settings — Account / API connections, promoted out of the trading
-// screen's always-visible chrome (see AccountPanel, which now only hosts
-// the global DEMO/LIVE + connection + equity status strip). A view-swap
-// inside TradingPage (not a route) — see the showSettings toggle there. ──
+// ── Settings — Account / Trading / Appearance. Global controls that used to
+// sit in the mobile footer now live here; the top bar carries only a mode
+// indicator and this entry point. A view-swap inside TradingPage (not a route).
 
-type TabId = "account" | "connections" | "appearance";
+type TabId = "account" | "trading" | "appearance";
 
 const TABS: Array<{ id: TabId; label: string; icon: React.ReactNode }> = [
   { id: "account", label: "Account", icon: <User className="h-7 w-7" /> },
-  { id: "connections", label: "Exchange Connections", icon: <Plug className="h-7 w-7" /> },
+  { id: "trading", label: "Trading", icon: <TrendingUp className="h-7 w-7" /> },
   { id: "appearance", label: "Appearance", icon: <Palette className="h-7 w-7" /> },
 ];
 
 const TITLES: Record<TabId, [string, string]> = {
-  account: ["Account", "Identity and account-level preferences."],
-  connections: ["Exchange Connections", "Manage exchange API connections and permissions."],
+  account: ["Account", "Sign in and manage your identity."],
+  trading: ["Trading", "Execution environment and exchange connections."],
   appearance: ["Appearance", "Visual preferences for Xee.Labs."],
 };
 
@@ -69,7 +69,7 @@ function SettingRow({
 function AccountTab() {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
-  const mode = useTradingStore((s) => s.mode);
+  const logout = useAuthStore((s) => s.logout);
 
   if (!accessToken) {
     return (
@@ -86,14 +86,21 @@ function AccountTab() {
       <SettingRow label="Email" sub="Used for sign-in and account notifications">
         <div className="text-sm text-foreground">{user?.email}</div>
       </SettingRow>
-      <SettingRow label="Currently trading in" sub="Switch DEMO/LIVE from the status bar on the trading screen">
-        <div className="text-sm text-foreground uppercase">{mode}</div>
+      <SettingRow label="Session" sub="End your session on this device">
+        <button
+          type="button"
+          onClick={logout}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-destructive"
+        >
+          <LogOut className="h-4 w-4" aria-hidden="true" />
+          Log out
+        </button>
       </SettingRow>
     </SectionCard>
   );
 }
 
-function ConnectionsTab() {
+function ExchangeConnectionsSection() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const queryClient = useQueryClient();
   const { data: credentials = [] } = useQuery({
@@ -112,30 +119,22 @@ function ConnectionsTab() {
 
   if (!accessToken) {
     return (
-      <SectionCard title="Exchange Connections" help="Log in (Account tab) to manage exchange connections." >
-        <div />
-      </SectionCard>
+      <p className="text-sm text-muted-foreground">
+        Log in on the Account tab to manage exchange connections.
+      </p>
     );
   }
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["credentials"] });
 
-  // Live shape feedback while typing; the same call gates submission below.
   const validation = validateOkxCredentials({ apiKey, apiSecret, passphrase });
   const raw: Record<string, string> = { apiKey, apiSecret, passphrase };
-  // Don't flag a field as missing until it has been typed into — a pristine
-  // form shouldn't render three red lines. A whitespace-only value counts as
-  // touched, so it still surfaces rather than failing silently on submit.
   const liveErrors = validation.errors.filter((issue) => !(issue.kind === "required" && raw[issue.field] === ""));
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Blocking checks run against the trimmed values that would actually be
-    // sent, so a paste with trailing whitespace can't slip past them. The
-    // submit button is disabled while these exist and every one of them is
-    // already rendered above the button, so this is just a backstop.
     const trimmed = trimCredentialFields({ apiKey, apiSecret, passphrase });
     if (validateOkxCredentials(trimmed).errors.length > 0) return;
 
@@ -165,97 +164,114 @@ function ConnectionsTab() {
   };
 
   return (
-    <SectionCard title="Exchange Connections" help="OKX API keys for demo and live trading.">
-      <div className="max-w-sm space-y-4">
-        {credentials.length > 0 && (
-          <ul className="space-y-1 text-xs">
-            {credentials.map((c) => (
-              <li key={c.id} className="flex items-center justify-between rounded bg-secondary/50 px-2 py-1.5">
-                <span>
-                  {c.exchange.toUpperCase()} · {c.isDemo ? "demo" : "live"} · {c.label}
-                </span>
-                <button onClick={() => handleDelete(c.id)} className="text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-7 w-7" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+    <div className="max-w-sm space-y-4">
+      {credentials.length > 0 && (
+        <ul className="space-y-1 text-xs">
+          {credentials.map((c) => (
+            <li key={c.id} className="flex items-center justify-between rounded bg-secondary/50 px-2 py-1.5">
+              <span>
+                {c.exchange.toUpperCase()} · {c.isDemo ? "demo" : "live"} · {c.label}
+              </span>
+              <button onClick={() => handleDelete(c.id)} className="text-muted-foreground hover:text-destructive">
+                <Trash2 className="h-7 w-7" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
-        <form onSubmit={handleAdd} className="space-y-2 text-xs">
-          <div className="flex rounded border border-border overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setIsDemo(true)}
-              className={cn("flex-1 py-1 uppercase", isDemo ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
-            >
-              Demo
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsDemo(false)}
-              className={cn("flex-1 py-1 uppercase", !isDemo ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
-            >
-              Live
-            </button>
-          </div>
-          <input
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="API Key"
-            required
-            className="w-full rounded border border-border bg-background px-2 py-1.5"
-          />
-          <input
-            value={apiSecret}
-            onChange={(e) => setApiSecret(e.target.value)}
-            placeholder="API Secret"
-            type="password"
-            required
-            className="w-full rounded border border-border bg-background px-2 py-1.5"
-          />
-          <input
-            value={passphrase}
-            onChange={(e) => setPassphrase(e.target.value)}
-            placeholder="Passphrase"
-            type="password"
-            required
-            className="w-full rounded border border-border bg-background px-2 py-1.5"
-          />
-          <input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="Label"
-            className="w-full rounded border border-border bg-background px-2 py-1.5"
-          />
-          {liveErrors.map((issue) => (
-            <p key={issue.message} className="text-destructive">
-              {issue.message}
-            </p>
-          ))}
-          {validation.warnings.map((issue) => (
-            <p key={issue.message} className="text-warning">
-              {issue.message}
-            </p>
-          ))}
-          {error && <p className="text-destructive">{error}</p>}
+      <form onSubmit={handleAdd} className="space-y-2 text-xs">
+        <div className="flex rounded border border-border overflow-hidden">
           <button
-            type="submit"
-            disabled={submitting || validation.errors.length > 0}
-            className="w-full rounded bg-primary py-1.5 font-medium text-primary-foreground disabled:opacity-50"
+            type="button"
+            onClick={() => setIsDemo(true)}
+            className={cn("flex-1 py-1 uppercase", isDemo ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
           >
-            {submitting ? "Saving…" : "Save credentials"}
+            Demo
           </button>
-        </form>
-      </div>
-    </SectionCard>
+          <button
+            type="button"
+            onClick={() => setIsDemo(false)}
+            className={cn("flex-1 py-1 uppercase", !isDemo ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+          >
+            Live
+          </button>
+        </div>
+        <input
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder="API Key"
+          required
+          className="w-full rounded border border-border bg-background px-2 py-1.5"
+        />
+        <input
+          value={apiSecret}
+          onChange={(e) => setApiSecret(e.target.value)}
+          placeholder="API Secret"
+          type="password"
+          required
+          className="w-full rounded border border-border bg-background px-2 py-1.5"
+        />
+        <input
+          value={passphrase}
+          onChange={(e) => setPassphrase(e.target.value)}
+          placeholder="Passphrase"
+          type="password"
+          required
+          className="w-full rounded border border-border bg-background px-2 py-1.5"
+        />
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Label"
+          className="w-full rounded border border-border bg-background px-2 py-1.5"
+        />
+        {liveErrors.map((issue) => (
+          <p key={issue.message} className="text-destructive">
+            {issue.message}
+          </p>
+        ))}
+        {validation.warnings.map((issue) => (
+          <p key={issue.message} className="text-warning">
+            {issue.message}
+          </p>
+        ))}
+        {error && <p className="text-destructive">{error}</p>}
+        <button
+          type="submit"
+          disabled={submitting || validation.errors.length > 0}
+          className="w-full rounded bg-primary py-1.5 font-medium text-primary-foreground disabled:opacity-50"
+        >
+          {submitting ? "Saving…" : "Save credentials"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function TradingTab() {
+  return (
+    <>
+      <SectionCard
+        title="Trading mode"
+        help="Demo uses paper trading credentials. Live routes orders to your real OKX account."
+      >
+        <TradingModeSwitch />
+      </SectionCard>
+      <SectionCard title="Exchange connections" help="OKX API keys for demo and live trading.">
+        <ExchangeConnectionsSection />
+      </SectionCard>
+    </>
   );
 }
 
 function AppearanceTab() {
   return (
     <SectionCard title="Appearance" help="Keep visual preferences separate from execution controls.">
-      <div className="space-y-1">
+      <SettingRow label="Theme" sub="Switch between light and dark mode">
+        <ThemeSwitcher />
+      </SettingRow>
+      <div className="space-y-1 pt-3 border-t border-border">
         <div className="text-label uppercase text-muted-foreground">Accent Color</div>
         <AccentPicker />
       </div>
@@ -267,7 +283,6 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<TabId>("account");
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
-  const logout = useAuthStore((s) => s.logout);
 
   return (
     <div className="flex h-full min-h-0 w-full bg-background text-foreground">
@@ -290,18 +305,6 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
             </button>
           ))}
         </nav>
-
-        {accessToken && (
-          <div className="mt-4 border-t border-border pt-3">
-            <button
-              onClick={logout}
-              className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-muted-foreground hover:bg-secondary hover:text-destructive"
-            >
-              <LogOut className="h-7 w-7" />
-              Log out
-            </button>
-          </div>
-        )}
 
         {accessToken && (
           <div className="mt-4 truncate border-t border-border px-2 pt-3 text-meta text-muted-foreground">
@@ -329,7 +332,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
 
         <div className="max-w-[760px]">
           {tab === "account" && <AccountTab />}
-          {tab === "connections" && <ConnectionsTab />}
+          {tab === "trading" && <TradingTab />}
           {tab === "appearance" && <AppearanceTab />}
         </div>
       </section>

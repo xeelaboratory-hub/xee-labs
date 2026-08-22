@@ -6,6 +6,7 @@ import {
   Layers,
   type LucideIcon,
   Search,
+  Settings,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -16,6 +17,7 @@ import { cn, formatNumber } from "../../lib/utils.ts";
 import { TIMEFRAMES, type Timeframe } from "./constants.ts";
 import { IndicatorList } from "./IndicatorList.tsx";
 import { TimeframeMenu } from "./TimeframeMenu.tsx";
+import { TradingModeIndicator } from "./TradingModeIndicator.tsx";
 
 export interface ChartToolbarProps {
   selectedSymbol: string;
@@ -45,6 +47,8 @@ export interface ChartToolbarProps {
   aiTraderEnabled?: boolean;
   showRightPanel: boolean;
   tick?: { bid: number; ask: number; timestamp: number };
+  /** Mobile only — opens the Settings view-swap. */
+  onOpenSettings?: () => void;
   symbolInfo?: {
     tickSize?: number;
     pipSize?: number;
@@ -76,6 +80,7 @@ export function ChartToolbar({
   onRightPanel,
   showRightPanel,
   tick,
+  onOpenSettings,
   symbolInfo,
   aiTraderEnabled,
 }: ChartToolbarProps) {
@@ -88,8 +93,13 @@ export function ChartToolbar({
       s.name.toLowerCase().includes(symbolFilter.toLowerCase()) ||
       (s.category || "").toLowerCase().includes(symbolFilter.toLowerCase()),
   );
-  return (
-    <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-card text-xs shrink-0 overflow-x-auto md:overflow-visible flex-nowrap md:flex-wrap no-scrollbar">
+  const toolbarRow = (
+    <div
+      className={cn(
+        "flex items-center gap-1 px-2 py-1 text-xs shrink-0 overflow-x-auto md:overflow-visible flex-nowrap md:flex-wrap no-scrollbar",
+        isDesktop && "border-b border-border bg-card",
+      )}
+    >
       {/* Symbol Selector — TradingView style */}
       <div className="relative shrink-0">
         <button
@@ -343,6 +353,21 @@ export function ChartToolbar({
       {/* Right Panel Toggles — mounted with the panel they drive. Left on a
           phone they were live buttons over a panel that never renders, so a
           tap set state and changed nothing on screen. */}
+      {!isDesktop && onOpenSettings && (
+        <>
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            title="Settings"
+            aria-label="Settings"
+            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md text-muted-foreground active:bg-secondary"
+          >
+            <Settings className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </>
+      )}
+
       {isDesktop && (
       <div className="flex items-center gap-0.5">
         <ToolButton
@@ -375,6 +400,19 @@ export function ChartToolbar({
       )}
     </div>
   );
+
+  if (!isDesktop) {
+    return (
+      <div className="shrink-0 border-b border-border bg-card safe-top">
+        {toolbarRow}
+        <div className="flex justify-end px-3 pb-1.5">
+          <TradingModeIndicator />
+        </div>
+      </div>
+    );
+  }
+
+  return toolbarRow;
 }
 
 export function ToolButton({
