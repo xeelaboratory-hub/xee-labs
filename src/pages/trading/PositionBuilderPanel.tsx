@@ -38,27 +38,113 @@ const MARKET_LABELS: Record<string, string> = {
   NEW_YORK: "NY",
 };
 
+function formatSignedPercent(value: number, decimals = 2): string {
+  const sign = value >= 0 ? "+" : "−";
+  return `${sign}${formatNumber(Math.abs(value), decimals)}%`;
+}
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return <h3 className={cn(mobileText.ui, "font-semibold text-foreground")}>{children}</h3>;
+}
+
 function FieldLabel({ children }: { children: ReactNode }) {
+  return <span className={cn(mobileText.meta, "text-muted-foreground")}>{children}</span>;
+}
+
+function MobileSegmentGroup({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <span className={cn(mobileText.label, "uppercase tracking-wide text-muted-foreground")}>
+    <div className={cn("flex rounded-md border border-border bg-background p-0.5", className)} role="group">
       {children}
-    </span>
+    </div>
   );
 }
 
-function PreviewRow({
+function MobileSegmentButton({
+  active,
+  onClick,
+  variant = "neutral",
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  variant?: "long" | "short" | "neutral";
+  children: ReactNode;
+}) {
+  const activeClass =
+    variant === "long"
+      ? "bg-buy text-white"
+      : variant === "short"
+        ? "bg-sell text-white"
+        : "bg-secondary text-foreground font-semibold";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        mobileForm.control,
+        mobileText.ui,
+        "flex flex-1 items-center justify-center gap-0.5 rounded-sm leading-none transition-colors",
+        active ? activeClass : "text-muted-foreground hover:bg-secondary/60",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CalculatedPriceBlock({
+  label,
+  price,
+  percent,
+  percentClassName,
+  meta,
+  metaClassName,
+}: {
+  label: string;
+  price: string;
+  percent?: string;
+  percentClassName?: string;
+  meta?: string;
+  metaClassName?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col", mobileForm.labelGap)}>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className={cn(mobileText.primaryMono, "text-foreground")}>{price}</span>
+        {percent && <span className={cn(mobileText.primaryMono, percentClassName)}>{percent}</span>}
+      </div>
+      {meta && <span className={cn(mobileText.meta, metaClassName)}>{meta}</span>}
+    </div>
+  );
+}
+
+function SummaryRow({
   label,
   value,
   valueClassName,
+  emphasized,
 }: {
   label: string;
   value: ReactNode;
   valueClassName?: string;
+  emphasized?: boolean;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-0.5">
-      <span className={cn(mobileText.meta, "shrink-0 text-muted-foreground")}>{label}</span>
-      <span className={cn(mobileText.primaryMono, "truncate text-right", valueClassName)}>{value}</span>
+      <span className={cn(mobileText.meta, emphasized && "font-medium", "shrink-0 text-muted-foreground")}>
+        {label}
+      </span>
+      <span
+        className={cn(
+          emphasized ? mobileText.value : mobileText.primaryMono,
+          "truncate text-right",
+          valueClassName,
+        )}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -98,13 +184,13 @@ function MobileVolumeProfileSection({
       </button>
       {expanded && (
         <div className="mt-1 space-y-0.5 border-l border-border/60 pl-2" data-testid="volume-profile-details">
-          <PreviewRow label="Value Area High" value={formatNumber(volumeProfile.vah, 2)} />
-          <PreviewRow
+          <SummaryRow label="Value Area High" value={formatNumber(volumeProfile.vah, 2)} />
+          <SummaryRow
             label="Point of Control"
             value={formatNumber(volumeProfile.poc, 2)}
             valueClassName="text-warning"
           />
-          <PreviewRow label="Value Area Low" value={formatNumber(volumeProfile.val, 2)} />
+          <SummaryRow label="Value Area Low" value={formatNumber(volumeProfile.val, 2)} />
         </div>
       )}
     </div>
@@ -363,13 +449,21 @@ export function PositionBuilderPanel({
     mobileText.ui,
   );
 
-  const mobileSegmentClass = (active: boolean) =>
-    cn(
-      mobileForm.control,
-      mobileText.ui,
-      "flex items-center justify-center gap-0.5 rounded border border-border leading-none transition-colors",
-      active ? "bg-primary font-semibold text-primary-foreground border-primary" : "hover:bg-secondary",
-    );
+  const exchangeLabel = (symbolInfo?.exchange ?? "OKX").toUpperCase();
+  const slPct =
+    plan.ok && entry > 0
+      ? side === "long"
+        ? -((entry - plan.stop) / entry) * 100
+        : -((plan.stop - entry) / entry) * 100
+      : null;
+  const tpPct =
+    plan.ok && tpPlan && entry > 0
+      ? side === "long"
+        ? ((tpPlan.takeProfit - entry) / entry) * 100
+        : ((entry - tpPlan.takeProfit) / entry) * 100
+      : null;
+  const lev = Number(leverage) || 0;
+  const rrNum = Number(rr) || 0;
 
   const headerControls = (
     <div className="flex items-center gap-1 shrink-0">
@@ -457,178 +551,255 @@ export function PositionBuilderPanel({
           right={headerControls}
           className="py-1"
         >
-          <div className="mt-0.5 flex items-baseline justify-between gap-2">
-            <span className={cn(mobileText.primaryMono, isSignedIn ? "text-foreground" : "text-muted-foreground")}>
-              {isSignedIn ? formatCurrency(accountEquity) : "—"}
-            </span>
-            <span className={cn(mobileText.meta, "truncate text-muted-foreground uppercase")}>{symbol}</span>
-          </div>
+          <p className={cn("mt-0.5", mobileText.meta, "text-muted-foreground")}>
+            {isSignedIn
+              ? `${exchangeLabel} · Available ${formatCurrency(accountEquity)}`
+              : `${exchangeLabel} · Sign in to trade`}
+          </p>
         </PanelHeader>
 
-        <div className={cn("flex-1 overflow-y-auto overscroll-contain", mobilePage.paddingX, "py-1.5", mobileForm.sectionGap)}>
-          <div className={cn("grid grid-cols-2", mobileForm.rowGap)}>
-            <button type="button" onClick={() => setSide("long")} className={mobileSegmentClass(side === "long")}>
-              <TrendingUp className={mobileIcon.ui} aria-hidden="true" />
-              Long
-            </button>
-            <button type="button" onClick={() => setSide("short")} className={mobileSegmentClass(side === "short")}>
-              <TrendingDown className={mobileIcon.ui} aria-hidden="true" />
-              Short
-            </button>
-          </div>
+        <div className={cn("flex-1 overflow-y-auto overscroll-contain", mobilePage.paddingX, "py-1.5 space-y-3")}>
+          {/* A. Trade Setup — trader-controlled inputs */}
+          <section className="space-y-2" aria-label="Trade Setup">
+            <MobileSegmentGroup>
+              <MobileSegmentButton active={side === "long"} variant="long" onClick={() => setSide("long")}>
+                <TrendingUp className={mobileIcon.ui} aria-hidden="true" />
+                Long
+              </MobileSegmentButton>
+              <MobileSegmentButton active={side === "short"} variant="short" onClick={() => setSide("short")}>
+                <TrendingDown className={mobileIcon.ui} aria-hidden="true" />
+                Short
+              </MobileSegmentButton>
+            </MobileSegmentGroup>
 
-          <div className={cn("grid grid-cols-2", mobileForm.rowGap)}>
-            <label className={cn("flex flex-col", mobileForm.labelGap)}>
-              <FieldLabel>Risk %</FieldLabel>
+            <MobileSegmentGroup>
+              <MobileSegmentButton
+                active={entryMode === "market"}
+                variant="neutral"
+                onClick={() => setEntryMode("market")}
+              >
+                Market
+              </MobileSegmentButton>
+              <MobileSegmentButton
+                active={entryMode === "limit"}
+                variant="neutral"
+                onClick={() => setEntryMode("limit")}
+              >
+                Limit
+              </MobileSegmentButton>
+            </MobileSegmentGroup>
+
+            <div className={cn("flex flex-col", mobileForm.labelGap)}>
+              <FieldLabel>Entry Price</FieldLabel>
+              {entryMode === "limit" ? (
+                <div className={cn("flex", mobileForm.rowGap)}>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={limitPrice}
+                    onChange={(e) => setLimitPrice(e.target.value)}
+                    placeholder={tick ? formatNumber(side === "long" ? tick.ask : tick.bid, priceDigits) : ""}
+                    className={cn(mobileInputClass, "min-w-0 flex-1")}
+                    step="any"
+                  />
+                  {volumeProfile && (
+                    <button
+                      type="button"
+                      onClick={applyProfileLevel}
+                      title="Set the entry to this session's volume profile level. Switches the order to Limit, since a market entry follows the live price."
+                      className={cn(
+                        mobileForm.control,
+                        mobileText.meta,
+                        "inline-flex shrink-0 items-center justify-center rounded border border-border px-2 hover:bg-secondary",
+                      )}
+                    >
+                      Use {nextProfileLevel === "poc" ? "POC" : "VAH"}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2 py-0.5">
+                  <span className={cn(mobileText.primaryMono, "text-foreground")}>
+                    {entry > 0 ? formatNumber(entry, priceDigits) : "—"}
+                  </span>
+                  <span className={cn(mobileText.meta, "rounded bg-secondary px-1.5 py-0.5 text-muted-foreground")}>
+                    Market
+                  </span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* B. Risk Management — editable sizing + calculated SL/TP */}
+          <section className="space-y-2 border-t border-border pt-2" aria-label="Risk Management">
+            <SectionTitle>Risk Management</SectionTitle>
+
+            <div className={cn("grid grid-cols-2", mobileForm.rowGap)}>
+              <label className={cn("flex flex-col", mobileForm.labelGap)}>
+                <FieldLabel>Risk %</FieldLabel>
+                <div className="relative">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={riskPercent}
+                    onChange={(e) => setRiskPercent(e.target.value)}
+                    className={cn(mobileInputClass, "pr-6")}
+                    step="0.1"
+                    min="0"
+                  />
+                  <span className={cn("pointer-events-none absolute right-2 top-1/2 -translate-y-1/2", mobileText.meta, "text-muted-foreground")}>
+                    %
+                  </span>
+                </div>
+              </label>
+              <label className={cn("flex flex-col", mobileForm.labelGap)}>
+                <FieldLabel>Leverage</FieldLabel>
+                <div className="relative">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={leverage}
+                    onChange={(e) => setLeverage(e.target.value)}
+                    className={cn(mobileInputClass, "pr-6")}
+                    step="1"
+                    min="0"
+                  />
+                  <span className={cn("pointer-events-none absolute right-2 top-1/2 -translate-y-1/2", mobileText.meta, "text-muted-foreground")}>
+                    ×
+                  </span>
+                </div>
+                {instrument.maxLever > 0 && (
+                  <span className={cn(mobileText.meta, "text-muted-foreground")}>max {instrument.maxLever}×</span>
+                )}
+              </label>
+            </div>
+
+            <label className={cn("flex items-center gap-2", mobileForm.labelGap)}>
+              <FieldLabel>Risk / Reward</FieldLabel>
+              <span className={cn(mobileText.meta, "text-muted-foreground")}>1 :</span>
               <input
                 type="number"
                 inputMode="decimal"
-                value={riskPercent}
-                onChange={(e) => setRiskPercent(e.target.value)}
-                className={mobileInputClass}
+                value={rr}
+                onChange={(e) => setRr(e.target.value)}
+                className={cn(mobileInputClass, "w-16")}
                 step="0.1"
                 min="0"
+                aria-label="Risk reward ratio"
               />
             </label>
-            <label className={cn("flex flex-col", mobileForm.labelGap)}>
-              <FieldLabel>Leverage</FieldLabel>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={leverage}
-                onChange={(e) => setLeverage(e.target.value)}
-                className={mobileInputClass}
-                step="1"
-                min="0"
-              />
-              {instrument.maxLever > 0 && (
-                <span className={cn(mobileText.meta, "text-muted-foreground")}>max {instrument.maxLever}x</span>
-              )}
-            </label>
-          </div>
 
-          <div className={cn("flex flex-col", mobileForm.labelGap)}>
-            <FieldLabel>Entry</FieldLabel>
-            <div className={cn("grid grid-cols-2", mobileForm.rowGap)}>
-              <button type="button" onClick={() => setEntryMode("market")} className={mobileSegmentClass(entryMode === "market")}>
-                Market
-              </button>
-              <button type="button" onClick={() => setEntryMode("limit")} className={mobileSegmentClass(entryMode === "limit")}>
-                Limit
-              </button>
-            </div>
-            <div className={cn("flex", mobileForm.rowGap)}>
-              {entryMode === "limit" ? (
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={limitPrice}
-                  onChange={(e) => setLimitPrice(e.target.value)}
-                  placeholder={tick ? formatNumber(side === "long" ? tick.ask : tick.bid, priceDigits) : ""}
-                  className={cn(mobileInputClass, "min-w-0 flex-1")}
-                  step="any"
+            {!isSignedIn ? (
+              <p className={cn(mobileText.meta, "text-muted-foreground")}>Sign in to size and place orders.</p>
+            ) : !plan.ok ? (
+              <p className={cn(mobileText.meta, "text-muted-foreground")}>{plan.error}</p>
+            ) : (
+              <>
+                <CalculatedPriceBlock
+                  label="Stop Loss Price"
+                  price={formatNumber(plan.stop, priceDigits)}
+                  percent={slPct !== null ? formatSignedPercent(slPct) : undefined}
+                  percentClassName="text-sell"
+                  meta={slPct !== null && lev > 0 ? `${formatSignedPercent(slPct * lev)} @ ${lev}×` : undefined}
+                  metaClassName="text-sell"
                 />
-              ) : (
-                <div
-                  className={cn(
-                    mobileInputClass,
-                    "flex min-w-0 flex-1 items-center bg-secondary/40 text-foreground",
-                  )}
-                >
-                  {entry > 0 ? formatNumber(entry, priceDigits) : "—"}
-                </div>
-              )}
-              {volumeProfile && (
-                <button
-                  type="button"
-                  onClick={applyProfileLevel}
-                  title="Set the entry to this session's volume profile level. Switches the order to Limit, since a market entry follows the live price."
-                  className={cn(
-                    mobileForm.control,
-                    mobileText.label,
-                    "inline-flex shrink-0 items-center justify-center font-semibold uppercase tracking-wide rounded border border-border hover:bg-secondary",
-                  )}
-                >
-                  Use {nextProfileLevel === "poc" ? "POC" : "VAH"}
-                </button>
-              )}
-            </div>
-          </div>
+                <CalculatedPriceBlock
+                  label="Take Profit Price (optional)"
+                  price={tpPlan ? formatNumber(tpPlan.takeProfit, priceDigits) : "—"}
+                  percent={tpPct !== null ? formatSignedPercent(tpPct) : undefined}
+                  percentClassName="text-buy"
+                  meta={rrNum > 0 ? `RR 1 : ${formatNumber(rrNum, 1)}` : undefined}
+                  metaClassName="text-buy"
+                />
+              </>
+            )}
 
-          <label className={cn("flex flex-col", mobileForm.labelGap)}>
-            <FieldLabel>RR</FieldLabel>
-            <input
-              type="number"
-              inputMode="decimal"
-              value={rr}
-              onChange={(e) => setRr(e.target.value)}
-              className={mobileInputClass}
-              step="0.1"
-              min="0"
-            />
-          </label>
+            {isSignedIn && plan.ok && plan.warnings.map((w) => (
+              <p
+                key={w}
+                className="flex items-start gap-1 rounded border border-destructive/30 bg-destructive/10 px-1.5 py-1 text-destructive"
+              >
+                <AlertTriangle className={cn(mobileIcon.status, "mt-0.5 shrink-0")} aria-hidden="true" />
+                <span className={mobileText.ui}>{w}</span>
+              </p>
+            ))}
+          </section>
 
-          <div className="border-t border-border pt-1.5" data-testid="order-preview">
-            <FieldLabel>Order Preview</FieldLabel>
-            <div className="mt-0.5">
-              {!isSignedIn ? (
-                <div className="space-y-2 py-1">
-                  <p className={cn(mobileText.meta, "text-muted-foreground")}>Sign in to size and place orders.</p>
-                  {onRequestSignIn && (
-                    <Button variant="outline" size="sm" className={mobileForm.control} onClick={onRequestSignIn}>
-                      Sign In
-                    </Button>
-                  )}
-                </div>
-              ) : !plan.ok ? (
-                <p className={cn(mobileText.meta, "text-muted-foreground py-1")}>{plan.error}</p>
-              ) : (
-                <>
-                  <PreviewRow label="Stop Loss" value={formatNumber(plan.stop, 2)} valueClassName="text-sell" />
-                  <PreviewRow
-                    label="Take Profit"
-                    value={tpPlan ? formatNumber(tpPlan.takeProfit, 2) : "—"}
-                    valueClassName="text-buy"
-                  />
-                  <PreviewRow label="Risk" value={formatCurrency(plan.riskAmount)} />
-                  <PreviewRow
-                    label="Reward"
-                    value={tpPlan ? formatCurrency(plan.riskAmount * (Number(rr) || 0)) : "—"}
-                    valueClassName="text-buy"
-                  />
-                  <PreviewRow
-                    label="Liquidation"
-                    value={formatNumber(plan.approxLiq, 2)}
-                    valueClassName="text-orange-500"
-                  />
-                  {plan.warnings.map((w) => (
-                    <p
-                      key={w}
-                      className="mt-0.5 flex items-start gap-1 rounded border border-destructive/30 bg-destructive/10 px-1.5 py-1 text-destructive"
-                    >
-                      <AlertTriangle className={cn(mobileIcon.status, "mt-0.5 shrink-0")} aria-hidden="true" />
-                      <span className={mobileText.ui}>{w}</span>
-                    </p>
-                  ))}
-                  <details className="mt-1">
-                    <summary className={cn(mobileText.meta, "cursor-pointer text-muted-foreground")}>
-                      Estimate notes
-                    </summary>
-                    <div className={cn(mobileText.meta, "mt-1 space-y-1 text-muted-foreground")}>
-                      <p>Liquidation is a rough isolated-margin estimate — it ignores fees and maintenance margin.</p>
-                      {isApproximateInstrument && (
-                        <p>
-                          {isOkx && isLoadingInstrument
-                            ? "Loading real OKX instrument specs…"
-                            : "Using approximate instrument data — not exchange-accurate."}
-                        </p>
-                      )}
-                    </div>
-                  </details>
-                </>
-              )}
-            </div>
-          </div>
+          {/* C. Trade Summary — calculated outputs only */}
+          <section
+            className="space-y-1 border-t border-border pt-2"
+            data-testid="trade-summary"
+            aria-label="Trade Summary"
+          >
+            <SectionTitle>Trade Summary</SectionTitle>
+
+            {!isSignedIn ? (
+              <div className="space-y-2 py-1">
+                {onRequestSignIn && (
+                  <Button variant="outline" size="sm" className={mobileForm.control} onClick={onRequestSignIn}>
+                    Sign In
+                  </Button>
+                )}
+              </div>
+            ) : !plan.ok ? null : (
+              <div className="space-y-0.5">
+                <SummaryRow
+                  label="Risk Amount"
+                  value={formatCurrency(plan.riskAmount)}
+                  valueClassName="text-sell"
+                  emphasized
+                />
+                <SummaryRow
+                  label="Position Size"
+                  value={formatCurrency(plan.notional)}
+                  emphasized
+                />
+                <SummaryRow
+                  label="Stop Loss"
+                  value={
+                    slPct !== null
+                      ? `${formatNumber(plan.stop, priceDigits)} · ${formatSignedPercent(slPct)}`
+                      : formatNumber(plan.stop, priceDigits)
+                  }
+                  valueClassName="text-sell"
+                />
+                <SummaryRow
+                  label="Take Profit"
+                  value={
+                    tpPlan && tpPct !== null
+                      ? `${formatNumber(tpPlan.takeProfit, priceDigits)} · ${formatSignedPercent(tpPct)}`
+                      : "—"
+                  }
+                  valueClassName="text-buy"
+                />
+                <SummaryRow
+                  label="Risk / Reward"
+                  value={rrNum > 0 ? `1 : ${formatNumber(rrNum, 1)}` : "—"}
+                  valueClassName="text-buy"
+                />
+                <SummaryRow
+                  label="Liquidation ≈"
+                  value={formatNumber(plan.approxLiq, priceDigits)}
+                  valueClassName="text-orange-500"
+                />
+                <details className="pt-0.5">
+                  <summary className={cn(mobileText.meta, "cursor-pointer text-muted-foreground")}>
+                    Estimate notes
+                  </summary>
+                  <div className={cn(mobileText.meta, "mt-1 space-y-1 text-muted-foreground")}>
+                    <p>Liquidation is a rough isolated-margin estimate — it ignores fees and maintenance margin.</p>
+                    {isApproximateInstrument && (
+                      <p>
+                        {isOkx && isLoadingInstrument
+                          ? "Loading real OKX instrument specs…"
+                          : "Using approximate instrument data — not exchange-accurate."}
+                      </p>
+                    )}
+                  </div>
+                </details>
+              </div>
+            )}
+          </section>
 
           {volumeProfile && plan.ok && isSignedIn && (
             <MobileVolumeProfileSection

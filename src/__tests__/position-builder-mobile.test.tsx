@@ -49,7 +49,7 @@ const volumeProfile: SessionVolumeProfileSummary = {
 };
 
 describe("PositionBuilderPanel mobile layout", () => {
-  it("uses compact order preview and collapsible volume profile", async () => {
+  it("separates inputs from calculated trade summary and collapsible volume profile", async () => {
     const user = userEvent.setup();
     render(
       <PositionBuilderPanel
@@ -64,8 +64,12 @@ describe("PositionBuilderPanel mobile layout", () => {
       />,
     );
 
-    expect(screen.getByTestId("order-preview")).toBeInTheDocument();
-    expect(screen.getByText("Order Preview")).toBeInTheDocument();
+    expect(screen.getByText("OKX · Available $1,450.57")).toBeInTheDocument();
+    expect(screen.getByText("Risk Management")).toBeInTheDocument();
+    expect(screen.getByTestId("trade-summary")).toBeInTheDocument();
+    expect(screen.getByText("Trade Summary")).toBeInTheDocument();
+    expect(screen.getByText("Stop Loss Price")).toBeInTheDocument();
+    expect(screen.getByText("Risk Amount")).toBeInTheDocument();
     expect(screen.getByTestId("trade-apply-footer")).toBeInTheDocument();
     expect(screen.queryByTestId("volume-profile-details")).not.toBeInTheDocument();
 

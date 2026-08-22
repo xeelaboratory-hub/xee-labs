@@ -49,12 +49,12 @@ export const mobilePage = {
 /**
  * Compact form controls — chart-header density.
  *
- * Visual heights target ~40px for inputs/segments and ~46px for the primary
+ * Visual heights target ~44px for inputs/segments and ~46px for the primary
  * CTA. Touch floors stay at 44px where controls are primary tap targets.
  */
 export const mobileForm = {
-  /** Text inputs, segments, secondary actions — 40px visual */
-  control: "h-10 min-h-[40px] px-1.5",
+  /** Text inputs, segments, secondary actions — 44px touch-friendly */
+  control: "h-11 min-h-[44px] px-2",
   /** Primary sticky CTA — slightly taller than field controls */
   cta: "h-[46px] min-h-[44px] px-3 py-0",
   /** Vertical spacing between field groups / sections */
