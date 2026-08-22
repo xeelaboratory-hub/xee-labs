@@ -58,6 +58,7 @@ import {
 } from "./DrawingToolsOverlay.tsx";
 import { useIsDesktop } from "../../hooks/useIsDesktop.ts";
 import { DrawingToolRail } from "./DrawingToolRail.tsx";
+import { IndicatorRail } from "./IndicatorRail.tsx";
 import { DRAWING_STYLES_EVENT, getStyleDefaults } from "./drawingStyles.ts";
 import { ObjectTreePanel } from "./ObjectTreePanel.tsx";
 import { useIndicators } from "./useIndicators.ts";
@@ -205,8 +206,12 @@ export interface ChartPanelProps {
   timeframe: Timeframe;
   isDark: boolean;
   activeIndicators: IndicatorType[];
+  /** Mobile only — the left-edge indicator rail toggles through this. */
+  onToggleIndicator: (type: IndicatorType) => void;
   sessionVolumeProfileMarkets: SessionMarket[];
   sessionVolumeProfileRows: number;
+  onSessionVolumeProfileMarket: (market: SessionMarket) => void;
+  onSessionVolumeProfileRows: (rows: number) => void;
   drawingTool: DrawingTool;
   drawings: DrawingLine[];
   onAddDrawing: (d: DrawingLine) => void;
@@ -953,8 +958,11 @@ export function ChartPanel({
   timeframe,
   isDark,
   activeIndicators,
+  onToggleIndicator,
   sessionVolumeProfileMarkets,
   sessionVolumeProfileRows,
+  onSessionVolumeProfileMarket,
+  onSessionVolumeProfileRows,
   drawingTool,
   drawings,
   onAddDrawing,
@@ -1920,7 +1928,26 @@ export function ChartPanel({
   }, [positionBuilderPreview, colors]);
 
   return (
-    <div className="relative w-full h-full">
+    <div className="flex h-full w-full flex-col">
+      {/* Mobile: fixed horizontal drawing-tool bar, in the page's normal flow
+          directly below the chart header — not floating over the canvas. */}
+      {!isDesktop && (
+        <DrawingToolRail
+          drawingTool={drawingTool}
+          onDrawingTool={(t) => onDrawingToolSelect?.(t)}
+          magnetMode={magnetMode}
+          onCycleMagnet={onCycleMagnet}
+          stayInDrawingMode={stayInDrawingMode}
+          onToggleStayInDrawingMode={onToggleStayInDrawingMode}
+          allLocked={allDrawingsLocked}
+          onToggleLockAll={onUpdateDrawing ? handleToggleLockAll : undefined}
+          drawingsHidden={hideAllDrawings}
+          onToggleHideAll={() => setHideAllDrawings((v) => !v)}
+          onClearDrawings={onClearDrawings}
+          hasDrawings={drawings.length > 0}
+        />
+      )}
+    <div className="relative min-h-0 flex-1">
       {/* OHLCV Legend Overlay */}
       <ChartLegendHeader
         legend={legend}
@@ -2087,21 +2114,35 @@ export function ChartPanel({
       {/* Chart container — cursor is managed imperatively by DrawingToolsManager */}
       <div ref={containerRef} className="w-full h-full" onContextMenu={handleChartContextMenu} />
 
-      {/* Left vertical tool rail (TradingView-style grouped flyouts) */}
-      <DrawingToolRail
-        drawingTool={drawingTool}
-        onDrawingTool={(t) => onDrawingToolSelect?.(t)}
-        magnetMode={magnetMode}
-        onCycleMagnet={onCycleMagnet}
-        stayInDrawingMode={stayInDrawingMode}
-        onToggleStayInDrawingMode={onToggleStayInDrawingMode}
-        allLocked={allDrawingsLocked}
-        onToggleLockAll={onUpdateDrawing ? handleToggleLockAll : undefined}
-        drawingsHidden={hideAllDrawings}
-        onToggleHideAll={() => setHideAllDrawings((v) => !v)}
-        onClearDrawings={onClearDrawings}
-        hasDrawings={drawings.length > 0}
-      />
+      {isDesktop ? (
+        /* Left vertical tool rail (TradingView-style grouped flyouts) */
+        <DrawingToolRail
+          drawingTool={drawingTool}
+          onDrawingTool={(t) => onDrawingToolSelect?.(t)}
+          magnetMode={magnetMode}
+          onCycleMagnet={onCycleMagnet}
+          stayInDrawingMode={stayInDrawingMode}
+          onToggleStayInDrawingMode={onToggleStayInDrawingMode}
+          allLocked={allDrawingsLocked}
+          onToggleLockAll={onUpdateDrawing ? handleToggleLockAll : undefined}
+          drawingsHidden={hideAllDrawings}
+          onToggleHideAll={() => setHideAllDrawings((v) => !v)}
+          onClearDrawings={onClearDrawings}
+          hasDrawings={drawings.length > 0}
+        />
+      ) : (
+        /* Mobile: indicators take the left-edge rail spot the drawing tools
+           used to occupy there, now that those live in the toolbar above. */
+        <IndicatorRail
+          activeIndicators={activeIndicators}
+          onToggleIndicator={onToggleIndicator}
+          sessionVolumeProfileMarkets={sessionVolumeProfileMarkets}
+          sessionVolumeProfileRows={sessionVolumeProfileRows}
+          onSessionVolumeProfileMarket={onSessionVolumeProfileMarket}
+          onSessionVolumeProfileRows={onSessionVolumeProfileRows}
+        />
+      )}
+    </div>
     </div>
   );
 }

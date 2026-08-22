@@ -133,12 +133,12 @@ describe("DrawingToolRail on a phone", () => {
     vi.restoreAllMocks();
   });
 
-  it("starts collapsed on a phone, in either orientation", () => {
+  it("renders expanded as a fixed toolbar on a phone — no collapse step", () => {
     setViewport(true);
     render(<RailHarness />);
 
-    expect(screen.getByRole("button", { name: /show drawing tools/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Cursor" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cursor" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /show drawing tools/i })).not.toBeInTheDocument();
   });
 
   it("stays expanded above it, leaving desktop untouched", () => {
@@ -168,36 +168,21 @@ describe("DrawingToolRail on a phone", () => {
     expect(queries.some((q) => q === MOBILE_MEDIA_QUERY)).toBe(true);
   });
 
-  it("opens on demand when collapsed", async () => {
-    setViewport(true);
-    render(<RailHarness />);
-
-    await userEvent.click(screen.getByRole("button", { name: /show drawing tools/i }));
-
-    expect(screen.getByRole("button", { name: "Cursor" })).toBeInTheDocument();
-  });
-
-  it("renders as a non-layout overlay with a scrollable tool column", async () => {
+  it("renders as an in-flow horizontal toolbar, scrollable if it overflows", () => {
     setViewport(true);
     const { container } = render(<RailHarness />);
 
-    await userEvent.click(screen.getByRole("button", { name: /show drawing tools/i }));
-
-    const overlay = container.querySelector('[data-mobile-overlay="true"]');
-    expect(overlay).toBeInTheDocument();
-    expect(overlay?.className).toContain("pointer-events-none");
-    expect(overlay?.className).toContain("absolute");
-
-    const scrollRegion = container.querySelector('[data-mobile-tool-scroll="true"]');
-    expect(scrollRegion).toBeInTheDocument();
-    expect(scrollRegion?.className).toContain("overflow-y-auto");
+    const toolbar = container.querySelector('[data-mobile-toolbar="true"]');
+    expect(toolbar).toBeInTheDocument();
+    expect(toolbar?.className).toContain("overflow-x-auto");
+    expect(toolbar?.className).not.toContain("absolute");
+    expect(toolbar?.className).not.toContain("pointer-events-none");
   });
 
   it("keeps submenu group item shell clipped inside the rail", async () => {
     setViewport(true);
     render(<RailHarness />);
 
-    await userEvent.click(screen.getByRole("button", { name: /show drawing tools/i }));
     await userEvent.click(screen.getByRole("button", { name: "Lines: Trend Line" }));
 
     const groupShell = screen.getByRole("button", { name: "Lines: Trend Line" }).parentElement;
@@ -209,7 +194,6 @@ describe("DrawingToolRail on a phone", () => {
     setViewport(true);
     render(<RailHarness />);
 
-    await userEvent.click(screen.getByRole("button", { name: /show drawing tools/i }));
     await userEvent.click(screen.getByRole("button", { name: "Lines: Trend Line" }));
 
     const menu = document.body.querySelector('[role="menu"]');

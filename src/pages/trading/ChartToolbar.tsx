@@ -233,26 +233,6 @@ export function ChartToolbar({
           <TimeframeMenu compact timeframe={timeframe} onTimeframeChange={onTimeframeChange} />
 
           <div className="flex shrink-0 items-center gap-0.5">
-            <button
-              type="button"
-              onClick={onToggleIndicatorMenu}
-              aria-haspopup="dialog"
-              aria-expanded={showIndicatorMenu}
-              aria-label={
-                activeIndicators.length > 0
-                  ? `Indicators: ${activeIndicators.length} active`
-                  : "Indicators"
-              }
-              className={mobileIconButtonClass(activeIndicators.length > 0)}
-            >
-              <BarChart3 className={mobileIcon.ui} aria-hidden="true" />
-              {activeIndicators.length > 0 && (
-                <span className={cn("absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-0.5 leading-none text-primary-foreground", mobileText.status)}>
-                  {activeIndicators.length}
-                </span>
-              )}
-            </button>
-
             {onOpenSettings && (
               <button
                 type="button"
@@ -268,39 +248,6 @@ export function ChartToolbar({
             <TradingModeIndicator compact />
           </div>
         </div>
-
-        {showIndicatorMenu && (
-          <div className="fixed inset-0 z-[100] bg-black/60" onClick={onToggleIndicatorMenu}>
-            <div
-              role="dialog"
-              aria-label="Indicators"
-              className="fixed inset-x-0 top-0 flex max-h-[85vh] flex-col bg-card border-b border-border shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between p-3 border-b border-border">
-                <span className="text-base font-semibold">Indicators</span>
-                <button
-                  type="button"
-                  onClick={onToggleIndicatorMenu}
-                  aria-label="Close"
-                  className="p-1.5 rounded-md hover:bg-secondary"
-                >
-                  <X className="h-8 w-8" aria-hidden="true" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto overscroll-contain p-2">
-                <IndicatorList
-                  activeIndicators={activeIndicators}
-                  onToggleIndicator={onToggleIndicator}
-                  sessionVolumeProfileMarkets={sessionVolumeProfileMarkets}
-                  sessionVolumeProfileRows={sessionVolumeProfileRows}
-                  onSessionVolumeProfileMarket={onSessionVolumeProfileMarket}
-                  onSessionVolumeProfileRows={onSessionVolumeProfileRows}
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }

@@ -18,7 +18,6 @@ import {
   MousePointer2,
   MoveUpRight,
   MoveVertical,
-  PenLine,
   Repeat,
   Ruler,
   Spline,
@@ -37,11 +36,8 @@ import type { DrawingTool, MagnetMode } from "./constants.ts";
 /** Phone / short viewport — matches useIsDesktop's inverse (OR over width and height). */
 export const MOBILE_MEDIA_QUERY = "(max-width: 767px), (max-height: 499.98px)";
 
-/** Expanded mobile rail width — compact overlay, comfortable touch targets inside. */
-const MOBILE_RAIL_WIDTH = "w-[50px]";
-
 /** LC time-axis row height (~27px on mobile) — keep the rail above it. */
-const MOBILE_TIME_AXIS_INSET = "bottom-7";
+export const MOBILE_TIME_AXIS_INSET = "bottom-7";
 
 /** Fixed item box — icons centered, backgrounds clipped inside the rail. */
 const MOBILE_ITEM_BOX = cn(mobileTouch.headerIcon, "shrink-0 overflow-hidden");
@@ -386,7 +382,7 @@ function UtilityButtons({
 }) {
   return (
     <>
-      <div className="mb-1 h-px w-5 bg-border" />
+      <div className={isMobile ? "mx-1 h-5 w-px shrink-0 bg-border" : "mb-1 h-px w-5 bg-border"} />
 
       {onCycleMagnet && (
         <RailButton
@@ -467,18 +463,15 @@ export function DrawingToolRail({
   hasDrawings?: boolean;
 }) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
-  // Collapsed by default on phones. Expanded, the rail is a 36px column of 12
-  // tools pinned over the full height of the chart — on a 390px screen that is
-  // a desktop drawing toolbar sitting on top of the thing it draws on. Desktop
-  // is unchanged: there the rail has its own gutter and costs the chart
-  // nothing. Read once at mount, so a rotation does not yank the rail open or
-  // shut while a tool is selected.
+  // Read once at mount, so a rotation does not yank the layout around while a
+  // tool is selected. Mobile is a fixed horizontal toolbar below the header
+  // (no collapse — `collapsed` only applies to the desktop vertical rail).
   const [isMobile] = useState(
     () =>
       typeof window !== "undefined" &&
       window.matchMedia(MOBILE_MEDIA_QUERY).matches,
   );
-  const [collapsed, setCollapsed] = useState(isMobile);
+  const [collapsed, setCollapsed] = useState(false);
   const [lastUsed, setLastUsed] = useState<Record<string, DrawingTool>>({
     lines: "trendline",
     fib: "fibonacci",
@@ -520,7 +513,9 @@ export function DrawingToolRail({
       const anchor = groupAnchorRefs.current.get(openGroup);
       if (!anchor) return;
       const rect = anchor.getBoundingClientRect();
-      setMobileFlyoutPos({ top: rect.top, left: rect.right + 6 });
+      // The toolbar is a horizontal row now, so its flyouts open downward
+      // instead of to the side.
+      setMobileFlyoutPos({ top: rect.bottom + 6, left: rect.left });
     };
 
     syncFlyoutPos();
@@ -571,7 +566,7 @@ export function DrawingToolRail({
         isMobile={isMobile}
       />
 
-      <div className="my-1 h-px w-5 bg-border" />
+      <div className={isMobile ? "mx-1 h-5 w-px shrink-0 bg-border" : "my-1 h-px w-5 bg-border"} />
 
       {GROUPS.map((g) => (
         <RailGroup
@@ -606,76 +601,35 @@ export function DrawingToolRail({
     />
   );
 
-  if (collapsed) {
+  if (collapsed && !isMobile) {
     return (
-      <div
-        className={cn(
-          "pointer-events-none absolute left-0 z-30 flex items-center",
-          isMobile ? cn("top-0", MOBILE_TIME_AXIS_INSET) : "inset-y-0",
-        )}
-      >
+      <div className="pointer-events-none absolute left-0 z-30 flex items-center inset-y-0">
         <button
           type="button"
           title="Show drawing tools"
           aria-label="Show drawing tools"
           aria-expanded={false}
           onClick={() => setCollapsed(false)}
-          className={cn(
-            "pointer-events-auto flex items-center justify-center rounded-r-md border border-l-0 border-border bg-card/95 text-muted-foreground shadow-sm backdrop-blur-[2px] active:bg-secondary",
-            isMobile ? "h-11 w-7" : "h-10 w-4 hover:text-foreground",
-          )}
+          className="pointer-events-auto flex h-10 w-4 items-center justify-center rounded-r-md border border-l-0 border-border bg-card/95 text-muted-foreground shadow-sm backdrop-blur-[2px] hover:text-foreground"
         >
-          {isMobile ? (
-            <PenLine className={mobileIcon.ui} strokeWidth={1.75} aria-hidden="true" />
-          ) : (
-            <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-          )}
+          <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
     );
   }
 
   if (isMobile) {
+    // Fixed horizontal toolbar, in the page's normal flow directly below the
+    // chart header — not an overlay floating on top of the canvas.
     return (
       <div
         ref={ref}
-        className={cn(
-          "pointer-events-none absolute top-0 left-0 z-30 flex items-stretch",
-          MOBILE_TIME_AXIS_INSET,
-        )}
-        data-mobile-overlay="true"
+        className="relative z-20 flex w-full items-center gap-0.5 overflow-x-auto no-scrollbar border-b border-border bg-card px-1 py-1"
+        data-mobile-toolbar="true"
       >
-        <div
-          className={cn(
-            MOBILE_RAIL_WIDTH,
-            "pointer-events-auto flex h-full flex-col items-center rounded-r-lg border-y border-l-0 border-r-0 border-border bg-card/90 py-1 shadow-md backdrop-blur-[2px]",
-          )}
-        >
-          <button
-            type="button"
-            title="Collapse drawing tools"
-            aria-label="Collapse drawing tools"
-            aria-expanded={true}
-            onClick={collapse}
-            className={cn(
-              mobileTouch.headerIcon,
-              "mb-0.5 flex shrink-0 items-center justify-center rounded-md text-muted-foreground active:bg-secondary",
-            )}
-          >
-            <ChevronLeft className={mobileIcon.ui} strokeWidth={2} aria-hidden="true" />
-          </button>
-
-          <div
-            className="no-scrollbar flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain"
-            data-mobile-tool-scroll="true"
-          >
-            <div className="flex w-full flex-col items-center gap-0.5">{toolButtons}</div>
-            <div className="flex-1 min-h-2" />
-            <div className="flex w-full flex-col items-center gap-0.5 pb-0.5">
-              {utilityButtons}
-            </div>
-          </div>
-        </div>
+        {toolButtons}
+        <div className="flex-1 min-w-2" />
+        {utilityButtons}
 
         {openGroup &&
           mobileFlyoutPos &&

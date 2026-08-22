@@ -543,8 +543,11 @@ export function TradingPage() {
               timeframe={timeframe}
               isDark={isDark}
               activeIndicators={activeIndicators}
+              onToggleIndicator={handleToggleIndicator}
               sessionVolumeProfileMarkets={sessionVolumeProfileMarkets}
               sessionVolumeProfileRows={sessionVolumeProfileRows}
+              onSessionVolumeProfileMarket={handleSessionVolumeProfileMarket}
+              onSessionVolumeProfileRows={handleSessionVolumeProfileRows}
               drawingTool={drawingTool}
               drawings={drawings}
               onAddDrawing={addDrawing}
